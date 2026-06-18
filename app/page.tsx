@@ -15,6 +15,7 @@ import {
   CircleDollarSign,
   Clock,
   GripVertical,
+  Inbox,
   LayoutDashboard,
   LogOut,
   MessageSquareText,
@@ -36,8 +37,10 @@ import {
 import { createBrowserSupabase } from "@/lib/supabase";
 import type {
   Activity,
+  Conversation,
   DistributionRule,
   Lead,
+  Message,
   Page,
   Pipeline,
   Profile,
@@ -59,7 +62,8 @@ type TabId =
   | "stages"
   | "tags"
   | "pipelines"
-  | "pages";
+  | "pages"
+  | "inbox";
 
 type AppData = {
   leads: Lead[];
@@ -115,6 +119,7 @@ const tabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean 
   { id: "tags", label: "Tags", icon: Tags },
   { id: "pipelines", label: "Pipelines", icon: Boxes },
   { id: "pages", label: "Pages", icon: Bell, managerOnly: true },
+  { id: "inbox", label: "Inbox", icon: Inbox },
 ];
 
 const supabase = createBrowserSupabase();
@@ -486,6 +491,7 @@ export default function HomePage() {
             />
           )}
           {activeTab === "pages" && canManage && <PagesPanel pages={data.pages} userId={currentUserId} reload={reload} toast={showToast} />}
+          {activeTab === "inbox" && <ChatInbox pages={data.pages} userId={currentUserId} toast={showToast} />}
         </section>
       </div>
 
@@ -1292,6 +1298,270 @@ function PagesPanel({ pages, userId, reload, toast }: { pages: Page[]; userId: s
         ])}
       />
     </Panel>
+  );
+}
+
+function ChatInbox({
+  pages,
+  userId,
+  toast,
+}: {
+  pages: Page[];
+  userId: string;
+  toast: (message: string) => void;
+}) {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [replyText, setReplyText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const selectedConvIdRef = useRef<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    selectedConvIdRef.current = selectedConvId;
+  }, [selectedConvId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    void refreshConversations();
+    const channel = supabase
+      .channel("chat-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async () => {
+        await refreshConversations();
+        const id = selectedConvIdRef.current;
+        if (id) await refreshMessages(id);
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function refreshConversations() {
+    const { data } = await supabase
+      .from("conversations")
+      .select("*, facebook_pages(id, name, page_id), leads(id, customer_name)")
+      .order("last_message_at", { ascending: false })
+      .limit(100);
+    setConversations((data || []) as Conversation[]);
+    setLoading(false);
+  }
+
+  async function refreshMessages(convId: string) {
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", convId)
+      .order("created_at", { ascending: true })
+      .limit(200);
+    setMessages((data || []) as Message[]);
+  }
+
+  async function openConversation(conv: Conversation) {
+    setSelectedConvId(conv.id);
+    setMessages([]);
+    await refreshMessages(conv.id);
+  }
+
+  async function sendReply() {
+    if (!replyText.trim() || !selectedConvId) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/facebook/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: selectedConvId, text: replyText.trim(), sent_by: userId }),
+      });
+      const result = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        toast(result.error ?? "Send failed");
+        return;
+      }
+      setReplyText("");
+      await refreshMessages(selectedConvId);
+      await refreshConversations();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createLead(conv: Conversation) {
+    if (conv.lead_id) return toast("Lead already created for this conversation");
+    const { data: lead, error } = await supabase
+      .from("leads")
+      .insert({
+        customer_name: conv.sender_name || "Facebook User",
+        facebook_id: conv.sender_psid,
+        page_id: conv.page_id,
+        status: "active",
+        source: "facebook",
+        last_activity_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    if (error) return toast(error.message);
+    await Promise.all([
+      supabase.from("conversations").update({ lead_id: lead.id }).eq("id", conv.id),
+      supabase.from("lead_activities").insert({
+        lead_id: lead.id,
+        type: "created",
+        content: "Lead created from Facebook Messenger conversation",
+        created_by: userId,
+      }),
+    ]);
+    toast("Lead created!");
+    await refreshConversations();
+  }
+
+  const selectedConv = conversations.find((c) => c.id === selectedConvId) ?? null;
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="grid h-[calc(100dvh-220px)] min-h-[500px] md:grid-cols-[280px_1fr]">
+        <div className={`flex flex-col border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}>
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="font-semibold text-slate-950">Inbox</h2>
+            <p className="text-xs text-slate-500">{conversations.length} conversations</p>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="p-4 text-center text-sm text-slate-400">Loading…</div>
+            ) : conversations.length === 0 ? (
+              <div className="p-6 text-center text-sm text-slate-400">
+                <p className="font-medium">No conversations yet</p>
+                <p className="mt-1">Messages from Facebook pages will appear here once the webhook is connected.</p>
+              </div>
+            ) : (
+              conversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  className={`w-full border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${conv.id === selectedConvId ? "border-l-2 border-l-brand-700 bg-brand-50" : ""}`}
+                  onClick={() => void openConversation(conv)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-slate-900">
+                        {conv.sender_name || conv.sender_psid}
+                      </div>
+                      <div className="truncate text-xs text-slate-500">
+                        {conv.facebook_pages?.name ?? "Unknown page"}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {conv.lead_id ? (
+                        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">Lead</span>
+                      ) : null}
+                      <div className="mt-1 text-[10px] text-slate-400">
+                        {new Date(conv.last_message_at).toLocaleDateString("th-TH")}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        {selectedConv ? (
+          <div className="flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <button
+                  className="text-sm text-slate-500 hover:text-slate-800 md:hidden"
+                  onClick={() => setSelectedConvId(null)}
+                >
+                  ← Back
+                </button>
+                <div>
+                  <div className="font-semibold text-slate-950">
+                    {selectedConv.sender_name || selectedConv.sender_psid}
+                  </div>
+                  <div className="text-xs text-slate-500">{selectedConv.facebook_pages?.name}</div>
+                </div>
+              </div>
+              {selectedConv.lead_id ? (
+                <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700">
+                  Lead linked
+                </span>
+              ) : (
+                <button
+                  className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-900"
+                  onClick={() => void createLead(selectedConv)}
+                >
+                  + Create Lead
+                </button>
+              )}
+            </div>
+
+            <div className="flex-1 space-y-3 overflow-y-auto p-4">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.direction === "outbound" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[72%] rounded-2xl px-3 py-2 text-sm ${
+                      msg.direction === "outbound"
+                        ? "bg-brand-700 text-white"
+                        : "bg-slate-100 text-slate-900"
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <p
+                      className={`mt-1 text-[10px] ${
+                        msg.direction === "outbound" ? "text-blue-200" : "text-slate-400"
+                      }`}
+                    >
+                      {new Date(msg.created_at).toLocaleTimeString("th-TH", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {messages.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-400">No messages yet</div>
+              ) : null}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div className="flex gap-2 border-t border-slate-200 p-3">
+              <input
+                className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600 disabled:opacity-50"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void sendReply();
+                  }
+                }}
+                placeholder="Type a message… (Enter to send)"
+                disabled={busy}
+              />
+              <button
+                className="rounded-lg bg-brand-700 px-4 text-sm font-medium text-white disabled:opacity-50"
+                disabled={busy || !replyText.trim()}
+                onClick={() => void sendReply()}
+              >
+                {busy ? "…" : "Send"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="hidden items-center justify-center text-sm text-slate-400 md:flex">
+            Select a conversation to start chatting
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

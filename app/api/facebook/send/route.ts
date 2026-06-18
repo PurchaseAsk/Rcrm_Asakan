@@ -1,0 +1,75 @@
+import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(request: NextRequest) {
+  const body = (await request.json()) as {
+    conversation_id: string;
+    text: string;
+    sent_by?: string;
+  };
+  const { conversation_id, text, sent_by } = body;
+
+  if (!conversation_id || !text?.trim()) {
+    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("sender_psid, facebook_pages!inner(page_id, token)")
+    .eq("id", conversation_id)
+    .single();
+
+  if (!conv) {
+    return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+  }
+
+  type PageRow = { page_id: string; token: string };
+  const page = (conv as unknown as { sender_psid: string; facebook_pages: PageRow }).facebook_pages;
+
+  if (!page?.token) {
+    return NextResponse.json({ error: "No page token configured" }, { status: 400 });
+  }
+
+  const senderPsid = (conv as unknown as { sender_psid: string }).sender_psid;
+
+  const fbRes = await fetch(`https://graph.facebook.com/v20.0/${page.page_id}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${page.token}`,
+    },
+    body: JSON.stringify({
+      recipient: { id: senderPsid },
+      message: { text: text.trim() },
+      messaging_type: "RESPONSE",
+    }),
+  });
+
+  if (!fbRes.ok) {
+    const err = (await fbRes.json()) as { error?: { message?: string } };
+    return NextResponse.json(
+      { error: err.error?.message ?? "Facebook API error" },
+      { status: 500 },
+    );
+  }
+
+  await Promise.all([
+    supabase.from("messages").insert({
+      conversation_id,
+      direction: "outbound",
+      content: text.trim(),
+      sent_by: sent_by ?? null,
+    }),
+    supabase
+      .from("conversations")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("id", conversation_id),
+  ]);
+
+  return NextResponse.json({ ok: true });
+}

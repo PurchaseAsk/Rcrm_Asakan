@@ -109,3 +109,25 @@ export type Reminder = {
   is_done: boolean;
   leads?: { customer_name: string } | null;
 };
+
+export type Conversation = {
+  id: string;
+  page_id: string;
+  sender_psid: string;
+  sender_name: string | null;
+  last_message_at: string;
+  lead_id: string | null;
+  created_at: string;
+  facebook_pages?: { id: string; name: string; page_id: string; token: string } | null;
+  leads?: { id: string; customer_name: string } | null;
+};
+
+export type Message = {
+  id: string;
+  conversation_id: string;
+  direction: "inbound" | "outbound";
+  content: string;
+  fb_message_id: string | null;
+  created_at: string;
+  sent_by: string | null;
+};
