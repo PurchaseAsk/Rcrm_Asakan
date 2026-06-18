@@ -11,6 +11,19 @@ import { Select } from "@/components/ui/Select";
 
 const supabase = createBrowserSupabase();
 
+type ChatSnapshot = {
+  __chat_snapshot: true;
+  sender_name: string;
+  messages: {
+    direction: "inbound" | "outbound";
+    sender: string;
+    content: string | null;
+    attachment_url: string | null;
+    attachment_type: string | null;
+    time: string;
+  }[];
+};
+
 export function LeadDrawer({
   lead,
   detail,
@@ -321,16 +334,59 @@ export function LeadDrawer({
           <section>
             <h3 className="mb-2 font-semibold text-slate-950">Activity</h3>
             <div className="space-y-2">
-              {detail.activities.map((activity) => (
-                <div key={activity.id} className="rounded-md border border-slate-200 p-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <MessageSquareText size={14} />
-                    {actorName(activity.created_by, profiles)} · {activity.type} ·{" "}
-                    {new Date(activity.created_at).toLocaleString("th-TH")}
+              {detail.activities.map((activity) => {
+                let imgSnapshot: { url: string } | null = null;
+                let snapshot: ChatSnapshot | null = null;
+                if (activity.content?.startsWith('{"__img_snapshot":')) {
+                  try { imgSnapshot = JSON.parse(activity.content) as { url: string }; } catch { /* not JSON */ }
+                } else if (activity.content?.startsWith('{"__chat_snapshot":')) {
+                  try { snapshot = JSON.parse(activity.content) as ChatSnapshot; } catch { /* not JSON */ }
+                }
+                return (
+                  <div key={activity.id} className="rounded-md border border-slate-200 p-3">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <MessageSquareText size={14} />
+                      {actorName(activity.created_by, profiles)} · {activity.type} ·{" "}
+                      {new Date(activity.created_at).toLocaleString("th-TH")}
+                    </div>
+                    {imgSnapshot ? (
+                      <a href={imgSnapshot.url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                        <img src={imgSnapshot.url} alt="chat snapshot" className="w-full rounded-lg border border-slate-200" />
+                      </a>
+                    ) : snapshot ? (
+                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                        <div className="border-b border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
+                          💬 บทสนทนาล่าสุด · {snapshot.sender_name}
+                        </div>
+                        <div className="space-y-1.5 p-2">
+                          {snapshot.messages.map((m, i) => (
+                            <div key={i} className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}>
+                              <div className={`max-w-[80%] rounded-xl px-2.5 py-1.5 text-xs ${m.direction === "outbound" ? "bg-blue-600 text-white" : "bg-white text-slate-800 shadow-sm ring-1 ring-slate-200"}`}>
+                                {m.direction === "inbound" && (
+                                  <div className="mb-0.5 font-medium opacity-60">{m.sender}</div>
+                                )}
+                                {m.attachment_type === "image" && m.attachment_url ? (
+                                  <a href={m.attachment_url} target="_blank" rel="noopener noreferrer">
+                                    <img src={m.attachment_url} alt="" className="max-w-[160px] rounded-lg" />
+                                  </a>
+                                ) : (
+                                  <p className="whitespace-pre-wrap">{m.content}</p>
+                                )}
+                                <div className={`mt-0.5 text-right text-[10px] ${m.direction === "outbound" ? "text-blue-200" : "text-slate-400"}`}>
+                                  {m.direction === "outbound" && <span className="mr-1">{m.sender}</span>}
+                                  {m.time}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{activity.content || "-"}</div>
+                    )}
                   </div>
-                  <div className="mt-1 text-sm text-slate-800">{activity.content || "-"}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         </div>

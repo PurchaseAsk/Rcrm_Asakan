@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Conversation, Message, Page, Pipeline, Profile, Stage } from "@/types/crm";
+import html2canvas from "html2canvas";
 
 const supabase = createBrowserSupabase();
 
@@ -34,6 +35,7 @@ export function ChatInbox({
   const selectedConvIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesAreaRef = useRef<HTMLDivElement>(null);
 
   type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
   const [leadModal, setLeadModal] = useState<{ conv: Conversation; msgs: Message[] } | null>(null);
@@ -208,21 +210,30 @@ export function ChatInbox({
         return;
       }
 
-      const snapshot = msgs
-        .slice(-5)
-        .map((m) => {
-          const time = new Date(m.created_at).toLocaleTimeString("th-TH", {
-            hour: "2-digit",
-            minute: "2-digit",
+      // Capture chat area as PNG and upload to storage
+      let snapshotContent = "💬 บทสนทนาจาก Facebook Messenger";
+      if (messagesAreaRef.current) {
+        try {
+          const canvas = await html2canvas(messagesAreaRef.current, {
+            useCORS: true,
+            allowTaint: true,
+            scale: 1.5,
+            logging: false,
+            backgroundColor: "#f8fafc",
           });
-          const sender =
-            m.direction === "inbound"
-              ? conv.sender_name || "ลูกค้า"
-              : (m.profiles?.full_name ?? m.profiles?.email ?? "ทีม");
-          const content = m.attachment_type === "image" ? "[รูปภาพ]" : (m.content ?? "");
-          return `[${time}] ${sender}: ${content}`;
-        })
-        .join("\n");
+          const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
+          if (blob) {
+            const path = `snapshots/${conv.id}/${Date.now()}.png`;
+            const { error: upErr } = await supabase.storage
+              .from("chat-attachments")
+              .upload(path, blob, { contentType: "image/png" });
+            if (!upErr) {
+              const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(path);
+              snapshotContent = JSON.stringify({ __img_snapshot: true, url: urlData.publicUrl });
+            }
+          }
+        } catch { /* capture failed — fall back to plain text */ }
+      }
 
       await Promise.all([
         supabase.from("conversations").update({ lead_id: lead.id }).eq("id", conv.id),
@@ -235,7 +246,7 @@ export function ChatInbox({
         supabase.from("lead_activities").insert({
           lead_id: lead.id,
           type: "note",
-          content: `📋 บทสนทนาล่าสุด (${msgs.slice(-5).length} ข้อความ):\n\n${snapshot}`,
+          content: snapshotContent,
           created_by: userId,
         }),
       ]);
@@ -251,15 +262,19 @@ export function ChatInbox({
 
   const selectedConv = conversations.find((c) => c.id === selectedConvId) ?? null;
 
-  const convPages = useMemo(() => {
+  // Use pages prop for tabs so admin/multi-team users always see all page tabs
+  // regardless of whether conversations exist yet
+  const accessiblePages = useMemo(() => {
+    if (userRole === "admin") return pages.filter((p) => p.is_active);
+    // For non-admin: show pages that appear in their loaded conversations
     const seen = new Map<string, string>();
     for (const c of conversations) {
       if (c.facebook_pages && !seen.has(c.page_id)) {
         seen.set(c.page_id, c.facebook_pages.name);
       }
     }
-    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
-  }, [conversations]);
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name, is_active: true, page_id: "" }));
+  }, [conversations, pages, userRole]);
 
   const [filterPageId, setFilterPageId] = useState<string | null>(null);
 
@@ -279,7 +294,7 @@ export function ChatInbox({
               <p className="text-xs text-slate-500">{visibleConvs.length} conversations</p>
             </div>
 
-            {convPages.length > 1 && (
+            {accessiblePages.length > 1 && (
               <div className="shrink-0 flex gap-1 overflow-x-auto border-b border-slate-100 px-2 py-1.5 scrollbar-none">
                 <button
                   onClick={() => setFilterPageId(null)}
@@ -288,20 +303,29 @@ export function ChatInbox({
                   }`}
                 >
                   ทั้งหมด
+                  <span className={`ml-1 ${filterPageId === null ? "text-blue-200" : "text-slate-400"}`}>
+                    {conversations.length}
+                  </span>
                 </button>
-                {convPages.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setFilterPageId(p.id)}
-                    className={`shrink-0 max-w-[140px] truncate rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      filterPageId === p.id
-                        ? "bg-brand-700 text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    {p.name}
-                  </button>
-                ))}
+                {accessiblePages.map((p) => {
+                  const count = conversations.filter((c) => c.page_id === p.id).length;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setFilterPageId(p.id)}
+                      className={`shrink-0 max-w-[160px] truncate rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        filterPageId === p.id
+                          ? "bg-brand-700 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {p.name}
+                      <span className={`ml-1 ${filterPageId === p.id ? "text-blue-200" : "text-slate-400"}`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -379,7 +403,7 @@ export function ChatInbox({
                 )}
               </div>
 
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+              <div ref={messagesAreaRef} className="flex-1 space-y-3 overflow-y-auto p-4">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
