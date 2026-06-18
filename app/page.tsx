@@ -494,7 +494,7 @@ export default function HomePage() {
             />
           )}
           {activeTab === "pages" && canManage && <PagesPanel pages={data.pages} teams={data.teams} userId={currentUserId} reload={reload} toast={showToast} />}
-          {activeTab === "inbox" && <ChatInbox pages={data.pages} userId={currentUserId} userRole={profile?.role ?? "staff"} toast={showToast} />}
+          {activeTab === "inbox" && <ChatInbox pages={data.pages} profiles={data.profiles} userId={currentUserId} userRole={profile?.role ?? "staff"} toast={showToast} />}
         </section>
       </div>
 
@@ -1368,11 +1368,13 @@ function PagesPanel({ pages, teams, userId, reload, toast }: { pages: Page[]; te
 
 function ChatInbox({
   pages,
+  profiles,
   userId,
   userRole,
   toast,
 }: {
   pages: Page[];
+  profiles: Profile[];
   userId: string;
   userRole: string;
   toast: (message: string) => void;
@@ -1386,6 +1388,11 @@ function ChatInbox({
   const selectedConvIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string };
+  const [leadModal, setLeadModal] = useState<{ conv: Conversation; msgs: Message[] } | null>(null);
+  const [leadDraft, setLeadDraft] = useState<LeadDraft>({ customer_name: "", phone: "", email: "", assigned_to: "" });
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     selectedConvIdRef.current = selectedConvId;
@@ -1499,32 +1506,73 @@ function ChatInbox({
     }
   }
 
-  async function createLead(conv: Conversation) {
-    if (conv.lead_id) return toast("Lead already created for this conversation");
-    const { data: lead, error } = await supabase
-      .from("leads")
-      .insert({
-        customer_name: conv.sender_name || "Facebook User",
-        facebook_id: conv.sender_psid,
-        page_id: conv.page_id,
-        status: "active",
-        source: "facebook",
-        last_activity_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-    if (error) return toast(error.message);
-    await Promise.all([
-      supabase.from("conversations").update({ lead_id: lead.id }).eq("id", conv.id),
-      supabase.from("lead_activities").insert({
-        lead_id: lead.id,
-        type: "created",
-        content: "Lead created from Facebook Messenger conversation",
-        created_by: userId,
-      }),
-    ]);
-    toast("Lead created!");
-    await refreshConversations();
+  function openCreateLead(conv: Conversation) {
+    if (conv.lead_id) return;
+    setLeadDraft({
+      customer_name: conv.sender_name || "",
+      phone: "",
+      email: "",
+      assigned_to: "",
+    });
+    setLeadModal({ conv, msgs: messages });
+  }
+
+  async function submitCreateLead() {
+    if (!leadModal) return;
+    if (!leadDraft.customer_name.trim()) return toast("กรุณากรอกชื่อลูกค้า");
+    setSubmitting(true);
+    try {
+      const { conv, msgs } = leadModal;
+      const { data: lead, error } = await supabase
+        .from("leads")
+        .insert({
+          customer_name: leadDraft.customer_name.trim(),
+          phone: leadDraft.phone.trim() || null,
+          email: leadDraft.email.trim() || null,
+          assigned_to: leadDraft.assigned_to || null,
+          facebook_id: conv.sender_psid,
+          page_id: conv.page_id,
+          status: "active",
+          source: "facebook",
+          last_activity_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+      if (error) { toast(error.message); return; }
+
+      // Build chat snapshot from last 5 messages
+      const snapshot = msgs
+        .slice(-5)
+        .map((m) => {
+          const time = new Date(m.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+          const sender = m.direction === "inbound" ? (conv.sender_name || "ลูกค้า") : (m.profiles?.full_name ?? m.profiles?.email ?? "ทีม");
+          const content = m.attachment_type === "image" ? "[รูปภาพ]" : (m.content ?? "");
+          return `[${time}] ${sender}: ${content}`;
+        })
+        .join("\n");
+
+      await Promise.all([
+        supabase.from("conversations").update({ lead_id: lead.id }).eq("id", conv.id),
+        supabase.from("lead_activities").insert({
+          lead_id: lead.id,
+          type: "created",
+          content: "สร้างลีดจาก Facebook Messenger",
+          created_by: userId,
+        }),
+        supabase.from("lead_activities").insert({
+          lead_id: lead.id,
+          type: "note",
+          content: `📋 บทสนทนาล่าสุด (${msgs.slice(-5).length} ข้อความ):\n\n${snapshot}`,
+          created_by: userId,
+        }),
+      ]);
+
+      toast("สร้างลีดสำเร็จ!");
+      setLeadModal(null);
+      await refreshConversations();
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const selectedConv = conversations.find((c) => c.id === selectedConvId) ?? null;
@@ -1547,6 +1595,7 @@ function ChatInbox({
     : conversations;
 
   return (
+    <>
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="grid h-[calc(100dvh-160px)] min-h-[500px] md:grid-cols-[280px_1fr]">
         <div className={`flex min-h-0 flex-col overflow-hidden border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}>
@@ -1646,7 +1695,7 @@ function ChatInbox({
               ) : (
                 <button
                   className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-900"
-                  onClick={() => void createLead(selectedConv)}
+                  onClick={() => openCreateLead(selectedConv)}
                 >
                   + Create Lead
                 </button>
@@ -1752,6 +1801,100 @@ function ChatInbox({
         )}
       </div>
     </section>
+
+    {/* Create Lead Modal */}
+    {leadModal && (
+      <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+        <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+          <div className="border-b border-slate-200 px-5 py-4">
+            <h3 className="font-semibold text-slate-950">สร้างลีดจาก Inbox</h3>
+            <p className="text-xs text-slate-500">{leadModal.conv.facebook_pages?.name} · {leadModal.conv.sender_psid}</p>
+          </div>
+
+          <div className="space-y-3 px-5 py-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">ชื่อลูกค้า *</label>
+              <input
+                className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                value={leadDraft.customer_name}
+                onChange={(e) => setLeadDraft({ ...leadDraft, customer_name: e.target.value })}
+                placeholder="ชื่อ-นามสกุล"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">เบอร์โทร</label>
+                <input
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                  value={leadDraft.phone}
+                  onChange={(e) => setLeadDraft({ ...leadDraft, phone: e.target.value })}
+                  placeholder="0812345678"
+                  type="tel"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Email</label>
+                <input
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                  value={leadDraft.email}
+                  onChange={(e) => setLeadDraft({ ...leadDraft, email: e.target.value })}
+                  placeholder="email@example.com"
+                  type="email"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">มอบหมายให้</label>
+              <select
+                className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                value={leadDraft.assigned_to}
+                onChange={(e) => setLeadDraft({ ...leadDraft, assigned_to: e.target.value })}
+              >
+                <option value="">— ไม่ระบุ —</option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Chat snapshot preview */}
+            {leadModal.msgs.length > 0 && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  บันทึก snapshot {Math.min(leadModal.msgs.length, 5)} ข้อความสุดท้าย
+                </label>
+                <div className="max-h-36 overflow-y-auto rounded-lg bg-slate-50 px-3 py-2 font-mono text-[11px] text-slate-600">
+                  {leadModal.msgs.slice(-5).map((m) => {
+                    const time = new Date(m.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+                    const sender = m.direction === "inbound" ? (leadModal.conv.sender_name || "ลูกค้า") : (m.profiles?.full_name ?? "ทีม");
+                    const content = m.attachment_type === "image" ? "[รูปภาพ]" : (m.content ?? "");
+                    return (
+                      <div key={m.id} className="py-0.5">
+                        <span className="text-slate-400">[{time}]</span>{" "}
+                        <span className={m.direction === "outbound" ? "text-brand-700" : "text-slate-700"}>{sender}:</span>{" "}
+                        {content}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
+            <button onClick={() => setLeadModal(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm">ยกเลิก</button>
+            <button
+              onClick={() => void submitCreateLead()}
+              disabled={submitting || !leadDraft.customer_name.trim()}
+              className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {submitting ? "กำลังสร้าง…" : "สร้างลีด"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
