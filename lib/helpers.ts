@@ -9,6 +9,15 @@ const supabase = createBrowserSupabase();
 
 // ── Pure UI helpers ──────────────────────────────────────────────────────────
 
+/** Mirror of the SQL normalize_phone() function. Strips non-digits; converts +66/66 prefix → 0. */
+export function normalizePhone(phone: string): string | null {
+  if (!phone?.trim()) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.length === 11 && digits.startsWith("66")) return "0" + digits.slice(2);
+  return digits;
+}
+
 export function segmentClass(active: boolean) {
   return `h-9 rounded-md text-sm font-medium ${active ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`;
 }

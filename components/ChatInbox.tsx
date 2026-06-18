@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
+import { normalizePhone } from "@/lib/helpers";
 import type { Conversation, Message, Page, Pipeline, Profile, Stage } from "@/types/crm";
 import html2canvas from "html2canvas";
 
@@ -186,7 +187,19 @@ export function ChatInbox({
     if (!leadDraft.pipeline_id) return toast("กรุณาเลือก Pipeline");
     setSubmitting(true);
     try {
-      const { conv, msgs } = leadModal;
+      const { conv } = leadModal;
+
+      // Block duplicate phone — query DB using the same normalize_phone logic
+      if (leadDraft.phone.trim()) {
+        const { data: dups } = await supabase.rpc("find_lead_by_phone", {
+          p_phone: leadDraft.phone.trim(),
+        }) as { data: { id: string; customer_name: string }[] | null };
+        if (dups?.[0]) {
+          toast(`มีลีดอยู่แล้ว: ${dups[0].customer_name} (เบอร์ซ้ำ)`);
+          return;
+        }
+      }
+
       const firstStageId = draftStages[0]?.id ?? null;
       const { data: lead, error } = await supabase
         .from("leads")
@@ -416,6 +429,7 @@ export function ChatInbox({
                     >
                       {msg.attachment_type === "image" && msg.attachment_url ? (
                         <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={msg.attachment_url} alt="attachment" className="max-w-[240px] rounded-xl" />
                         </a>
                       ) : (
@@ -534,6 +548,7 @@ export function ChatInbox({
                     onChange={(e) => setLeadDraft({ ...leadDraft, phone: e.target.value })}
                     placeholder="0812345678"
                     type="tel"
+                    maxLength={10}
                   />
                 </div>
                 <div>

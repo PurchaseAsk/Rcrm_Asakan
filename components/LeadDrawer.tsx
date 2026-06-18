@@ -210,6 +210,7 @@ export function LeadDrawer({
               label="Phone"
               value={form.phone}
               onChange={(value) => setForm({ ...form, phone: value })}
+              maxLength={10}
             />
             <Field
               label="Email"
@@ -351,6 +352,7 @@ export function LeadDrawer({
                     </div>
                     {imgSnapshot ? (
                       <a href={imgSnapshot.url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={imgSnapshot.url} alt="chat snapshot" className="w-full rounded-lg border border-slate-200" />
                       </a>
                     ) : snapshot ? (
@@ -367,6 +369,7 @@ export function LeadDrawer({
                                 )}
                                 {m.attachment_type === "image" && m.attachment_url ? (
                                   <a href={m.attachment_url} target="_blank" rel="noopener noreferrer">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={m.attachment_url} alt="" className="max-w-[160px] rounded-lg" />
                                   </a>
                                 ) : (

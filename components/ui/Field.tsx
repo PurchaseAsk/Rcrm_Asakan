@@ -7,6 +7,7 @@ export function Field({
   type = "text",
   autoComplete,
   placeholder,
+  maxLength,
 }: {
   label: string;
   value: string;
@@ -14,6 +15,7 @@ export function Field({
   type?: string;
   autoComplete?: string;
   placeholder?: string;
+  maxLength?: number;
 }) {
   return (
     <label className="block">
@@ -24,6 +26,7 @@ export function Field({
         value={value}
         autoComplete={autoComplete}
         placeholder={placeholder}
+        maxLength={maxLength}
         onChange={(event) => onChange(event.target.value)}
       />
     </label>

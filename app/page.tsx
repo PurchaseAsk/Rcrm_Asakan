@@ -14,7 +14,6 @@ import {
   LayoutDashboard,
   LogOut,
   Plus,
-  RefreshCcw,
   Search,
   Settings,
   Split,
