@@ -1356,7 +1356,7 @@ function ChatInbox({
   async function refreshMessages(convId: string) {
     const { data } = await supabase
       .from("messages")
-      .select("*")
+      .select("*, profiles(id, full_name, email)")
       .eq("conversation_id", convId)
       .order("created_at", { ascending: true })
       .limit(200);
@@ -1518,6 +1518,11 @@ function ChatInbox({
                         msg.direction === "outbound" ? "text-blue-200" : "text-slate-400"
                       }`}
                     >
+                      {msg.direction === "outbound" && msg.profiles && (
+                        <span className="mr-1">
+                          {msg.profiles.full_name ?? msg.profiles.email}
+                        </span>
+                      )}
                       {new Date(msg.created_at).toLocaleTimeString("th-TH", {
                         hour: "2-digit",
                         minute: "2-digit",

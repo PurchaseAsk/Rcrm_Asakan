@@ -130,4 +130,5 @@ export type Message = {
   fb_message_id: string | null;
   created_at: string;
   sent_by: string | null;
+  profiles?: { id: string; full_name: string | null; email: string } | null;
 };
