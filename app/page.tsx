@@ -514,6 +514,10 @@ export default function HomePage() {
               userId={currentUserId}
               userRole={profile?.role ?? "staff"}
               toast={showToast}
+              onLeadCreated={(leadId) => {
+                setActiveTab("leads");
+                setSelectedLeadId(leadId);
+              }}
             />
           )}
         </section>

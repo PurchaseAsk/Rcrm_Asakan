@@ -12,12 +12,14 @@ export function ChatInbox({
   userId,
   userRole,
   toast,
+  onLeadCreated,
 }: {
   pages: Page[];
   profiles: Profile[];
   userId: string;
   userRole: string;
   toast: (message: string) => void;
+  onLeadCreated?: (leadId: string) => void;
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -224,6 +226,7 @@ export function ChatInbox({
       toast("สร้างลีดสำเร็จ!");
       setLeadModal(null);
       await refreshConversations();
+      onLeadCreated?.(lead.id);
     } finally {
       setSubmitting(false);
     }
