@@ -57,18 +57,21 @@ import { TeamsPanel } from "@/components/TeamsPanel";
 import { FullScreenState } from "@/components/ui/FullScreenState";
 import { Panel } from "@/components/ui/Panel";
 
-const tabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean }[] = [
+const mainTabs: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "leads", label: "Leads", icon: UserRound },
   { id: "funnel", label: "Funnel", icon: Split },
+  { id: "inbox", label: "Inbox", icon: Inbox },
+];
+
+const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean }[] = [
   { id: "teams", label: "Teams", icon: Users },
+  { id: "pipelines", label: "Pipelines", icon: Boxes },
+  { id: "stages", label: "Stages", icon: Workflow, managerOnly: true },
   { id: "rules", label: "Rules", icon: Settings, managerOnly: true },
   { id: "recall", label: "Recall", icon: Clock, managerOnly: true },
-  { id: "stages", label: "Stages", icon: Workflow, managerOnly: true },
   { id: "tags", label: "Tags", icon: Tags },
-  { id: "pipelines", label: "Pipelines", icon: Boxes },
   { id: "pages", label: "Pages", icon: Bell, managerOnly: true },
-  { id: "inbox", label: "Inbox", icon: Inbox },
 ];
 
 const supabase = createBrowserSupabase();
@@ -88,6 +91,7 @@ export default function HomePage() {
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [managingPipelineId, setManagingPipelineId] = useState<string | null>(null);
   const [stageNoteRequest, setStageNoteRequest] = useState<StageNoteRequest | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Ref so Realtime and reminder callbacks always read the latest leadId
   // without causing channel teardown on every lead open (H-2)
@@ -196,7 +200,8 @@ export default function HomePage() {
     }
   }, [activePipelineId, data.pipelines]);
 
-  const visibleTabs = tabs.filter((tab) => !tab.managerOnly || canManage);
+  const visibleSettingsTabs = settingsTabs.filter((tab) => !tab.managerOnly || canManage);
+  const isSettingsTab = visibleSettingsTabs.some((t) => t.id === activeTab);
 
   const myTeamMemberIds = useMemo(() => {
     if (!currentUserId) return [];
@@ -353,7 +358,7 @@ export default function HomePage() {
       <div className="grid w-full gap-4 px-3 py-4 sm:px-4 xl:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm lg:sticky lg:top-20 lg:h-[calc(100dvh-96px)]">
           <nav className="grid grid-cols-2 gap-1 lg:grid-cols-1">
-            {visibleTabs.map((item) => {
+            {mainTabs.map((item) => {
               const Icon = item.icon;
               const active = activeTab === item.id;
               return (
@@ -369,6 +374,46 @@ export default function HomePage() {
                 </button>
               );
             })}
+
+            {/* Settings collapsible group */}
+            <div className="col-span-2 lg:col-span-1">
+              <button
+                onClick={() => setSettingsOpen((o) => !o)}
+                className={`flex h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-medium transition ${
+                  isSettingsTab ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                }`}
+              >
+                <Settings size={17} />
+                <span className="flex-1">ตั้งค่า</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${settingsOpen ? "rotate-180" : ""}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {(settingsOpen || isSettingsTab) && (
+                <div className="mt-0.5 ml-2 grid grid-cols-1 gap-0.5 border-l-2 border-slate-100 pl-2">
+                  {visibleSettingsTabs.map((item) => {
+                    const Icon = item.icon;
+                    const active = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`flex h-9 items-center gap-2.5 rounded-md px-2.5 text-left text-sm font-medium transition ${
+                          active ? "bg-brand-700 text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+                        }`}
+                      >
+                        <Icon size={15} />
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </nav>
         </aside>
 
