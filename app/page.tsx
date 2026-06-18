@@ -1318,6 +1318,7 @@ function ChatInbox({
   const [loading, setLoading] = useState(true);
   const selectedConvIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     selectedConvIdRef.current = selectedConvId;
@@ -1386,6 +1387,23 @@ function ChatInbox({
       setReplyText("");
       await refreshMessages(selectedConvId);
       await refreshConversations();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendImage(file: File) {
+    if (!selectedConvId) return;
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("conversation_id", selectedConvId);
+      form.append("file", file);
+      if (userId) form.append("sent_by", userId);
+      const res = await fetch("/api/facebook/send-image", { method: "POST", body: form });
+      const result = (await res.json()) as { error?: string };
+      if (!res.ok) toast(result.error ?? "Send failed");
+      else await refreshMessages(selectedConvId);
     } finally {
       setBusy(false);
     }
@@ -1512,7 +1530,17 @@ function ChatInbox({
                         : "bg-slate-100 text-slate-900"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {msg.attachment_type === "image" && msg.attachment_url ? (
+                      <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={msg.attachment_url}
+                          alt="attachment"
+                          className="max-w-[240px] rounded-xl"
+                        />
+                      </a>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    )}
                     <p
                       className={`mt-1 text-[10px] ${
                         msg.direction === "outbound" ? "text-blue-200" : "text-slate-400"
@@ -1538,6 +1566,27 @@ function ChatInbox({
             </div>
 
             <div className="flex gap-2 border-t border-slate-200 p-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void sendImage(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                title="แนบรูป"
+                disabled={busy}
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v13.5A1.5 1.5 0 003.75 21zm8.25-7.5a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                </svg>
+              </button>
               <input
                 className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600 disabled:opacity-50"
                 value={replyText}

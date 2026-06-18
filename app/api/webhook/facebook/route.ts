@@ -33,7 +33,12 @@ export async function POST(request: NextRequest) {
       id: string;
       messaging?: {
         sender: { id: string };
-        message?: { mid: string; text?: string; is_echo?: boolean };
+        message?: {
+          mid: string;
+          text?: string;
+          is_echo?: boolean;
+          attachments?: { type: string; payload: { url?: string } }[];
+        };
       }[];
     }[];
   };
@@ -56,11 +61,16 @@ export async function POST(request: NextRequest) {
     if (!page) continue;
 
     for (const event of entry.messaging ?? []) {
-      if (!event.message?.text || event.message.is_echo) continue;
+      if (!event.message || event.message.is_echo) continue;
+
+      const hasText = !!event.message.text;
+      const hasAttachment = (event.message.attachments?.length ?? 0) > 0;
+      if (!hasText && !hasAttachment) continue;
 
       const senderPsid = event.sender.id;
       const fbMessageId = event.message.mid;
-      const text = event.message.text;
+      const text = event.message.text ?? null;
+      const attachment = event.message.attachments?.[0] ?? null;
 
       const { data: conv } = await supabase
         .from("conversations")
@@ -82,6 +92,8 @@ export async function POST(request: NextRequest) {
           conversation_id: conv.id,
           direction: "inbound",
           content: text,
+          attachment_url: attachment?.payload?.url ?? null,
+          attachment_type: attachment?.type ?? null,
           fb_message_id: fbMessageId,
         },
         { onConflict: "fb_message_id", ignoreDuplicates: true },

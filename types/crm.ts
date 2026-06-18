@@ -126,9 +126,11 @@ export type Message = {
   id: string;
   conversation_id: string;
   direction: "inbound" | "outbound";
-  content: string;
+  content: string | null;
   fb_message_id: string | null;
   created_at: string;
   sent_by: string | null;
+  attachment_url: string | null;
+  attachment_type: string | null;
   profiles?: { id: string; full_name: string | null; email: string } | null;
 };
