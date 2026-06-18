@@ -1,5 +1,8 @@
 "use client";
 
+// This page requires auth and a live Supabase connection — skip static prerendering.
+export const dynamic = "force-dynamic";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
@@ -996,7 +999,7 @@ function RuleCellSelect({
   );
 }
 
-function RecallPanel({ rules, stages, leads, profiles, userId, reload, toast }: { rules: RecallRule[]; stages: Stage[]; leads: Lead[]; profiles: Profile[]; userId: string; reload: () => Promise<void>; toast: (message: string) => void }) {
+function RecallPanel({ rules, stages, leads, profiles: _profiles, userId: _userId, reload, toast }: { rules: RecallRule[]; stages: Stage[]; leads: Lead[]; profiles: Profile[]; userId: string; reload: () => Promise<void>; toast: (message: string) => void }) {
   const [form, setForm] = useState({ stage_id: "", inactive_days: "3", recall_to: "pool" });
   const [busy, setBusy] = useState(false);
 
