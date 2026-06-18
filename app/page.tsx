@@ -415,23 +415,26 @@ export default function HomePage() {
           </nav>
         </aside>
 
-        <section className="min-w-0 space-y-4">
-          <div className="md:hidden">
-            <input
-              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-600"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search leads"
-            />
-          </div>
+        <section className={`min-w-0 ${activeTab === "inbox" ? "" : "space-y-4"}`}>
+          {activeTab !== "inbox" && (
+            <>
+              <div className="md:hidden">
+                <input
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-600"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search leads"
+                />
+              </div>
+              {data.leads.length >= 500 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  แสดง 500 ลีดล่าสุด — ลีดที่เก่ากว่าอาจไม่แสดงในหน้านี้
+                </div>
+              ) : null}
+            </>
+          )}
 
-          {data.leads.length >= 500 ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              แสดง 500 ลีดล่าสุด — ลีดที่เก่ากว่าอาจไม่แสดงในหน้านี้
-            </div>
-          ) : null}
-
-          <PipelineBar pipelines={data.pipelines} activePipelineId={activePipelineId} onChange={setActivePipelineId} />
+          {activeTab !== "inbox" && <PipelineBar pipelines={data.pipelines} activePipelineId={activePipelineId} onChange={setActivePipelineId} />}
 
           {activeTab === "dashboard" && <Dashboard leads={visibleLeads} pipelines={data.pipelines} rules={data.rules} />}
           {activeTab === "leads" && (
@@ -1441,7 +1444,7 @@ function ChatInbox({
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="grid h-[calc(100dvh-220px)] min-h-[500px] md:grid-cols-[280px_1fr]">
+      <div className="grid h-[calc(100dvh-160px)] min-h-[500px] md:grid-cols-[280px_1fr]">
         <div className={`flex flex-col border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}>
           <div className="border-b border-slate-200 px-4 py-3">
             <h2 className="font-semibold text-slate-950">Inbox</h2>
