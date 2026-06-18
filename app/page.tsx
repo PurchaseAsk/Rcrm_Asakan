@@ -1445,8 +1445,8 @@ function ChatInbox({
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="grid h-[calc(100dvh-160px)] min-h-[500px] md:grid-cols-[280px_1fr]">
-        <div className={`flex flex-col border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}>
-          <div className="border-b border-slate-200 px-4 py-3">
+        <div className={`flex min-h-0 flex-col overflow-hidden border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}>
+          <div className="shrink-0 border-b border-slate-200 px-4 py-3">
             <h2 className="font-semibold text-slate-950">Inbox</h2>
             <p className="text-xs text-slate-500">{conversations.length} conversations</p>
           </div>
@@ -1490,8 +1490,8 @@ function ChatInbox({
         </div>
 
         {selectedConv ? (
-          <div className="flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <div className="flex min-h-0 flex-col overflow-hidden">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
               <div className="flex items-center gap-3">
                 <button
                   className="text-sm text-slate-500 hover:text-slate-800 md:hidden"
@@ -1568,7 +1568,7 @@ function ChatInbox({
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="flex gap-2 border-t border-slate-200 p-3">
+            <div className="flex shrink-0 gap-2 border-t border-slate-200 p-3">
               <input
                 ref={fileInputRef}
                 type="file"
