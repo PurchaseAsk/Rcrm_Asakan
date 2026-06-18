@@ -44,13 +44,15 @@ export async function POST(request: NextRequest) {
 
   for (const entry of payload.entry ?? []) {
     const fbPageId = entry.id;
+    console.log("[webhook] entry.id =", fbPageId);
 
-    const { data: page } = await supabase
+    const { data: page, error: pageError } = await supabase
       .from("facebook_pages")
       .select("id, token")
       .eq("page_id", fbPageId)
       .single();
 
+    console.log("[webhook] page found =", !!page, "error =", pageError?.message);
     if (!page) continue;
 
     for (const event of entry.messaging ?? []) {
