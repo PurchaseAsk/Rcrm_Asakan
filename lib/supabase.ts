@@ -5,9 +5,15 @@ export function createBrowserSupabase() {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) {
+    // During Next.js build the module is evaluated server-side before env vars are
+    // inlined. Return a stub so the build succeeds; the real error surfaces in the
+    // browser if variables are genuinely missing at runtime.
+    if (typeof window === "undefined") {
+      return createClient("https://placeholder.supabase.co", "placeholder");
+    }
     throw new Error(
       "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. " +
-        "Create a .env.local file with both variables set.",
+        "Add both to Vercel → Project Settings → Environment Variables.",
     );
   }
 
