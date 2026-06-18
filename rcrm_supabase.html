@@ -1,0 +1,2894 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReadyPlanet CRM — Supabase Edition</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    * { font-family: 'Kanit', sans-serif; }
+    [x-cloak] { display: none !important; }
+    .scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-[#f7f8fb] text-slate-800" x-data="crmApp()" x-cloak>
+
+<!-- ===== CONFIG BANNER ===== -->
+<div x-show="!configured || showConfig" class="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+  <div class="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap gap-2 items-center">
+    <div class="flex items-center gap-2 font-medium">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg>
+      เชื่อมต่อ Supabase
+    </div>
+    <input x-model="sb_url" placeholder="https://xxx.supabase.co" class="flex-1 min-w-[240px] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-400">
+    <input x-model="sb_key" placeholder="SUPABASE_ANON_KEY" class="flex-1 min-w-[240px] px-3 py-2 rounded-lg text-slate-900 placeholder-slate-400">
+    <button @click="saveConfig" class="px-4 py-2 bg-white text-violet-700 rounded-lg font-medium hover:bg-violet-50">บันทึกและเชื่อมต่อ</button>
+    <button x-show="configured" @click="showConfig=false" class="px-3 py-2 hover:bg-white/10 rounded-lg">ซ่อน</button>
+  </div>
+</div>
+
+<!-- ===== LOGIN ===== -->
+<div x-show="!session && configured" class="min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 items-center justify-center text-white text-2xl font-bold shadow-lg">RP</div>
+      <h1 class="text-3xl font-bold mt-4">ReadyPlanet CRM</h1>
+      <p class="text-slate-500 mt-1">Supabase Edition</p>
+    </div>
+    <div class="bg-white rounded-[28px] shadow-xl p-8 border border-slate-100">
+      <!-- Mode tabs -->
+      <div class="flex rounded-xl border border-slate-200 p-1 mb-5">
+        <button @click="loginMode='password'" :class="loginMode==='password'?'bg-violet-600 text-white':'text-slate-600 hover:bg-slate-50'" class="flex-1 py-2 rounded-lg text-sm font-medium transition">รหัสผ่าน</button>
+        <button @click="loginMode='magic'" :class="loginMode==='magic'?'bg-violet-600 text-white':'text-slate-600 hover:bg-slate-50'" class="flex-1 py-2 rounded-lg text-sm font-medium transition">Magic Link</button>
+      </div>
+
+      <label class="text-sm font-medium text-slate-700">อีเมล</label>
+      <input x-model="email" type="email" placeholder="you@company.com" @keydown.enter="loginMode==='password'&&password?signIn():null"
+        class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-violet-100 focus:border-violet-500 outline-none">
+
+      <!-- Signup pending: รอ confirm email -->
+      <div x-show="signupPending" class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-center">
+        <div class="text-2xl mb-2">📧</div>
+        <div class="font-medium text-amber-800">ตรวจสอบอีเมลของคุณ</div>
+        <div class="text-xs text-amber-700 mt-1">ส่งลิงก์ยืนยันไปที่ <span class="font-medium" x-text="email"></span> แล้ว<br>คลิกลิงก์ในอีเมลเพื่อยืนยัน จากนั้นกลับมา login</div>
+        <div class="mt-3 p-2 rounded-lg bg-amber-100 text-[11px] text-amber-800 text-left">
+          <strong>หรือ</strong> ปิด Email Confirmation ใน<br>
+          Supabase Dashboard → Authentication → Settings<br>
+          → ปิด "Enable email confirmations"
+        </div>
+        <button @click="signupPending=false" class="mt-3 text-xs text-amber-700 underline">กลับไปหน้า Login</button>
+      </div>
+
+      <!-- Password mode -->
+      <div x-show="loginMode==='password' && !signupPending">
+        <label class="text-sm font-medium text-slate-700 mt-3 block">รหัสผ่าน</label>
+        <input x-model="password" type="password" placeholder="••••••••" @keydown.enter="signIn"
+          class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-violet-100 focus:border-violet-500 outline-none">
+        <button @click="signIn" :disabled="loading||!email||!password" class="mt-4 w-full py-3 rounded-xl bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50">
+          <span x-show="!loading">เข้าสู่ระบบ</span>
+          <span x-show="loading" class="animate-pulse">กำลังเข้าสู่ระบบ...</span>
+        </button>
+        <button @click="signUp" :disabled="loading" class="mt-2 w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 text-sm">
+          <span x-show="!loading">สมัครสมาชิกใหม่</span>
+          <span x-show="loading" class="animate-pulse">กำลังดำเนินการ...</span>
+        </button>
+      </div>
+
+      <!-- Magic link mode -->
+      <div x-show="loginMode==='magic' && !signupPending">
+        <button @click="signIn" :disabled="loading||!email" class="mt-4 w-full py-3 rounded-xl bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50">
+          <span x-show="!loading">ส่ง Magic Link</span>
+          <span x-show="loading" class="animate-pulse">กำลังส่ง...</span>
+        </button>
+        <p class="text-xs text-slate-500 mt-3 text-center">ระบบจะส่งลิงก์ไปยังอีเมลของคุณ</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div x-show="session && configured" class="min-h-screen flex flex-col">
+
+  <!-- TOPBAR -->
+  <header class="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-200">
+    <div class="max-w-[1400px] mx-auto px-4 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow">RP</div>
+        <div class="hidden sm:block">
+          <div class="font-bold leading-tight">ReadyPlanet CRM</div>
+          <div class="text-[11px] text-slate-500 -mt-1" x-text="profile?.role === 'admin' ? 'แอดมิน' : profile?.role === 'team_lead' ? 'หัวหน้าทีม' : 'เจ้าหน้าที่'"></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button @click="simulateLead" class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 text-white text-sm hover:bg-black">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          จำลองลีด
+        </button>
+        <button @click="showConfig=!showConfig" class="p-2.5 rounded-xl hover:bg-slate-100">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 1-1 0 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 9.5 15a1.65 1.65 0 0 1 0-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h1a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 14v1z"/></svg>
+        </button>
+        <span class="px-2.5 py-1 rounded-full text-xs font-medium" :class="roleBadgeClass" x-text="profile?.role || 'staff'"></span>
+        <div class="text-sm hidden sm:block">
+          <div class="font-medium leading-tight" x-text="profile?.full_name || user?.email"></div>
+          <div class="text-[11px] text-slate-500" x-text="user?.email"></div>
+        </div>
+        <button @click="signOut" class="p-2.5 rounded-xl hover:bg-slate-100 text-slate-600">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-[1400px] mx-auto w-full flex-1 flex">
+    <!-- SIDEBAR -->
+    <aside class="hidden lg:block w-[220px] shrink-0 p-4">
+      <nav class="bg-white rounded-2xl border border-slate-200 p-2 sticky top-[80px]">
+        <template x-for="item in menu" :key="item.id">
+          <button @click="activeTab=item.id" :class="activeTab===item.id ? 'bg-violet-50 text-violet-700' : 'hover:bg-slate-50 text-slate-600'"
+            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition">
+            <span x-html="item.icon"></span>
+            <span x-text="item.label"></span>
+          </button>
+        </template>
+        <div class="mt-2 pt-2 border-t">
+          <div class="px-3 py-1 text-[10px] uppercase tracking-wider text-slate-400">Visibility</div>
+          <div class="px-3 text-xs text-slate-600">
+            <span x-text="profile?.role==='admin'?'เห็นทั้งหมด':profile?.role==='team_lead'?'เห็นลีดในทีม':'เห็นเฉพาะของฉัน'"></span>
+          </div>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 p-4 lg:pr-6 pb-24 min-w-0">
+
+      <!-- DASHBOARD -->
+      <div x-show="activeTab==='dashboard'" x-transition>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <div class="bg-white rounded-2xl p-4 border border-slate-200">
+            <div class="text-xs text-slate-500">ลีดทั้งหมด (ที่เห็น)</div>
+            <div class="text-3xl font-bold mt-1" x-text="visibleLeads.filter(l=>l.status!=='unfollowed').length"></div>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-slate-200">
+            <div class="text-xs text-slate-500">ลีดวันนี้</div>
+            <div class="text-3xl font-bold mt-1" x-text="todayLeads"></div>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-slate-200">
+            <div class="text-xs text-slate-500">ของฉัน</div>
+            <div class="text-3xl font-bold mt-1" x-text="myLeads"></div>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-slate-200">
+            <div class="text-xs text-slate-500">เลิกติดตาม</div>
+            <div class="text-3xl font-bold mt-1" x-text="visibleLeads.filter(l=>l.status==='unfollowed').length"></div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold">ลีดล่าสุด</h3>
+            <button @click="activeTab='leads'" class="text-sm text-violet-600 hover:underline">ดูทั้งหมด</button>
+          </div>
+          <div class="overflow-x-auto scrollbar">
+            <table class="w-full text-sm">
+              <thead class="text-left text-slate-500 border-b">
+                <tr><th class="py-2 pr-3">ลูกค้า</th><th class="py-2 pr-3">เพจ</th><th class="py-2 pr-3">ขั้นตอน</th><th class="py-2 pr-3">ผู้ดูแล</th><th class="py-2">เวลา</th></tr>
+              </thead>
+              <tbody>
+                <template x-for="l in visibleLeads.slice(0,8)" :key="l.id">
+                  <tr class="border-b last:border-0 hover:bg-slate-50 cursor-pointer" @click="openLead(l)">
+                    <td class="py-2.5 pr-3 font-medium" x-text="l.customer_name"></td>
+                    <td class="py-2.5 pr-3 text-slate-500" x-text="l.page?.name || '-'"></td>
+                    <td class="py-2.5 pr-3">
+                      <span class="px-2 py-0.5 rounded-full text-xs" :style="`background:${l.stage?.color||'#e2e8f0'}22;color:${l.stage?.color||'#334155'}`" x-text="l.stage?.name||'-'"></span>
+                    </td>
+                    <td class="py-2.5 pr-3" x-text="l.assigned?.full_name||'ยังไม่แจก'"></td>
+                    <td class="py-2.5 text-slate-500" x-text="timeAgo(l.created_at)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PIPELINE SELECTOR PILLS (Leads + Funnel) -->
+      <div x-show="activeTab==='leads'||activeTab==='funnel'" class="flex items-center gap-1.5 overflow-x-auto scrollbar pb-1 mb-3 -mx-1 px-1">
+        <button @click="activePipelineId=null"
+          :class="!activePipelineId?'bg-slate-900 text-white border-slate-900':'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'"
+          class="px-3 py-1.5 rounded-full text-sm font-medium shrink-0 border transition">ทั้งหมด</button>
+        <template x-for="p in myPipelines" :key="p.id">
+          <button @click="activePipelineId=p.id"
+            :style="activePipelineId===p.id?`background:${p.color};border-color:${p.color};color:#fff`:''"
+            :class="activePipelineId!==p.id?'bg-white border-slate-200 text-slate-600 hover:bg-slate-50':''"
+            class="px-3 py-1.5 rounded-full text-sm font-medium shrink-0 border transition"
+            x-text="p.name + ' (' + pipelineLeadCount(p.id) + ')'"></button>
+        </template>
+        <button x-show="profile?.role==='admin'||profile?.role==='team_lead'"
+          @click="showPipelineModal=true"
+          class="px-3 py-1.5 rounded-full text-sm border border-dashed border-slate-300 text-slate-500 hover:border-violet-400 hover:text-violet-600 shrink-0 transition">+ Pipeline</button>
+      </div>
+
+      <!-- LEADS -->
+      <div x-show="activeTab==='leads'" x-transition>
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <button @click="leadFilter='active'" :class="leadFilter==='active'?'bg-slate-900 text-white':'bg-white border'" class="px-3 py-1.5 rounded-xl text-sm">กล่องลีด</button>
+          <button @click="leadFilter='unfollowed'" :class="leadFilter==='unfollowed'?'bg-slate-900 text-white':'bg-white border'" class="px-3 py-1.5 rounded-xl text-sm">เลิกติดตาม</button>
+          <!-- Team lead: filter by member -->
+          <template x-if="profile?.role==='team_lead'||profile?.role==='admin'">
+            <select x-model="viewMemberId" class="px-3 py-1.5 rounded-xl border text-sm bg-white ml-auto">
+              <option value="">ทุกคน (ในทีม)</option>
+              <template x-for="m in myTeamMembers" :key="m.id">
+                <option :value="m.id" x-text="m.full_name||m.email"></option>
+              </template>
+            </select>
+          </template>
+          <div class="flex-1"></div>
+          <button @click="simulateLead" class="lg:hidden px-3 py-1.5 rounded-xl bg-violet-600 text-white text-sm">+ จำลอง</button>
+        </div>
+        <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          <template x-for="l in filteredLeads" :key="l.id">
+            <div @click="openLead(l)" class="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-md cursor-pointer transition">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="font-semibold truncate" x-text="l.customer_name"></div>
+                  <div class="text-xs text-slate-500 truncate" x-text="l.page?.name||'ไม่ระบุเพจ'"></div>
+                </div>
+                <span class="shrink-0 text-[10px] px-2 py-0.5 rounded-full border" :class="l.status==='unfollowed'?'bg-slate-100 text-slate-600':'bg-emerald-50 text-emerald-700 border-emerald-200'" x-text="l.status==='unfollowed'?'เลิกติดตาม':'กำลังดูแล'"></span>
+              </div>
+              <div class="mt-2">
+                <span class="text-[11px] px-2 py-0.5 rounded-full" :style="`background:${l.stage?.color||'#e2e8f0'}22;color:${l.stage?.color||'#475569'}`" x-text="l.stage?.name||'-'"></span>
+              </div>
+              <div class="mt-3 flex items-center justify-between">
+                <div class="flex gap-1 flex-wrap">
+                  <template x-for="lt in (l.lead_tags||[]).slice(0,3)" :key="lt.tag_id">
+                    <span class="px-2 py-0.5 text-[10px] rounded-full border" :style="`background:${lt.tags?.color||'#e2e8f0'}22;border-color:${lt.tags?.color||'#e2e8f0'};color:${lt.tags?.color||'#475569'}`" x-text="lt.tags?.name"></span>
+                  </template>
+                </div>
+                <div class="text-xs text-slate-500" x-text="l.assigned?.full_name||'ยังไม่แจก'"></div>
+              </div>
+            </div>
+          </template>
+          <div x-show="!filteredLeads.length" class="col-span-3 py-16 text-center text-slate-400">ไม่มีลีด</div>
+        </div>
+      </div>
+
+      <!-- FUNNEL KANBAN -->
+      <div x-show="activeTab==='funnel'" x-transition>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold">Funnel View <span x-show="activePipeline" class="text-sm font-normal text-slate-500">— <span x-text="activePipeline?.name"></span></span></h3>
+          <button @click="activeTab='stages'" class="text-sm text-violet-600 hover:underline">จัดการขั้นตอน →</button>
+        </div>
+        <div class="flex gap-3 overflow-x-auto scrollbar pb-4">
+          <template x-for="stage in pipelineStages" :key="stage.id">
+            <div class="w-[280px] shrink-0">
+              <div class="flex items-center justify-between mb-2 px-1">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full" :style="`background:${stage.color}`"></span>
+                  <span class="font-medium text-sm" x-text="stage.name"></span>
+                  <span class="text-xs text-slate-400" x-text="`(${leadsByStage(stage.id).length})`"></span>
+                </div>
+                <span x-show="stage.is_unfollow" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">เลิกติดตาม</span>
+              </div>
+              <div @dragover.prevent @drop="dropLead(stage)"
+                class="bg-slate-100/70 rounded-2xl p-2 min-h-[200px] space-y-2 border-2 border-dashed border-transparent"
+                :class="dragOverStage===stage.id?'border-violet-300 bg-violet-50/30':''"
+                @dragenter="dragOverStage=stage.id" @dragleave="dragOverStage=null">
+                <template x-for="l in leadsByStage(stage.id)" :key="l.id">
+                  <div draggable="true" @dragstart="draggedLead=l" @click="openLead(l)"
+                    class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:shadow-md transition">
+                    <div class="font-medium text-sm" x-text="l.customer_name"></div>
+                    <div class="text-[11px] text-slate-500 mt-0.5" x-text="l.page?.name||'-'"></div>
+                    <div class="mt-2 flex items-center justify-between">
+                      <div class="flex gap-1">
+                        <template x-for="lt in (l.lead_tags||[]).slice(0,2)" :key="lt.tag_id">
+                          <span class="px-1.5 py-0.5 text-[10px] rounded-full" :style="`background:${lt.tags?.color||'#e2e8f0'}22;color:${lt.tags?.color||'#475569'}`" x-text="lt.tags?.name"></span>
+                        </template>
+                      </div>
+                      <span class="text-[11px] text-slate-400" x-text="timeAgo(l.last_activity_at||l.created_at)"></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- FUNNEL STAGES MANAGEMENT -->
+      <div x-show="activeTab==='stages'" x-transition>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-lg">จัดการขั้นตอน Funnel</h3>
+          <button @click="showStageModal=true" class="px-3 py-2 rounded-xl bg-violet-600 text-white text-sm">+ เพิ่มขั้นตอน</button>
+        </div>
+        <div class="bg-white rounded-2xl border divide-y">
+          <template x-for="(s,idx) in stages" :key="s.id">
+            <div class="p-4 flex items-center gap-3">
+              <span class="w-3 h-3 rounded-full shrink-0" :style="`background:${s.color}`"></span>
+              <div class="flex-1 min-w-0">
+                <div class="font-medium" x-text="s.name"></div>
+                <div class="text-xs text-slate-500" x-text="`ลำดับ: ${s.position} • ลีดในขั้นตอนนี้: ${leadsByStage(s.id).length}`"></div>
+              </div>
+              <span x-show="s.is_unfollow" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">เลิกติดตาม</span>
+              <div class="flex gap-1">
+                <button @click="moveStage(s, -1)" :disabled="idx===0" class="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 text-slate-500">↑</button>
+                <button @click="moveStage(s, 1)" :disabled="idx===stages.length-1" class="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 text-slate-500">↓</button>
+                <button @click="deleteStage(s)" class="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- TEAMS -->
+      <div x-show="activeTab==='teams'" x-transition>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-lg">ทีมขาย</h3>
+          <button @click="showTeamModal=true" class="px-3 py-2 rounded-xl bg-violet-600 text-white text-sm">+ สร้างทีม</button>
+        </div>
+        <div class="grid md:grid-cols-2 gap-3">
+          <template x-for="t in teams" :key="t.id">
+            <div class="bg-white rounded-2xl border p-4">
+              <div class="flex items-center justify-between mb-3">
+                <div class="font-semibold" x-text="t.name"></div>
+                <button @click="deleteTeam(t.id)" class="text-xs text-rose-500 hover:text-rose-700">ลบทีม</button>
+              </div>
+              <div class="space-y-1">
+                <template x-for="m in t.team_members||[]" :key="m.user_id">
+                  <div class="flex items-center justify-between text-sm py-1 group">
+                    <div>
+                      <span x-text="m.profiles?.full_name||m.profiles?.email"></span>
+                      <span x-show="m.is_lead" class="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">หัวหน้า</span>
+                    </div>
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                      <button @click="toggleTeamLead(t.id, m.user_id, m.is_lead)" class="text-[10px] px-2 py-0.5 rounded border hover:bg-slate-50" x-text="m.is_lead?'ถอดหัวหน้า':'ตั้งหัวหน้า'"></button>
+                      <button @click="removeMember(t.id, m.user_id)" class="text-[10px] px-2 py-0.5 rounded border border-rose-200 text-rose-500 hover:bg-rose-50">ออก</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <div class="mt-3 border-t pt-3">
+                <select @change="addMember(t.id, $event.target.value); $event.target.value=''" class="w-full px-2 py-1.5 rounded-lg border text-sm">
+                  <option value="">+ เพิ่มสมาชิก</option>
+                  <template x-for="p in profilesAll" :key="p.id">
+                    <option :value="p.id" x-text="p.full_name||p.email"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- DISTRIBUTION RULES -->
+      <div x-show="activeTab==='rules'" x-transition>
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h3 class="font-semibold text-lg">กฎกระจายลีด</h3>
+            <p class="text-xs text-slate-500 mt-0.5">กำหนดว่าลีดจากเพจไหน จะส่งให้ทีม/บุคคลใด และวิธีแจก</p>
+          </div>
+          <button @click="showRuleModal=true" class="px-3 py-2 rounded-xl bg-violet-600 text-white text-sm">+ สร้างกฎ</button>
+        </div>
+        <div class="bg-white rounded-2xl border divide-y">
+          <template x-for="r in distRules" :key="r.id">
+            <div class="p-4 flex items-start justify-between gap-3">
+              <div class="flex-1">
+                <div class="font-medium flex flex-wrap items-center gap-1">
+                  <span class="text-[#1877F2]">⬡</span>
+                  <span x-text="r.facebook_pages?.name||'ทุกเพจ'"></span>
+                  <span class="text-slate-400 mx-1">→</span>
+                  <!-- Pipeline badge -->
+                  <template x-if="r.pipeline_id">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                      :style="`background:${r.pipelines?.color||'#6366f1'}`"
+                      x-text="r.pipelines?.name||'Pipeline'"></span>
+                  </template>
+                  <span class="text-slate-400 mx-1" x-show="r.pipeline_id">→</span>
+                  <span x-show="r.team_id" x-text="r.teams?.name"></span>
+                  <span x-show="!r.team_id && r.config?.user_ids?.length">รายบุคคล (<span x-text="r.config.user_ids.length"></span> คน)</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5">
+                  วิธี: <span class="font-medium" x-text="r.method==='round_robin'?'วนรอบ':r.method==='random'?'สุ่ม':'ถ่วงน้ำหนัก'"></span>
+                  <span x-show="r.method==='round_robin'"> • index ปัจจุบัน: <span x-text="r.config?.last_index??0"></span></span>
+                  <span class="ml-2 px-1.5 py-0.5 rounded" :class="r.is_active?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-500'" x-text="r.is_active?'เปิด':'ปิด'"></span>
+                </div>
+              </div>
+              <div class="flex gap-1">
+                <button @click="toggleRule(r)" class="text-xs px-2 py-1 rounded-lg border hover:bg-slate-50" x-text="r.is_active?'ปิด':'เปิด'"></button>
+                <button @click="deleteRule(r.id)" class="text-xs px-2 py-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50">ลบ</button>
+              </div>
+            </div>
+          </template>
+          <div x-show="!distRules.length" class="p-8 text-center text-slate-400 text-sm">ยังไม่มีกฎ</div>
+        </div>
+      </div>
+
+      <!-- AUTO RECALL RULES -->
+      <div x-show="activeTab==='recall'" x-transition>
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h3 class="font-semibold text-lg">กฎเรียกคืนลีดอัตโนมัติ</h3>
+            <p class="text-xs text-slate-500 mt-0.5">หากไม่มีกิจกรรมตามที่กำหนด ระบบจะเรียก lead กลับเข้าส่วนกลาง</p>
+          </div>
+          <div class="flex gap-2">
+            <button @click="runRecall" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-sm">รันเรียกคืนทันที</button>
+            <button @click="showRecallModal=true" class="px-3 py-2 rounded-xl bg-violet-600 text-white text-sm">+ สร้างกฎ</button>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl border divide-y">
+          <template x-for="r in recallRules" :key="r.id">
+            <div class="p-4 flex items-center justify-between">
+              <div>
+                <div class="font-medium">
+                  ขั้นตอน "<span x-text="r.funnel_stages?.name"></span>" ไม่มีกิจกรรม <span class="text-violet-600" x-text="r.inactive_days"></span> วัน
+                </div>
+                <div class="text-xs text-slate-500">เรียกคืนไปที่: <span x-text="r.recall_to==='pool'?'กองกลาง':r.recall_to==='admin'?'แอดมิน':'ทีม'"></span>
+                  <span class="ml-2 px-1.5 py-0.5 rounded" :class="r.is_active?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-500'" x-text="r.is_active?'เปิด':'ปิด'"></span>
+                </div>
+              </div>
+              <div class="flex gap-1">
+                <button @click="toggleRecallRule(r)" class="text-xs px-2 py-1 rounded-lg border hover:bg-slate-50" x-text="r.is_active?'ปิด':'เปิด'"></button>
+                <button @click="deleteRecallRule(r.id)" class="text-xs px-2 py-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50">ลบ</button>
+              </div>
+            </div>
+          </template>
+          <div x-show="!recallRules.length" class="p-8 text-center text-slate-400 text-sm">ยังไม่มีกฎ</div>
+        </div>
+      </div>
+
+      <!-- FACEBOOK PAGES -->
+      <div x-show="activeTab==='pages'" x-transition>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-lg">เพจ Facebook ที่เชื่อมต่อ</h3>
+          <button @click="showPageModal=true" class="px-3 py-2 rounded-xl bg-violet-600 text-white text-sm">+ เพิ่มเพจ</button>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <template x-for="p in pages" :key="p.id">
+            <div class="bg-white rounded-2xl border p-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-[#1877F2] text-white flex items-center justify-center font-bold text-lg">f</div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium truncate" x-text="p.name"></div>
+                  <div class="text-xs text-slate-500 font-mono" x-text="`ID: ${p.page_id}`"></div>
+                </div>
+                <button @click="deletePage(p.id)" class="p-1.5 rounded-lg hover:bg-rose-50 text-rose-400">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+                </button>
+              </div>
+            </div>
+          </template>
+          <div x-show="!pages.length" class="col-span-3 py-10 text-center text-slate-400">ยังไม่มีเพจ</div>
+        </div>
+      </div>
+
+      <!-- TAGS MANAGEMENT -->
+      <div x-show="activeTab==='tags'" x-transition>
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h3 class="font-semibold text-lg">จัดการแท็ก</h3>
+            <p class="text-xs text-slate-500 mt-0.5">แท็กระบบ = ทุกคนเห็น | แท็กของฉัน = เห็นเฉพาะคุณ</p>
+          </div>
+          <button @click="showTagModal=true" class="px-3 py-2 rounded-xl bg-violet-600 text-white text-sm">+ สร้างแท็ก</button>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <!-- System Tags -->
+          <div class="bg-white rounded-2xl border p-4">
+            <div class="font-semibold mb-3 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              แท็กระบบ (เห็นทุกคน)
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <template x-for="t in tags.filter(x=>x.type==='system')" :key="t.id">
+                <div class="flex items-center gap-1 px-2.5 py-1 rounded-full border text-sm" :style="`background:${t.color}22;border-color:${t.color};color:${t.color}`">
+                  <span x-text="t.name"></span>
+                  <button x-show="profile?.role==='admin'" @click="deleteTag(t.id)" class="hover:opacity-70 ml-0.5">×</button>
+                </div>
+              </template>
+              <div x-show="!tags.filter(x=>x.type==='system').length" class="text-xs text-slate-400">ยังไม่มีแท็กระบบ</div>
+            </div>
+          </div>
+          <!-- User Tags -->
+          <div class="bg-white rounded-2xl border p-4">
+            <div class="font-semibold mb-3 flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              แท็กของฉัน
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <template x-for="t in tags.filter(x=>x.type!=='system')" :key="t.id">
+                <div class="flex items-center gap-1 px-2.5 py-1 rounded-full border text-sm" :style="`background:${t.color}22;border-color:${t.color};color:${t.color}`">
+                  <span x-text="t.name"></span>
+                  <button @click="deleteTag(t.id)" class="hover:opacity-70 ml-0.5">×</button>
+                </div>
+              </template>
+              <div x-show="!tags.filter(x=>x.type!=='system').length" class="text-xs text-slate-400">ยังไม่มีแท็กส่วนตัว</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PIPELINES -->
+      <div x-show="activeTab==='pipelines'" x-transition>
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h3 class="font-semibold text-lg">Pipelines</h3>
+            <p class="text-xs text-slate-500 mt-0.5">จัดกลุ่มลีดตาม workspace / โครงการ และกำหนดทีม/ผู้ใช้ที่เข้าถึงได้</p>
+          </div>
+          <button @click="showPipelineModal=true" class="px-3 py-2 rounded-xl bg-violet-600 text-white text-sm">+ สร้าง Pipeline</button>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <template x-for="p in pipelines" :key="p.id">
+            <div class="bg-white rounded-2xl border p-4 hover:shadow-md transition">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+                    :style="`background:${p.color}`" x-text="p.name.charAt(0).toUpperCase()"></div>
+                  <div class="min-w-0">
+                    <div class="font-semibold truncate" x-text="p.name"></div>
+                    <div class="text-xs text-slate-500 truncate" x-text="p.description||'—'"></div>
+                  </div>
+                </div>
+                <div class="flex gap-1 shrink-0">
+                  <button @click="openPipelineMgmt(p)" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" title="จัดการ">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 1-1 0 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 9.5 15a1.65 1.65 0 0 1 0-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h1a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 14v1z"/></svg>
+                  </button>
+                  <button x-show="profile?.role==='admin'" @click="deletePipeline(p.id)" class="p-1.5 rounded-lg hover:bg-rose-50 text-rose-400">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+                  </button>
+                </div>
+              </div>
+              <!-- Teams & Users -->
+              <div class="mt-3 flex flex-wrap gap-1.5 min-h-[24px]">
+                <template x-for="pt in (p.pipeline_teams||[])" :key="pt.team_id">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] bg-violet-50 text-violet-700 border border-violet-200" x-text="pt.teams?.name"></span>
+                </template>
+                <template x-for="pu in (p.pipeline_users||[])" :key="pu.user_id">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-600" x-text="pu.profiles?.full_name||pu.profiles?.email"></span>
+                </template>
+                <span x-show="!(p.pipeline_teams?.length||p.pipeline_users?.length)" class="text-[11px] text-slate-400">ยังไม่ได้กำหนด</span>
+              </div>
+              <div class="mt-3 pt-3 border-t flex items-center justify-between">
+                <span class="text-xs text-slate-500"><span class="font-semibold text-slate-700" x-text="pipelineLeadCount(p.id)"></span> ลีด</span>
+                <button @click="activePipelineId=p.id; activeTab='leads'"
+                  class="px-3 py-1 rounded-lg bg-slate-50 hover:bg-violet-50 hover:text-violet-700 text-xs text-slate-600 transition">ดูลีด →</button>
+              </div>
+            </div>
+          </template>
+          <div x-show="!pipelines.length" class="col-span-3 py-16 text-center">
+            <div class="text-5xl mb-3">📊</div>
+            <div class="text-slate-500 font-medium">ยังไม่มี Pipeline</div>
+            <div class="text-sm text-slate-400 mt-1">สร้าง Pipeline เพื่อแยกกลุ่มลีดและทีมขาย</div>
+            <button @click="showPipelineModal=true" class="mt-4 px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm">+ สร้าง Pipeline แรก</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETUP GUIDE (ซ่อนแล้ว — ดูได้จากไฟล์ supabase/migrations/001_init.sql)
+      <details class="mt-8 bg-white rounded-2xl border p-4">
+        <summary class="cursor-pointer font-semibold select-none">คู่มือติดตั้ง Supabase SQL (คลิกเพื่อดู)</summary>
+        <div class="mt-4 text-sm space-y-3 text-slate-700">
+          <p class="font-medium">1. รัน SQL ทั้งหมดนี้ใน Supabase SQL Editor:</p>
+          <pre class="bg-slate-900 text-slate-100 p-4 rounded-xl overflow-auto text-[11px] leading-relaxed">-- ==========================================
+-- TABLES
+-- ==========================================
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text, full_name text,
+  role text default 'staff', -- 'admin' | 'team_lead' | 'staff'
+  created_at timestamptz default now()
+);
+
+create table if not exists teams (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_at timestamptz default now()
+);
+
+create table if not exists team_members (
+  team_id uuid references teams(id) on delete cascade,
+  user_id uuid references profiles(id) on delete cascade,
+  is_lead boolean default false,
+  primary key(team_id, user_id)
+);
+
+create table if not exists funnel_stages (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  position int default 0,
+  color text default '#6366f1',
+  is_unfollow boolean default false,
+  created_at timestamptz default now()
+);
+
+create table if not exists facebook_pages (
+  id uuid primary key default gen_random_uuid(),
+  page_id text unique,
+  name text,
+  token text,
+  owner_id uuid references profiles(id),
+  created_at timestamptz default now()
+);
+
+create table if not exists leads (
+  id uuid primary key default gen_random_uuid(),
+  customer_name text,
+  facebook_id text,
+  phone text,
+  email text,
+  page_id uuid references facebook_pages(id),
+  stage_id uuid references funnel_stages(id),
+  assigned_to uuid references profiles(id),
+  status text default 'active', -- 'active' | 'unfollowed'
+  source text,
+  metadata jsonb default '{}',
+  last_activity_at timestamptz default now(),
+  created_at timestamptz default now()
+);
+
+create table if not exists lead_activities (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete cascade,
+  type text, -- 'note' | 'stage_change' | 'tag_add' | 'assigned' | 'recalled'
+  content text,
+  created_by uuid references profiles(id),
+  created_at timestamptz default now()
+);
+
+create table if not exists tags (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  color text default '#8b5cf6',
+  type text default 'custom', -- 'system' | 'custom'
+  created_by uuid references profiles(id),
+  created_at timestamptz default now()
+);
+
+create table if not exists lead_tags (
+  lead_id uuid references leads(id) on delete cascade,
+  tag_id uuid references tags(id) on delete cascade,
+  primary key(lead_id, tag_id)
+);
+
+-- distribution_rules: config jsonb stores
+--   round_robin: { "last_index": N }
+--   individual:  { "user_ids": ["uuid1","uuid2"] }
+create table if not exists distribution_rules (
+  id uuid primary key default gen_random_uuid(),
+  page_id uuid references facebook_pages(id),
+  team_id uuid references teams(id),
+  method text default 'round_robin', -- 'round_robin' | 'random' | 'weighted'
+  config jsonb default '{}',
+  is_active boolean default true,
+  created_at timestamptz default now()
+);
+
+create table if not exists auto_recall_rules (
+  id uuid primary key default gen_random_uuid(),
+  stage_id uuid references funnel_stages(id),
+  inactive_days int default 3,
+  recall_to text default 'pool', -- 'pool' | 'admin'
+  is_active boolean default true,
+  created_at timestamptz default now()
+);
+
+-- ==========================================
+-- SEED DATA
+-- ==========================================
+insert into funnel_stages (name, position, color, is_unfollow) values
+  ('ใหม่',         1, '#8b5cf6', false),
+  ('ทักแล้ว',      2, '#06b6d4', false),
+  ('นัดหมาย',      3, '#f59e0b', false),
+  ('ปิดการขาย',    4, '#22c55e', false),
+  ('เลิกติดตาม',   5, '#94a3b8', true)
+on conflict do nothing;
+
+-- ==========================================
+-- DISTRIBUTE LEAD FUNCTION (ใช้ distribution_rules จริง)
+-- ==========================================
+create or replace function distribute_lead(p_lead_id uuid)
+returns void language plpgsql security definer as $$
+declare
+  v_page_id  uuid;
+  v_rule     record;
+  v_members  uuid[];
+  v_user_ids jsonb;
+  v_last_idx int;
+  v_next_idx int;
+  v_assign   uuid;
+begin
+  -- หา page_id ของ lead
+  select page_id into v_page_id from leads where id = p_lead_id;
+
+  -- หา rule ที่ active และตรงกับเพจ
+  select * into v_rule
+  from distribution_rules
+  where page_id = v_page_id and is_active = true
+  order by created_at asc limit 1;
+
+  if not found then return; end if; -- ไม่มี rule: ไม่แจก
+
+  -- หา candidates
+  if v_rule.config ? 'user_ids' then
+    -- รายบุคคล: อ่าน user_ids จาก config
+    select array_agg(u::uuid) into v_members
+    from jsonb_array_elements_text(v_rule.config->'user_ids') u;
+  else
+    -- ทีม: ดึงสมาชิกทีม
+    select array_agg(user_id) into v_members
+    from team_members where team_id = v_rule.team_id;
+  end if;
+
+  if v_members is null or array_length(v_members, 1) = 0 then return; end if;
+
+  -- เลือก user ตาม method
+  if v_rule.method = 'round_robin' then
+    v_last_idx := coalesce((v_rule.config->>'last_index')::int, -1);
+    v_next_idx := (v_last_idx + 1) % array_length(v_members, 1);
+    v_assign   := v_members[v_next_idx + 1]; -- 1-indexed
+    -- อัพเดต last_index
+    update distribution_rules
+    set config = jsonb_set(coalesce(config,'{}'), '{last_index}', to_jsonb(v_next_idx))
+    where id = v_rule.id;
+  else
+    -- random
+    v_assign := v_members[1 + floor(random() * array_length(v_members, 1))::int];
+  end if;
+
+  update leads
+  set assigned_to = v_assign, last_activity_at = now()
+  where id = p_lead_id;
+end $$;
+
+-- ==========================================
+-- RECALL FUNCTION (ใช้ auto_recall_rules จริง)
+-- ==========================================
+create or replace function recall_inactive_leads()
+returns int language plpgsql security definer as $$
+declare
+  v_rule   record;
+  v_count  int := 0;
+  v_tmp    int;
+begin
+  for v_rule in
+    select r.*, s.id as sid
+    from auto_recall_rules r
+    join funnel_stages s on s.id = r.stage_id
+    where r.is_active = true
+  loop
+    -- นับและเรียกคืนลีดที่นิ่งในขั้นตอนนั้น
+    with recalled as (
+      update leads
+      set assigned_to = null,
+          last_activity_at = now(),
+          metadata = jsonb_set(coalesce(metadata,'{}'), '{recalled_at}', to_jsonb(now()::text))
+      where stage_id  = v_rule.sid
+        and status    = 'active'
+        and assigned_to is not null
+        and last_activity_at < now() - (v_rule.inactive_days || ' days')::interval
+      returning id
+    )
+    select count(*) into v_tmp from recalled;
+    v_count := v_count + v_tmp;
+  end loop;
+  return v_count;
+end $$;
+
+-- ==========================================
+-- TRIGGER: auto-create profile on signup
+-- ==========================================
+create or replace function handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into profiles (id, email, full_name, role)
+  values (new.id, new.email, split_part(new.email,'@',1), 'staff')
+  on conflict (id) do nothing;
+  return new;
+end $$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function handle_new_user();
+
+-- ==========================================
+-- ROW LEVEL SECURITY
+-- ==========================================
+alter table profiles       enable row level security;
+alter table leads          enable row level security;
+alter table lead_activities enable row level security;
+alter table lead_tags      enable row level security;
+alter table tags           enable row level security;
+
+-- Helper function: role ของ user ปัจจุบัน
+create or replace function my_role()
+returns text language sql security definer stable as $$
+  select role from profiles where id = auth.uid()
+$$;
+
+-- Helper function: team member IDs ของ user (สำหรับ team_lead)
+create or replace function my_team_member_ids()
+returns setof uuid language sql security definer stable as $$
+  select distinct tm2.user_id
+  from team_members tm1
+  join team_members tm2 on tm2.team_id = tm1.team_id
+  where tm1.user_id = auth.uid()
+$$;
+
+-- Profiles: เห็นได้ทุกคน (อ่านชื่อ)
+drop policy if exists "profiles_select" on profiles;
+create policy "profiles_select" on profiles for select using (true);
+
+drop policy if exists "profiles_update_own" on profiles;
+create policy "profiles_update_own" on profiles for update using (id = auth.uid());
+
+-- Leads SELECT:
+-- admin: เห็นทั้งหมด
+-- team_lead: เห็นลีดของสมาชิกในทีม + pool (assigned_to is null)
+-- staff: เห็นเฉพาะลีดของตัวเอง + pool
+drop policy if exists "leads_select" on leads;
+create policy "leads_select" on leads for select using (
+  my_role() = 'admin'
+  or assigned_to is null
+  or assigned_to = auth.uid()
+  or (my_role() = 'team_lead' and assigned_to in (select my_team_member_ids()))
+);
+
+drop policy if exists "leads_insert" on leads;
+create policy "leads_insert" on leads for insert with check (true);
+
+drop policy if exists "leads_update" on leads;
+create policy "leads_update" on leads for update using (
+  my_role() = 'admin'
+  or assigned_to = auth.uid()
+  or (my_role() = 'team_lead' and assigned_to in (select my_team_member_ids()))
+);
+
+-- Lead Activities
+drop policy if exists "activities_select" on lead_activities;
+create policy "activities_select" on lead_activities for select using (
+  lead_id in (select id from leads)
+);
+drop policy if exists "activities_insert" on lead_activities;
+create policy "activities_insert" on lead_activities for insert with check (true);
+
+-- Tags: system = ทุกคนเห็น, custom = เจ้าของเท่านั้น
+drop policy if exists "tags_select" on tags;
+create policy "tags_select" on tags for select using (
+  type = 'system' or created_by = auth.uid() or my_role() = 'admin'
+);
+drop policy if exists "tags_insert" on tags;
+create policy "tags_insert" on tags for insert with check (
+  created_by = auth.uid()
+);
+drop policy if exists "tags_delete" on tags;
+create policy "tags_delete" on tags for delete using (
+  created_by = auth.uid() or my_role() = 'admin'
+);
+
+-- Lead Tags
+drop policy if exists "lead_tags_all" on lead_tags;
+create policy "lead_tags_all" on lead_tags for all using (
+  lead_id in (select id from leads)
+);</pre>
+          <p>2. เปิด Authentication → Email → Enable Magic Link</p>
+          <p>3. ตั้ง Site URL ใน Supabase → Authentication → URL Configuration</p>
+          <p>4. ใส่ URL และ Anon Key ด้านบนแล้ว Reload</p>
+        </div>
+      </details> -->
+    </main>
+  </div>
+
+  <!-- MOBILE NAV -->
+  <div class="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t z-30 safe-area-inset-bottom">
+    <div class="grid grid-cols-5">
+      <template x-for="item in menu.slice(0,5)" :key="item.id">
+        <button @click="activeTab=item.id" class="py-2.5 flex flex-col items-center gap-0.5 text-[10px]" :class="activeTab===item.id?'text-violet-600':'text-slate-400'">
+          <span x-html="item.icon"></span>
+          <span x-text="item.label"></span>
+        </button>
+      </template>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LEAD DETAIL MODAL (center) ===== -->
+<div x-show="selectedLead" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-3">
+  <div @click="selectedLead=null" class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col" style="max-height:92vh">
+
+    <!-- ── HEADER ── -->
+    <div class="px-5 py-4 border-b flex items-center gap-4 shrink-0">
+      <div class="w-11 h-11 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center font-bold text-lg shrink-0"
+        x-text="(selectedLead?.customer_name||'?').charAt(0).toUpperCase()"></div>
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-bold text-lg leading-tight" x-text="selectedLead?.customer_name"></span>
+          <span x-show="selectedLead?.status==='unfollowed'" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">เลิกติดตาม</span>
+        </div>
+        <div class="flex flex-wrap gap-3 mt-0.5 text-xs text-slate-500">
+          <span>แหล่งที่มา: <span class="text-slate-700 font-medium" x-text="selectedLead?.page?.name||'-'"></span></span>
+          <span>อายุลีด: <span class="text-slate-700" x-text="leadAge(selectedLead?.created_at)"></span></span>
+          <span>มูลค่า: <span class="text-slate-700 font-medium" x-text="(selectedLead?.value||0).toLocaleString('th-TH',{minimumFractionDigits:2})+' THB'"></span></span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="text-right hidden sm:block">
+          <div class="text-xs text-slate-400">ดูแลโดย</div>
+          <div class="text-sm font-medium" x-text="selectedLead?.assigned?.full_name||'กองกลาง'"></div>
+        </div>
+        <div class="text-xs text-slate-400 hidden sm:block" x-text="'ข้อมูล ณ '+new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'})"></div>
+        <button @click="selectedLead=null" class="p-2 rounded-xl hover:bg-slate-100 text-slate-500 text-lg leading-none">✕</button>
+      </div>
+    </div>
+
+    <!-- ── FUNNEL STEPS ── -->
+    <div class="px-5 py-3 border-b overflow-x-auto scrollbar shrink-0 bg-slate-50/50">
+      <div class="flex items-start min-w-max gap-0">
+        <template x-for="(s, idx) in pipelineStages.filter(x=>!x.is_unfollow)" :key="s.id">
+          <div class="flex items-start">
+            <button @click="changeLeadStage(s.id)" class="flex flex-col items-center gap-1 px-2 group">
+              <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all"
+                :class="selectedLead?.stage_id===s.id
+                  ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-200'
+                  : 'border-slate-300 text-slate-400 group-hover:border-violet-400 group-hover:text-violet-600'">
+                <span x-text="idx+1"></span>
+              </div>
+              <span class="text-[11px] text-center max-w-[72px] leading-tight"
+                :class="selectedLead?.stage_id===s.id?'text-violet-700 font-semibold':'text-slate-400 group-hover:text-violet-600'"
+                x-text="s.name"></span>
+            </button>
+            <div class="mt-4 w-6 h-0.5 shrink-0"
+              :class="selectedLead?.stage_id===s.id?'bg-violet-300':'bg-slate-200'"></div>
+          </div>
+        </template>
+        <!-- ถัดไป button -->
+        <button @click="advanceStage" class="flex flex-col items-center gap-1 px-2 group ml-1">
+          <div class="w-8 h-8 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 group-hover:border-violet-400 group-hover:text-violet-600 transition-all">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <span class="text-[11px] text-slate-400 group-hover:text-violet-600">ถัดไป</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── BODY: 2 columns ── -->
+    <div class="flex-1 flex overflow-hidden min-h-0">
+
+      <!-- LEFT: notes + activities -->
+      <div class="flex-1 flex flex-col overflow-hidden border-r">
+        <!-- Note input -->
+        <div class="p-4 border-b shrink-0">
+          <textarea x-model="newNote" @keydown.ctrl.enter="addNote" placeholder="เขียนอะไรบางอย่าง... (Ctrl+Enter เพื่อบันทึก)"
+            rows="3" class="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-violet-200 resize-none"></textarea>
+          <div class="mt-2 flex justify-end">
+            <button @click="addNote" :disabled="!newNote.trim()"
+              class="px-4 py-2 rounded-xl bg-violet-600 text-white text-sm disabled:opacity-40 hover:bg-violet-700">บันทึก</button>
+          </div>
+        </div>
+        <!-- Activity timeline -->
+        <div class="flex-1 overflow-y-auto scrollbar p-4 space-y-2">
+          <div class="text-xs text-slate-400 font-medium mb-3">รายการบันทึก</div>
+          <template x-for="a in activities" :key="a.id">
+            <div class="flex gap-3">
+              <div class="shrink-0 mt-1">
+                <div class="w-7 h-7 rounded-full flex items-center justify-center text-[11px]"
+                  :class="a.type==='note'?'bg-violet-100 text-violet-600':a.type==='stage_change'?'bg-blue-100 text-blue-600':a.type==='recalled'?'bg-amber-100 text-amber-600':a.type==='assigned'?'bg-emerald-100 text-emerald-600':'bg-slate-100 text-slate-500'">
+                  <span x-text="a.type==='note'?'📝':a.type==='stage_change'?'↗':a.type==='recalled'?'↩':a.type==='assigned'?'👤':'•'"></span>
+                </div>
+              </div>
+              <div class="flex-1 bg-slate-50 rounded-xl p-3 border border-slate-200">
+                <div class="flex items-center justify-between mb-0.5">
+                  <span class="text-[10px] font-medium text-slate-500 uppercase tracking-wide" x-text="a.type"></span>
+                  <span class="text-[10px] text-slate-400" x-text="new Date(a.created_at).toLocaleString('th-TH')"></span>
+                </div>
+                <div class="text-sm text-slate-700" x-text="a.content"></div>
+              </div>
+            </div>
+          </template>
+          <div x-show="!activities.length" class="py-8 text-center text-sm text-slate-400">ยังไม่มีรายการบันทึก</div>
+        </div>
+      </div>
+
+      <!-- RIGHT: sidebar -->
+      <div class="w-64 shrink-0 overflow-y-auto scrollbar p-4 space-y-4">
+
+        <!-- ผู้ติดต่อ -->
+        <div class="bg-white rounded-xl border p-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wide">ผู้ติดต่อ</span>
+          </div>
+          <div class="font-semibold" x-text="selectedLead?.customer_name"></div>
+          <!-- Phone -->
+          <div class="mt-2 flex items-center gap-2 group">
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.22h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17z"/></svg>
+            <input x-model="editPhone" @change="saveLeadField('phone', editPhone)"
+              placeholder="เบอร์โทร"
+              class="flex-1 text-sm text-slate-700 bg-transparent border-b border-transparent group-hover:border-slate-200 focus:border-violet-400 focus:outline-none px-0.5 py-0.5 min-w-0">
+          </div>
+          <!-- Email -->
+          <div class="mt-1.5 flex items-center gap-2 group">
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <input x-model="editEmail" @change="saveLeadField('email', editEmail)"
+              placeholder="อีเมล"
+              class="flex-1 text-sm text-slate-700 bg-transparent border-b border-transparent group-hover:border-slate-200 focus:border-violet-400 focus:outline-none px-0.5 py-0.5 min-w-0">
+          </div>
+          <!-- Value -->
+          <div class="mt-1.5 flex items-center gap-2 group">
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <input type="number" x-model.number="editValue" @change="saveLeadField('value', editValue)"
+              placeholder="มูลค่า (THB)" min="0" step="1000"
+              class="flex-1 text-sm text-slate-700 bg-transparent border-b border-transparent group-hover:border-slate-200 focus:border-violet-400 focus:outline-none px-0.5 py-0.5 min-w-0">
+          </div>
+        </div>
+
+        <!-- Assigned -->
+        <div class="bg-white rounded-xl border p-3">
+          <div class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">ผู้ดูแล</div>
+          <template x-if="profile?.role==='admin'||profile?.role==='team_lead'">
+            <select @change="reassignLead($event.target.value)" class="w-full px-2 py-1.5 rounded-lg border text-sm bg-white">
+              <option value="">กองกลาง (ยังไม่แจก)</option>
+              <template x-for="p in profilesAll" :key="p.id">
+                <option :value="p.id" :selected="selectedLead?.assigned_to===p.id" x-text="p.full_name||p.email"></option>
+              </template>
+            </select>
+          </template>
+          <template x-if="profile?.role==='staff'">
+            <div class="text-sm font-medium" x-text="selectedLead?.assigned?.full_name||'กองกลาง'"></div>
+          </template>
+        </div>
+
+        <!-- แท็ก -->
+        <div class="bg-white rounded-xl border p-3">
+          <div class="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">แท็ก</div>
+          <div class="flex flex-wrap gap-1.5">
+            <template x-for="tg in tags" :key="tg.id">
+              <button @click="toggleTag(tg)" class="px-2 py-0.5 rounded-full text-xs border transition"
+                :class="hasTag(tg)?'text-white':'hover:opacity-80'"
+                :style="hasTag(tg)?`background:${tg.color};border-color:${tg.color};color:#fff`:`border-color:${tg.color};color:${tg.color}`"
+                x-text="tg.name"></button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Recall countdown -->
+        <div x-show="recallCountdown" class="rounded-xl border p-3"
+          :class="recallCountdown?.overdue ? 'bg-rose-50 border-rose-200' : recallCountdown?.urgent ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'">
+          <div class="text-xs font-semibold uppercase tracking-wide mb-1"
+            :class="recallCountdown?.overdue?'text-rose-600':recallCountdown?.urgent?'text-amber-600':'text-slate-600'">
+            จะโดนเรียกคืน
+          </div>
+          <div class="text-lg font-bold"
+            :class="recallCountdown?.overdue?'text-rose-600':recallCountdown?.urgent?'text-amber-600':'text-slate-800'"
+            x-text="recallCountdown?.text||'-'"></div>
+          <div class="text-[11px] text-slate-500 mt-0.5" x-text="recallCountdown?.detail"></div>
+        </div>
+        <div x-show="!recallCountdown && selectedLead?.status!=='unfollowed'" class="rounded-xl border border-dashed border-slate-200 p-3 text-xs text-slate-400 text-center">
+          ไม่มีกฎเรียกคืนสำหรับขั้นตอนนี้
+        </div>
+
+        <!-- Reminders -->
+        <div class="bg-white rounded-xl border p-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wide">การแจ้งเตือน</span>
+            <button @click="showReminderModal=true"
+              class="flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-50 text-violet-700 hover:bg-violet-100 text-xs font-medium">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              เพิ่ม
+            </button>
+          </div>
+          <div class="space-y-1.5">
+            <template x-for="r in reminders" :key="r.id">
+              <div class="flex items-start gap-2 p-2 rounded-lg bg-violet-50 border border-violet-100">
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-medium text-violet-800" x-text="new Date(r.remind_at).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})"></div>
+                  <div x-show="r.note" class="text-[11px] text-slate-600 truncate mt-0.5" x-text="r.note"></div>
+                </div>
+                <button @click="deleteReminder(r.id)" class="text-slate-400 hover:text-rose-500 shrink-0 text-xs mt-0.5">×</button>
+              </div>
+            </template>
+            <div x-show="!reminders.length" class="text-xs text-slate-400 text-center py-2">ยังไม่มีการแจ้งเตือน</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FOOTER ── -->
+    <div class="px-5 py-3 border-t shrink-0 flex items-center gap-2 bg-slate-50/50">
+      <button x-show="selectedLead?.status!=='unfollowed'" @click="unfollowLead"
+        class="px-4 py-2 rounded-xl border border-amber-300 text-amber-700 bg-white hover:bg-amber-50 text-sm font-medium">
+        เลิกติดตาม
+      </button>
+      <button x-show="selectedLead?.status==='unfollowed'" @click="reactivateLead"
+        class="px-4 py-2 rounded-xl border border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50 text-sm font-medium">
+        กลับมาติดตาม
+      </button>
+      <div class="flex-1"></div>
+      <div class="text-xs text-slate-400" x-text="'สร้างเมื่อ '+new Date(selectedLead?.created_at||Date.now()).toLocaleString('th-TH')"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Reminder Modal -->
+<div x-show="showReminderModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4" x-transition>
+  <div @click="showReminderModal=false" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl">
+    <h3 class="font-bold text-lg mb-4">ตั้งการแจ้งเตือน</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-medium text-slate-600">วันและเวลาที่ต้องการแจ้งเตือน</label>
+        <input type="datetime-local" x-model="newReminder.remind_at"
+          :min="new Date().toISOString().slice(0,16)"
+          class="mt-1 w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-violet-200">
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-600">โน้ต (ไม่บังคับ)</label>
+        <input x-model="newReminder.note" placeholder="เช่น โทรติดตาม, นัดดูโครงการ"
+          class="mt-1 w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-violet-200">
+      </div>
+      <!-- Quick picks -->
+      <div>
+        <div class="text-xs text-slate-400 mb-1.5">เลือกด่วน:</div>
+        <div class="flex flex-wrap gap-1.5">
+          <template x-for="q in quickReminders" :key="q.label">
+            <button @click="newReminder.remind_at=q.value" class="px-2.5 py-1 rounded-lg border text-xs hover:bg-violet-50 hover:border-violet-300" x-text="q.label"></button>
+          </template>
+        </div>
+      </div>
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button @click="showReminderModal=false" class="px-4 py-2 rounded-xl border text-sm">ยกเลิก</button>
+      <button @click="saveReminder" class="px-4 py-2 rounded-xl bg-violet-600 text-white text-sm">ตั้งการแจ้งเตือน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Add Page -->
+<div x-show="showPageModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+  <div @click="showPageModal=false" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative bg-white rounded-2xl w-full max-w-md p-5 shadow-xl">
+    <h3 class="font-bold text-lg mb-4">เชื่อมต่อเพจ Facebook</h3>
+    <div class="space-y-3">
+      <input x-model="newPage.name" placeholder="ชื่อเพจ" class="w-full px-3 py-2.5 rounded-xl border">
+      <input x-model="newPage.page_id" placeholder="Page ID (ตัวเลข)" class="w-full px-3 py-2.5 rounded-xl border font-mono">
+      <input x-model="newPage.token" placeholder="Page Access Token" class="w-full px-3 py-2.5 rounded-xl border font-mono text-sm">
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button @click="showPageModal=false" class="px-4 py-2 rounded-xl border">ยกเลิก</button>
+      <button @click="addPage" class="px-4 py-2 rounded-xl bg-violet-600 text-white">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Team -->
+<div x-show="showTeamModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+  <div @click="showTeamModal=false" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl">
+    <h3 class="font-bold text-lg mb-4">สร้างทีมขาย</h3>
+    <input x-model="newTeam.name" placeholder="ชื่อทีม เช่น Sales A" class="w-full px-3 py-2.5 rounded-xl border">
+    <div class="mt-5 flex justify-end gap-2">
+      <button @click="showTeamModal=false" class="px-4 py-2 rounded-xl border">ยกเลิก</button>
+      <button @click="createTeam" class="px-4 py-2 rounded-xl bg-violet-600 text-white">สร้าง</button>
+    </div>
+  </div>
+</div>
+
+<!-- Distribution Rule -->
+<div x-show="showRuleModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+  <div @click="showRuleModal=false" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative bg-white rounded-2xl w-full max-w-md p-5 shadow-xl">
+    <h3 class="font-bold text-lg mb-4">สร้างกฎกระจายลีด</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-slate-600 font-medium">เพจ Facebook</label>
+        <select x-model="newRule.page_id" class="mt-1 w-full px-3 py-2.5 rounded-xl border">
+          <option value="">เลือกเพจ</option>
+          <template x-for="p in pages" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-600 font-medium">ประเภทการแจก</label>
+        <div class="mt-1 flex gap-2">
+          <button @click="newRule.assign_type='team'" :class="newRule.assign_type==='team'?'bg-violet-600 text-white':'border hover:bg-slate-50'" class="flex-1 py-2 rounded-xl text-sm">ทีม</button>
+          <button @click="newRule.assign_type='users'" :class="newRule.assign_type==='users'?'bg-violet-600 text-white':'border hover:bg-slate-50'" class="flex-1 py-2 rounded-xl text-sm">รายบุคคล</button>
+        </div>
+      </div>
+      <div x-show="newRule.assign_type==='team'">
+        <label class="text-xs text-slate-600 font-medium">ทีม</label>
+        <select x-model="newRule.team_id" class="mt-1 w-full px-3 py-2.5 rounded-xl border">
+          <option value="">เลือกทีม</option>
+          <template x-for="t in teams" :key="t.id"><option :value="t.id" x-text="t.name"></option></template>
+        </select>
+      </div>
+      <div x-show="newRule.assign_type==='users'">
+        <label class="text-xs text-slate-600 font-medium">เลือกผู้รับ (กด Ctrl/Cmd เพื่อเลือกหลายคน)</label>
+        <select x-model="newRule.user_ids" multiple class="mt-1 w-full px-3 py-2.5 rounded-xl border h-32 text-sm">
+          <template x-for="p in profilesAll" :key="p.id">
+            <option :value="p.id" x-text="p.full_name||p.email"></option>
+          </template>
+        </select>
+        <p class="text-[11px] text-slate-400 mt-1">เลือกแล้ว: <span x-text="newRule.user_ids.length"></span> คน</p>
+      </div>
+      <div>
+        <label class="text-xs text-slate-600 font-medium">วิธีแจก</label>
+        <select x-model="newRule.method" class="mt-1 w-full px-3 py-2.5 rounded-xl border">
+          <option value="round_robin">วนรอบ (Round Robin) — ทั่วถึง</option>
+          <option value="random">สุ่ม (Random)</option>
+        </select>
+      </div>
+      <!-- Pipeline target -->
+      <div class="rounded-xl bg-violet-50 border border-violet-200 p-3">
+        <label class="text-xs text-violet-700 font-semibold flex items-center gap-1.5 mb-2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Pipeline ปลายทาง
+        </label>
+        <select x-model="newRule.pipeline_id" class="w-full px-3 py-2 rounded-xl border bg-white text-sm">
+          <option value="">ไม่ระบุ Pipeline (เข้ากองกลาง)</option>
+          <template x-for="p in pipelines" :key="p.id">
+            <option :value="p.id" x-text="p.name"></option>
+          </template>
+        </select>
+        <p class="text-[11px] text-violet-500 mt-1.5">
+          ลีดจากเพจนี้จะเข้า Pipeline ที่เลือก และเริ่มที่ขั้นตอนแรกของ Pipeline นั้นอัตโนมัติ
+        </p>
+      </div>
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button @click="showRuleModal=false" class="px-4 py-2 rounded-xl border">ยกเลิก</button>
+      <button @click="saveDistributionRule" class="px-4 py-2 rounded-xl bg-violet-600 text-white">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Recall Rule -->
+<div x-show="showRecallModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+  <div @click="showRecallModal=false" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative bg-white rounded-2xl w-full max-w-md p-5 shadow-xl">
+    <h3 class="font-bold text-lg mb-4">สร้างกฎเรียกคืน</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-slate-600 font-medium">ขั้นตอน</label>
+        <select x-model="newRecall.stage_id" class="mt-1 w-full px-3 py-2.5 rounded-xl border">
+          <option value="">เลือกขั้นตอน</option>
+          <template x-for="s in stages.filter(x=>!x.is_unfollow)" :key="s.id">
+            <option :value="s.id" x-text="s.name"></option>
+          </template>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-600 font-medium">ไม่มีกิจกรรมนาน (วัน)</label>
+        <input type="number" x-model.number="newRecall.inactive_days" min="1" max="365" class="mt-1 w-full px-3 py-2.5 rounded-xl border">
+      </div>
+      <div>
+        <label class="text-xs text-slate-600 font-medium">เรียกคืนไปที่</label>
+        <select x-model="newRecall.recall_to" class="mt-1 w-full px-3 py-2.5 rounded-xl border">
+          <option value="pool">กองกลาง (assigned_to = null)</option>
+          <option value="admin">แอดมิน</option>
+        </select>
+      </div>
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button @click="showRecallModal=false" class="px-4 py-2 rounded-xl border">ยกเลิก</button>
+      <button @click="saveRecallRule" class="px-4 py-2 rounded-xl bg-violet-600 text-white">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Tag -->
+<div x-show="showTagModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+  <div @click="showTagModal=false" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl">
+    <h3 class="font-bold text-lg mb-4">สร้างแท็กใหม่</h3>
+    <div class="space-y-3">
+      <input x-model="newTag.name" placeholder="ชื่อแท็ก" class="w-full px-3 py-2.5 rounded-xl border">
+      <div class="flex items-center gap-3">
+        <label class="text-sm text-slate-600">สี:</label>
+        <input type="color" x-model="newTag.color" class="w-10 h-10 rounded-lg border cursor-pointer">
+        <span class="px-3 py-1 rounded-full text-sm border" :style="`background:${newTag.color}22;border-color:${newTag.color};color:${newTag.color}`" x-text="newTag.name||'ตัวอย่าง'"></span>
+      </div>
+      <div x-show="profile?.role==='admin'">
+        <label class="text-xs text-slate-600 font-medium">ประเภท</label>
+        <div class="mt-1 flex gap-2">
+          <button @click="newTag.type='system'" :class="newTag.type==='system'?'bg-violet-600 text-white':'border hover:bg-slate-50'" class="flex-1 py-2 rounded-xl text-sm">ระบบ (ทุกคนเห็น)</button>
+          <button @click="newTag.type='custom'" :class="newTag.type==='custom'?'bg-violet-600 text-white':'border hover:bg-slate-50'" class="flex-1 py-2 rounded-xl text-sm">ส่วนตัว</button>
+        </div>
+      </div>
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button @click="showTagModal=false" class="px-4 py-2 rounded-xl border">ยกเลิก</button>
+      <button @click="createTag" class="px-4 py-2 rounded-xl bg-violet-600 text-white">สร้าง</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Stage -->
+<div x-show="showStageModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+  <div @click="showStageModal=false" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl">
+    <h3 class="font-bold text-lg mb-4">เพิ่มขั้นตอน Funnel</h3>
+    <div class="space-y-3">
+      <input x-model="newStage.name" placeholder="ชื่อขั้นตอน เช่น ส่งใบเสนอราคา" class="w-full px-3 py-2.5 rounded-xl border">
+      <div class="flex items-center gap-3">
+        <label class="text-sm text-slate-600">สี:</label>
+        <input type="color" x-model="newStage.color" class="w-10 h-10 rounded-lg border cursor-pointer">
+        <span class="px-3 py-1 rounded-full text-sm" :style="`background:${newStage.color}22;color:${newStage.color}`" x-text="newStage.name||'ตัวอย่าง'"></span>
+      </div>
+      <label class="flex items-center gap-3 cursor-pointer">
+        <input type="checkbox" x-model="newStage.is_unfollow" class="w-4 h-4 rounded">
+        <span class="text-sm">ขั้นตอนนี้คือ "เลิกติดตาม"</span>
+      </label>
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button @click="showStageModal=false" class="px-4 py-2 rounded-xl border">ยกเลิก</button>
+      <button @click="createStage" class="px-4 py-2 rounded-xl bg-violet-600 text-white">สร้าง</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Pipeline -->
+<div x-show="showPipelineModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+  <div @click="showPipelineModal=false" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative bg-white rounded-2xl w-full max-w-md p-5 shadow-xl">
+    <h3 class="font-bold text-lg mb-4">สร้าง Pipeline ใหม่</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-medium text-slate-600">ชื่อ Pipeline</label>
+        <input x-model="newPipeline.name" placeholder="เช่น Wela Pipeline, Elysium Pipeline"
+          class="mt-1 w-full px-3 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-violet-200" @keydown.enter="createPipeline">
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-600">คำอธิบาย (ไม่บังคับ)</label>
+        <input x-model="newPipeline.description" placeholder="รายละเอียด Pipeline..."
+          class="mt-1 w-full px-3 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-violet-200">
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-600">สี</label>
+        <div class="mt-2 flex items-center gap-3">
+          <input type="color" x-model="newPipeline.color" class="w-10 h-10 rounded-lg border cursor-pointer shrink-0">
+          <div class="flex gap-2 flex-wrap">
+            <template x-for="c in ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#0ea5e9','#64748b']" :key="c">
+              <button @click="newPipeline.color=c" class="w-7 h-7 rounded-full border-2 transition-all"
+                :style="`background:${c}`"
+                :class="newPipeline.color===c?'border-slate-900 scale-110':'border-transparent hover:scale-105'"></button>
+            </template>
+          </div>
+        </div>
+      </div>
+      <!-- Preview -->
+      <div class="p-3 rounded-xl border bg-slate-50 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold"
+          :style="`background:${newPipeline.color}`" x-text="(newPipeline.name||'P').charAt(0).toUpperCase()"></div>
+        <div>
+          <div class="font-medium text-sm" x-text="newPipeline.name||'ชื่อ Pipeline'"></div>
+          <div class="text-xs text-slate-400" x-text="newPipeline.description||'คำอธิบาย'"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button @click="showPipelineModal=false" class="px-4 py-2 rounded-xl border">ยกเลิก</button>
+      <button @click="createPipeline" :disabled="!newPipeline.name.trim()" class="px-4 py-2 rounded-xl bg-violet-600 text-white disabled:opacity-40">สร้าง Pipeline</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pipeline Management Modal -->
+<!-- Pipeline Management Modal (Tabbed) -->
+<div x-show="showPipelineMgmtModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+  <div @click="showPipelineMgmtModal=false" class="absolute inset-0 bg-black/40"></div>
+  <div class="relative bg-white rounded-2xl w-full max-w-2xl shadow-xl flex flex-col" style="max-height:90vh">
+
+    <!-- Header -->
+    <div class="px-5 py-4 border-b flex items-center gap-3 shrink-0">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0"
+        :style="`background:${managingPipeline?.color||'#6366f1'}`"
+        x-text="(managingPipeline?.name||'?').charAt(0).toUpperCase()"></div>
+      <div class="flex-1 min-w-0">
+        <div class="font-bold text-base truncate" x-text="managingPipeline?.name"></div>
+        <div class="text-xs text-slate-500" x-text="managingPipeline?.description||'ตั้งค่า Pipeline'"></div>
+      </div>
+      <button @click="showPipelineMgmtModal=false" class="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 text-xl leading-none shrink-0">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex border-b shrink-0 px-2 bg-slate-50/50">
+      <button @click="pipelineMgmtTab='stages'"
+        :class="pipelineMgmtTab==='stages'?'border-b-2 border-violet-600 text-violet-700 bg-white':'text-slate-500 hover:text-slate-700'"
+        class="px-4 py-3 text-sm font-medium -mb-px transition">
+        ขั้นตอน Funnel
+        <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full" :class="pipelineMgmtTab==='stages'?'bg-violet-100 text-violet-600':'bg-slate-200 text-slate-500'" x-text="mgmtStages.length"></span>
+      </button>
+      <button @click="pipelineMgmtTab='recall'"
+        :class="pipelineMgmtTab==='recall'?'border-b-2 border-violet-600 text-violet-700 bg-white':'text-slate-500 hover:text-slate-700'"
+        class="px-4 py-3 text-sm font-medium -mb-px transition">
+        กฎเรียกคืน
+        <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full" :class="pipelineMgmtTab==='recall'?'bg-violet-100 text-violet-600':'bg-slate-200 text-slate-500'" x-text="mgmtRecallRules.length"></span>
+      </button>
+      <button @click="pipelineMgmtTab='members'"
+        :class="pipelineMgmtTab==='members'?'border-b-2 border-violet-600 text-violet-700 bg-white':'text-slate-500 hover:text-slate-700'"
+        class="px-4 py-3 text-sm font-medium -mb-px transition">
+        สมาชิก
+        <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full" :class="pipelineMgmtTab==='members'?'bg-violet-100 text-violet-600':'bg-slate-200 text-slate-500'" x-text="mgmtPipelineTeams.length + mgmtPipelineUsers.length"></span>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="overflow-y-auto scrollbar flex-1 p-5">
+
+      <!-- ── TAB: STAGES ── -->
+      <div x-show="pipelineMgmtTab==='stages'" class="space-y-4">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-slate-500">คลิกชื่อขั้นตอนเพื่อแก้ไข ลากซ้าย/ขวาเพื่อเลื่อนลำดับ</p>
+          <!-- Template picker -->
+          <div class="flex gap-1.5">
+            <button @click="applyStageTemplate('sales')" class="px-2.5 py-1 rounded-lg border text-[11px] text-slate-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition">📈 Sales</button>
+            <button @click="applyStageTemplate('real_estate')" class="px-2.5 py-1 rounded-lg border text-[11px] text-slate-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition">🏠 อสังหาฯ</button>
+            <button @click="applyStageTemplate('service')" class="px-2.5 py-1 rounded-lg border text-[11px] text-slate-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition">🎓 Service</button>
+          </div>
+        </div>
+
+        <!-- ── HORIZONTAL CARDS (ReadyPlanet style) ── -->
+        <div class="overflow-x-auto scrollbar -mx-1 px-1 pb-2">
+          <div class="flex gap-2 min-w-max items-start">
+
+            <template x-for="(s, idx) in mgmtStages" :key="s.id">
+              <div class="w-[150px] shrink-0 rounded-2xl border-2 overflow-hidden flex flex-col transition"
+                :class="s.is_unfollow ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200 bg-white hover:border-violet-300'">
+
+                <!-- Card header: number + special label -->
+                <div class="px-3 pt-3 pb-1 flex items-center justify-between">
+                  <div class="w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold"
+                    :style="`background:${s.color}22;border-color:${s.color};color:${s.color}`"
+                    x-text="idx+1"></div>
+                  <div class="flex gap-0.5">
+                    <button @click="movePipelineStage(s, -1)" :disabled="idx===0"
+                      class="p-1 rounded hover:bg-slate-100 disabled:opacity-20 text-slate-400 text-[10px]">◀</button>
+                    <button @click="movePipelineStage(s, 1)" :disabled="idx===mgmtStages.length-1"
+                      class="p-1 rounded hover:bg-slate-100 disabled:opacity-20 text-slate-400 text-[10px]">▶</button>
+                  </div>
+                </div>
+
+                <!-- Stage name: inline editable -->
+                <div class="px-3 py-2 flex-1">
+                  <div class="text-[10px] text-slate-400 mb-1">ชื่อขั้นตอน</div>
+                  <input
+                    :value="s.name"
+                    @change="updateStageNameInline(s, $event.target.value)"
+                    @blur="updateStageNameInline(s, $event.target.value)"
+                    class="w-full text-sm font-medium bg-transparent border-b border-transparent hover:border-slate-300 focus:border-violet-400 focus:outline-none py-0.5 text-slate-700"
+                    :class="s.is_unfollow ? 'text-amber-700' : ''">
+                </div>
+
+                <!-- Badges row -->
+                <div class="px-3 pb-2 flex flex-wrap gap-1 min-h-[24px]">
+                  <span x-show="idx===0" class="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">ขั้นตอนแรก</span>
+                  <span x-show="s.is_unfollow" class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">เลิกติดตาม</span>
+                  <template x-if="recallRules.find(r=>r.stage_id===s.id&&r.is_active)">
+                    <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700"
+                      x-text="'↩ ' + recallRules.find(r=>r.stage_id===s.id&&r.is_active).inactive_days + 'ว'"></span>
+                  </template>
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500"
+                    x-text="leads.filter(l=>l.stage_id===s.id).length + ' ลีด'"></span>
+                </div>
+
+                <!-- Color picker + delete -->
+                <div class="border-t px-3 py-2 flex items-center justify-between">
+                  <div class="flex items-center gap-1.5">
+                    <input type="color" :value="s.color"
+                      @change="supabase.from('funnel_stages').update({color:$event.target.value}).eq('id',s.id).then(()=>loadStages())"
+                      class="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0">
+                    <span class="text-[10px] text-slate-400">สี</span>
+                  </div>
+                  <button @click="deletePipelineStage(s)" class="p-1 rounded hover:bg-rose-50 text-rose-400">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- + Add Stage card -->
+            <div class="w-[130px] shrink-0">
+              <div x-show="!mgmtNewStage._open"
+                @click="mgmtNewStage._open=true; $nextTick(()=>$el.closest('.w-\\[130px\\]').querySelector('input')?.focus())"
+                class="h-full min-h-[140px] rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-violet-400 hover:bg-violet-50/50 transition text-slate-400 hover:text-violet-600">
+                <div class="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center text-lg font-light">+</div>
+                <div class="text-xs font-medium">เพิ่มขั้นตอน</div>
+              </div>
+              <div x-show="mgmtNewStage._open"
+                class="rounded-2xl border-2 border-violet-400 bg-violet-50/60 p-3 space-y-2">
+                <input x-model="mgmtNewStage.name" placeholder="ชื่อขั้นตอน"
+                  class="w-full px-2 py-1.5 rounded-lg border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  @keydown.enter="addPipelineStage(); mgmtNewStage._open=false"
+                  @keydown.escape="mgmtNewStage._open=false; mgmtNewStage.name=''">
+                <div class="flex items-center gap-2">
+                  <input type="color" x-model="mgmtNewStage.color" class="w-8 h-8 rounded border cursor-pointer shrink-0">
+                  <label class="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer">
+                    <input type="checkbox" x-model="mgmtNewStage.is_unfollow" class="w-3 h-3">เลิกติดตาม
+                  </label>
+                </div>
+                <div class="flex gap-1.5">
+                  <button @click="addPipelineStage(); mgmtNewStage._open=false" :disabled="!mgmtNewStage.name.trim()"
+                    class="flex-1 py-1.5 rounded-lg bg-violet-600 text-white text-xs disabled:opacity-40">เพิ่ม</button>
+                  <button @click="mgmtNewStage._open=false; mgmtNewStage.name=''"
+                    class="px-2 py-1.5 rounded-lg border text-xs text-slate-500 hover:bg-slate-50">✕</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div x-show="!mgmtStages.length && !mgmtNewStage._open" class="text-center py-2 text-xs text-slate-400">
+          เลือก Template หรือกด + เพื่อเพิ่มขั้นตอนแรก
+        </div>
+      </div>
+
+      <!-- ── TAB: RECALL RULES ── -->
+      <div x-show="pipelineMgmtTab==='recall'" class="space-y-4">
+        <p class="text-xs text-slate-500">กำหนดว่าแต่ละขั้นตอนจะเรียกคืนลีดกลับสู่กองกลางในกี่วัน หากไม่มีกิจกรรม</p>
+
+        <div class="rounded-2xl border overflow-hidden divide-y">
+          <template x-for="r in mgmtRecallRules" :key="r.id">
+            <div class="flex items-center justify-between gap-3 px-4 py-3 bg-white hover:bg-slate-50">
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-sm flex items-center gap-2 flex-wrap">
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="`background:${stages.find(s=>s.id===r.stage_id)?.color||'#94a3b8'}`"></span>
+                  <span x-text="r.funnel_stages?.name || stages.find(s=>s.id===r.stage_id)?.name || '—'"></span>
+                  <span class="text-slate-400 text-xs">→ ไม่มีกิจกรรม</span>
+                  <span class="text-violet-600 font-bold" x-text="r.inactive_days + ' วัน'"></span>
+                </div>
+                <div class="text-xs text-slate-400 mt-0.5 ml-4">
+                  เรียกคืนไปที่: <span x-text="r.recall_to==='pool'?'กองกลาง':'แอดมิน'"></span>
+                  <span class="ml-2 px-1.5 py-0.5 rounded text-[10px]"
+                    :class="r.is_active?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-500'"
+                    x-text="r.is_active?'เปิด':'ปิด'"></span>
+                </div>
+              </div>
+              <div class="flex gap-1 shrink-0">
+                <button @click="toggleRecallRule(r)" class="text-xs px-2 py-1 rounded-lg border hover:bg-slate-50" x-text="r.is_active?'ปิด':'เปิด'"></button>
+                <button @click="deleteRecallRule(r.id); loadRecallRules()" class="p-1.5 rounded-lg hover:bg-rose-50 text-rose-400">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+                </button>
+              </div>
+            </div>
+          </template>
+          <div x-show="!mgmtRecallRules.length" class="px-4 py-8 text-center text-slate-400 text-sm bg-slate-50">
+            <div x-show="mgmtStages.length">ยังไม่มีกฎเรียกคืน — เพิ่มด้านล่าง</div>
+            <div x-show="!mgmtStages.length">กรุณาเพิ่มขั้นตอน Funnel ก่อน</div>
+          </div>
+        </div>
+
+        <div x-show="mgmtStages.length" class="bg-slate-50 rounded-2xl border p-4 space-y-3">
+          <div class="text-xs font-semibold text-slate-600 uppercase tracking-wide">+ เพิ่มกฎเรียกคืน</div>
+          <select x-model="mgmtNewRecall.stage_id" class="w-full px-3 py-2.5 rounded-xl border text-sm bg-white">
+            <option value="">เลือกขั้นตอน...</option>
+            <template x-for="s in mgmtStages.filter(s=>!s.is_unfollow)" :key="s.id">
+              <option :value="s.id" x-text="s.name"></option>
+            </template>
+          </select>
+          <div class="flex gap-2 flex-wrap">
+            <div class="flex-1 min-w-[160px] flex items-center gap-2 border rounded-xl px-3 py-2.5 bg-white">
+              <span class="text-xs text-slate-500 shrink-0">ไม่มีกิจกรรมนาน</span>
+              <input type="number" x-model.number="mgmtNewRecall.inactive_days" min="1" max="365"
+                class="w-14 text-sm font-bold text-violet-600 text-center focus:outline-none bg-transparent">
+              <span class="text-xs text-slate-500">วัน</span>
+            </div>
+            <select x-model="mgmtNewRecall.recall_to" class="flex-1 min-w-[120px] px-3 py-2.5 rounded-xl border text-sm bg-white">
+              <option value="pool">→ กองกลาง</option>
+              <option value="admin">→ แอดมิน</option>
+            </select>
+            <button @click="addMgmtRecallRule" :disabled="!mgmtNewRecall.stage_id"
+              class="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm disabled:opacity-40 shrink-0">เพิ่มกฎ</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: MEMBERS ── -->
+      <div x-show="pipelineMgmtTab==='members'" class="space-y-5">
+        <!-- Teams -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-semibold text-sm">ทีมที่เข้าถึง Pipeline นี้</span>
+            <span class="text-xs text-slate-400" x-text="mgmtPipelineTeams.length + ' ทีม'"></span>
+          </div>
+          <div class="space-y-1.5 mb-3">
+            <template x-for="pt in mgmtPipelineTeams" :key="pt.team_id">
+              <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-violet-50 border border-violet-200">
+                <span class="text-sm font-medium text-violet-800" x-text="pt.teams?.name || teams.find(t=>t.id===pt.team_id)?.name || pt.team_id"></span>
+                <button @click="removePipelineTeam(pt.team_id)" class="text-xs text-rose-500 hover:text-rose-700 px-2 py-0.5 rounded hover:bg-rose-50">ลบออก</button>
+              </div>
+            </template>
+            <div x-show="!mgmtPipelineTeams.length" class="text-xs text-slate-400 text-center py-3 rounded-xl bg-slate-50 border border-dashed">ยังไม่ได้กำหนดทีม</div>
+          </div>
+          <div class="flex gap-2">
+            <select x-model="mgmtAddTeamId" class="flex-1 px-3 py-2 rounded-xl border text-sm bg-white">
+              <option value="">เลือกทีมที่จะเพิ่ม...</option>
+              <template x-for="t in teams.filter(t=>!mgmtPipelineTeams.some(pt=>pt.team_id===t.id))" :key="t.id">
+                <option :value="t.id" x-text="t.name"></option>
+              </template>
+            </select>
+            <button @click="addPipelineTeam" :disabled="!mgmtAddTeamId"
+              class="px-3 py-2 rounded-xl bg-violet-600 text-white text-sm disabled:opacity-40 shrink-0">เพิ่มทีม</button>
+          </div>
+        </div>
+
+        <hr class="border-slate-200">
+
+        <!-- Individual Users -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-semibold text-sm">ผู้ใช้รายบุคคล</span>
+            <span class="text-xs text-slate-400" x-text="mgmtPipelineUsers.length + ' คน'"></span>
+          </div>
+          <div class="space-y-1.5 mb-3">
+            <template x-for="pu in mgmtPipelineUsers" :key="pu.user_id">
+              <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold"
+                    x-text="(pu.profiles?.full_name||pu.profiles?.email||'?').charAt(0).toUpperCase()"></div>
+                  <span class="text-sm" x-text="pu.profiles?.full_name||pu.profiles?.email||pu.user_id"></span>
+                </div>
+                <button @click="removePipelineUser(pu.user_id)" class="text-xs text-rose-500 hover:text-rose-700 px-2 py-0.5 rounded hover:bg-rose-50">ลบออก</button>
+              </div>
+            </template>
+            <div x-show="!mgmtPipelineUsers.length" class="text-xs text-slate-400 text-center py-3 rounded-xl bg-slate-50 border border-dashed">ยังไม่ได้กำหนดผู้ใช้รายบุคคล</div>
+          </div>
+          <div class="flex gap-2">
+            <select x-model="mgmtAddUserId" class="flex-1 px-3 py-2 rounded-xl border text-sm bg-white">
+              <option value="">เลือกผู้ใช้ที่จะเพิ่ม...</option>
+              <template x-for="p in profilesAll.filter(p=>!mgmtPipelineUsers.some(pu=>pu.user_id===p.id))" :key="p.id">
+                <option :value="p.id" x-text="p.full_name||p.email"></option>
+              </template>
+            </select>
+            <button @click="addPipelineUser" :disabled="!mgmtAddUserId"
+              class="px-3 py-2 rounded-xl bg-slate-800 text-white text-sm disabled:opacity-40 shrink-0">เพิ่มผู้ใช้</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="px-5 py-3 border-t shrink-0 flex items-center justify-between">
+      <button @click="activePipelineId=managingPipeline?.id; activeTab='funnel'; showPipelineMgmtModal=false"
+        class="text-sm text-violet-600 hover:text-violet-800 hover:underline">ดู Funnel View →</button>
+      <button @click="showPipelineMgmtModal=false" class="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm">เสร็จสิ้น</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOASTS ===== -->
+<div class="fixed bottom-5 right-5 z-[100] space-y-2 pointer-events-none">
+  <template x-for="t in toasts" :key="t.id">
+    <div class="px-4 py-3 rounded-xl shadow-lg text-white text-sm max-w-xs pointer-events-auto" :class="t.type==='error'?'bg-rose-600':'bg-slate-900'" x-text="t.msg" x-transition></div>
+  </template>
+</div>
+
+<!-- ===== ALPINE APP ===== -->
+<script>
+function crmApp() {
+  return {
+    // Config
+    configured: false, showConfig: false, sb_url: '', sb_key: '', supabase: null,
+    // Auth
+    session: null, user: null, profile: null, email: '', password: '', loading: false, loginMode: 'password', signupPending: false,
+    // Data
+    leads: [], stages: [], teams: [], pages: [], tags: [],
+    distRules: [], recallRules: [], profilesAll: [], activities: [],
+    // UI
+    activeTab: 'dashboard', leadFilter: 'active', selectedLead: null,
+    draggedLead: null, dragOverStage: null, toasts: [], _chan: null,
+    viewMemberId: '',
+    // Modals
+    showPageModal: false, showTeamModal: false, showRuleModal: false, showReminderModal: false,
+    showPipelineModal: false, showPipelineMgmtModal: false,
+    reminders: [], newReminder: { remind_at: '', note: '' }, _reminderTimer: null,
+    editPhone: '', editEmail: '', editValue: 0,
+    // Pipelines
+    pipelines: [], activePipelineId: null,
+    newPipeline: { name: '', description: '', color: '#6366f1' },
+    managingPipeline: null, mgmtPipelineTeams: [], mgmtPipelineUsers: [],
+    mgmtAddTeamId: '', mgmtAddUserId: '',
+    // Pipeline management modal state
+    pipelineMgmtTab: 'stages',
+    mgmtNewStage: { name: '', color: '#6366f1', is_unfollow: false, _open: false },
+    mgmtNewRecall: { stage_id: '', inactive_days: 3, recall_to: 'pool' },
+    showRecallModal: false, showTagModal: false, showStageModal: false,
+    // Forms
+    newPage: {name:'',page_id:'',token:''},
+    newTeam: {name:''},
+    newRule: {page_id:'',assign_type:'team',team_id:'',user_ids:[],method:'round_robin',pipeline_id:''},
+    newRecall: {stage_id:'',inactive_days:3,recall_to:'pool'},
+    newNote: '',
+    newTag: {name:'',color:'#8b5cf6',type:'custom'},
+    newStage: {name:'',color:'#6366f1',is_unfollow:false},
+
+    // ── MENU ──────────────────────────────────────────────────────────
+    menu: [
+      {id:'dashboard', label:'แดชบอร์ด',    icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>'},
+      {id:'leads',     label:'กล่องลีด',    icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>'},
+      {id:'funnel',    label:'Funnel',      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2V12.46L22 3z"/></svg>'},
+      {id:'teams',     label:'ทีม',         icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>'},
+      {id:'rules',     label:'กฎกระจาย',   icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/></svg>'},
+      {id:'recall',    label:'เรียกคืน',   icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></svg>'},
+      {id:'stages',    label:'Funnel ตั้งค่า', icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>'},
+      {id:'tags',      label:'แท็ก',        icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>'},
+      {id:'pipelines', label:'Pipelines',    icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>'},
+      {id:'pages',     label:'เพจ',         icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>'},
+    ],
+
+    // ── COMPUTED ──────────────────────────────────────────────────────
+    get roleBadgeClass() {
+      const r = this.profile?.role;
+      return r === 'admin' ? 'bg-rose-100 text-rose-700' :
+             r === 'team_lead' ? 'bg-amber-100 text-amber-700' :
+             'bg-slate-200 text-slate-600';
+    },
+
+    // leads ที่ role นี้มีสิทธิ์เห็น + กรอง pipeline
+    get visibleLeads() {
+      if (!this.profile) return [];
+      let leads = this.leads;
+      // กรอง pipeline ก่อน
+      if (this.activePipelineId) {
+        leads = leads.filter(l => l.pipeline_id === this.activePipelineId);
+      }
+      const r = this.profile.role;
+      if (r === 'admin') return leads;
+      if (r === 'team_lead') {
+        const memberIds = this.myTeamMemberIds;
+        if (this.viewMemberId) return leads.filter(l => l.assigned_to === this.viewMemberId);
+        return leads.filter(l => !l.assigned_to || l.assigned_to === this.user?.id || memberIds.includes(l.assigned_to));
+      }
+      return leads.filter(l => !l.assigned_to || l.assigned_to === this.user?.id);
+    },
+
+    // stages ของ active pipeline (null = global)
+    get pipelineStages() {
+      if (this.activePipelineId) {
+        const ps = this.stages.filter(s => s.pipeline_id === this.activePipelineId);
+        return ps.length ? ps : this.stages.filter(s => !s.pipeline_id);
+      }
+      return this.stages;
+    },
+
+    get activePipeline() {
+      return this.pipelines.find(p => p.id === this.activePipelineId) || null;
+    },
+
+    // stages ของ pipeline ที่กำลัง manage อยู่
+    get mgmtStages() {
+      if (!this.managingPipeline) return [];
+      return this.stages.filter(s => s.pipeline_id === this.managingPipeline.id);
+    },
+
+    // recall rules ของ pipeline ที่กำลัง manage อยู่
+    get mgmtRecallRules() {
+      if (!this.managingPipeline) return [];
+      const stageIds = new Set(this.mgmtStages.map(s => s.id));
+      return this.recallRules.filter(r => stageIds.has(r.stage_id));
+    },
+
+    // pipelines ที่ user นี้มีสิทธิ์เข้าถึง
+    get myPipelines() {
+      if (!this.user) return this.pipelines;
+      if (this.profile?.role === 'admin') return this.pipelines;
+      const myTeamIds = this.teams
+        .filter(t => (t.team_members||[]).some(m => m.user_id === this.user.id))
+        .map(t => t.id);
+      return this.pipelines.filter(p => {
+        const inTeam = (p.pipeline_teams||[]).some(pt => myTeamIds.includes(pt.team_id));
+        const inUser = (p.pipeline_users||[]).some(pu => pu.user_id === this.user.id);
+        return inTeam || inUser || p.created_by === this.user.id;
+      });
+    },
+
+    get filteredLeads() {
+      return this.visibleLeads.filter(l =>
+        this.leadFilter === 'unfollowed' ? l.status === 'unfollowed' : l.status !== 'unfollowed'
+      );
+    },
+
+    get todayLeads() {
+      const t = new Date().toDateString();
+      return this.visibleLeads.filter(l => new Date(l.created_at).toDateString() === t).length;
+    },
+
+    get myLeads() {
+      return this.leads.filter(l => l.assigned_to === this.user?.id && l.status !== 'unfollowed').length;
+    },
+
+    get myTeamMemberIds() {
+      if (!this.teams.length || !this.user) return [];
+      const ids = new Set();
+      this.teams.forEach(t => {
+        const members = t.team_members || [];
+        const inTeam = members.some(m => m.user_id === this.user.id);
+        if (inTeam) members.forEach(m => ids.add(m.user_id));
+      });
+      return [...ids];
+    },
+
+    // สมาชิกในทีมของ user (สำหรับ team_lead filter)
+    get myTeamMembers() {
+      if (!this.teams.length || !this.user) return [];
+      const map = new Map();
+      this.teams.forEach(t => {
+        const members = t.team_members || [];
+        const inTeam = members.some(m => m.user_id === this.user.id);
+        if (inTeam) {
+          members.forEach(m => {
+            if (m.profiles) map.set(m.user_id, {id: m.user_id, ...m.profiles});
+          });
+        }
+      });
+      return [...map.values()];
+    },
+
+    // Recall countdown สำหรับ selectedLead
+    get recallCountdown() {
+      if (!this.selectedLead || this.selectedLead.status === 'unfollowed') return null;
+      const rule = this.recallRules.find(r => r.stage_id === this.selectedLead.stage_id && r.is_active);
+      if (!rule) return null;
+      const lastAct = new Date(this.selectedLead.last_activity_at);
+      const recallAt = new Date(lastAct.getTime() + rule.inactive_days * 86400000);
+      const remaining = recallAt.getTime() - Date.now();
+      if (remaining <= 0) {
+        return { overdue: true, urgent: false, text: 'เลยกำหนดแล้ว', detail: 'ลีดนี้ควรถูกเรียกคืนแล้ว' };
+      }
+      const days  = Math.floor(remaining / 86400000);
+      const hours = Math.floor((remaining % 86400000) / 3600000);
+      const mins  = Math.floor((remaining % 3600000) / 60000);
+      const urgent = remaining < 86400000; // < 1 วัน
+      let text = days > 0 ? `${days} วัน ${hours} ชม.` : hours > 0 ? `${hours} ชม. ${mins} นาที` : `${mins} นาที`;
+      const detail = `จะเรียกคืน ${recallAt.toLocaleString('th-TH', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`;
+      return { overdue: false, urgent, text, detail };
+    },
+
+    // Quick reminder options
+    get quickReminders() {
+      const now = new Date();
+      const fmt = d => d.toISOString().slice(0,16);
+      const add = (h) => { const d = new Date(now); d.setHours(d.getHours()+h); return d; };
+      const addDay = (n) => { const d = new Date(now); d.setDate(d.getDate()+n); d.setHours(9,0,0,0); return d; };
+      return [
+        { label: '1 ชม.', value: fmt(add(1)) },
+        { label: '3 ชม.', value: fmt(add(3)) },
+        { label: 'พรุ่งนี้ 9:00', value: fmt(addDay(1)) },
+        { label: '3 วัน', value: fmt(addDay(3)) },
+        { label: '1 สัปดาห์', value: fmt(addDay(7)) },
+      ];
+    },
+
+    // ── INIT ──────────────────────────────────────────────────────────
+    init() {
+      const DEFAULT_URL = 'https://ujkccnggzabawmllwcgz.supabase.co';
+      const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqa2NjbmdnemFiYXdtbGx3Y2d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwNzMzNTcsImV4cCI6MjA5MTY0OTM1N30.DwWXAybXGAX9GJ3-Hws-vFQ7-Aep0aOwmewbqufxWnc';
+      this.sb_url = localStorage.getItem('sb_url') || DEFAULT_URL;
+      this.sb_key = localStorage.getItem('sb_key') || DEFAULT_KEY;
+      this.configured = true;
+      this.initSupabase();
+    },
+
+    saveConfig() {
+      localStorage.setItem('sb_url', this.sb_url);
+      localStorage.setItem('sb_key', this.sb_key);
+      this.toast('บันทึกการเชื่อมต่อแล้ว');
+      location.reload();
+    },
+
+    initSupabase() {
+      try {
+        this.supabase = window.supabase.createClient(this.sb_url, this.sb_key);
+        this.checkSession();
+        this.supabase.auth.onAuthStateChange((_e, s) => {
+          this.session = s; this.user = s?.user || null;
+          if (s) this.afterLogin(); else this.profile = null;
+        });
+      } catch(e) { this.toast('เชื่อมต่อไม่ได้: ' + e.message, 'error'); }
+    },
+
+    async checkSession() {
+      const { data } = await this.supabase.auth.getSession();
+      this.session = data.session; this.user = data.session?.user || null;
+      if (this.user) this.afterLogin();
+    },
+
+    async signIn() {
+      this.loading = true;
+      try {
+        if (this.loginMode === 'password') {
+          const { error } = await this.supabase.auth.signInWithPassword({
+            email: this.email, password: this.password
+          });
+          if (error) throw error;
+        } else {
+          const { error } = await this.supabase.auth.signInWithOtp({
+            email: this.email,
+            options: { emailRedirectTo: window.location.href }
+          });
+          if (error) throw error;
+          this.toast('ส่ง Magic Link ไปที่อีเมลแล้ว');
+        }
+      } catch(e) { this.toast(e.message, 'error'); } finally { this.loading = false; }
+    },
+
+    async signUp() {
+      if (!this.email) { this.toast('กรุณาใส่อีเมล', 'error'); return; }
+      if (!this.password || this.password.length < 6) {
+        this.toast('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', 'error'); return;
+      }
+      this.loading = true;
+      try {
+        const { data, error } = await this.supabase.auth.signUp({
+          email: this.email,
+          password: this.password,
+        });
+        if (error) throw error;
+
+        if (data.session) {
+          // Email confirmation ปิดอยู่ → login อัตโนมัติทันที
+          this.toast('สมัครและเข้าสู่ระบบแล้ว');
+        } else if (data.user?.identities?.length === 0) {
+          // อีเมลนี้มีบัญชีอยู่แล้ว แต่ยังไม่ confirm
+          this.toast('อีเมลนี้มีบัญชีอยู่แล้ว กรุณาตรวจสอบอีเมลเพื่อยืนยัน', 'error');
+        } else {
+          // Email confirmation เปิดอยู่ → ต้อง confirm ก่อน
+          this.signupPending = true;
+          this.toast('ส่งอีเมลยืนยันแล้ว กรุณาตรวจสอบกล่องขาเข้า');
+        }
+      } catch(e) {
+        // แปล error message ที่พบบ่อย
+        const msg = e.message.includes('already registered')
+          ? 'อีเมลนี้ถูกใช้งานแล้ว ลองเข้าสู่ระบบด้วยรหัสผ่าน'
+          : e.message.includes('Signups not allowed')
+          ? 'การสมัครสมาชิกถูกปิดอยู่ใน Supabase Dashboard'
+          : e.message;
+        this.toast(msg, 'error');
+      } finally { this.loading = false; }
+    },
+
+    async signOut() {
+      await this.supabase.auth.signOut();
+      this.session = null; this.user = null;
+    },
+
+    async afterLogin() {
+      await this.ensureProfile();
+      await this.loadAll();
+      this.subscribeRealtime();
+      this.startReminderChecker();
+    },
+
+    async ensureProfile() {
+      // upsert: สร้างถ้าไม่มี, ข้ามถ้ามีแล้ว (ไม่ทับ role ที่ตั้งไว้)
+      await this.supabase.from('profiles').upsert(
+        { id: this.user.id, email: this.user.email, full_name: this.user.email.split('@')[0], role: 'staff' },
+        { onConflict: 'id', ignoreDuplicates: true }
+      );
+      const { data, error } = await this.supabase.from('profiles').select('*').eq('id', this.user.id).single();
+      if (error) { this.toast('โหลด profile ไม่ได้: ' + error.message, 'error'); return; }
+      this.profile = data;
+    },
+
+    // ── LOAD DATA ─────────────────────────────────────────────────────
+    async loadAll() {
+      await Promise.all([
+        this.loadPipelines(), this.loadStages(), this.loadPages(), this.loadTeams(),
+        this.loadTags(), this.loadRules(), this.loadRecallRules(),
+        this.loadProfilesAll(), this.loadLeads()
+      ]);
+    },
+
+    async loadPipelines() {
+      const { data } = await this.supabase.from('pipelines')
+        .select('*, pipeline_teams(team_id, teams(name)), pipeline_users(user_id, profiles(id,full_name,email))')
+        .eq('is_active', true).order('created_at');
+      this.pipelines = data || [];
+    },
+
+    async loadStages() {
+      const { data } = await this.supabase.from('funnel_stages').select('*').order('position');
+      this.stages = data || [];
+    },
+
+    async loadPages() {
+      const { data } = await this.supabase.from('facebook_pages').select('*').order('created_at', {ascending:false});
+      this.pages = data || [];
+    },
+
+    async loadTeams() {
+      const { data } = await this.supabase.from('teams')
+        .select('*, team_members(user_id, is_lead, profiles(id,full_name,email))');
+      this.teams = data || [];
+    },
+
+    async loadProfilesAll() {
+      const { data } = await this.supabase.from('profiles').select('id,full_name,email,role');
+      this.profilesAll = data || [];
+    },
+
+    async loadTags() {
+      const { data } = await this.supabase.from('tags').select('*')
+        .or(`type.eq.system,created_by.eq.${this.user.id}`)
+        .order('created_at');
+      this.tags = data || [];
+    },
+
+    async loadRules() {
+      const { data } = await this.supabase.from('distribution_rules')
+        .select('*, teams(name), facebook_pages(name), pipelines(name,color)')
+        .order('created_at', {ascending:false});
+      this.distRules = data || [];
+    },
+
+    async loadRecallRules() {
+      const { data } = await this.supabase.from('auto_recall_rules')
+        .select('*, funnel_stages(name)')
+        .order('created_at', {ascending:false});
+      this.recallRules = data || [];
+    },
+
+    async loadLeads() {
+      const { data, error } = await this.supabase.from('leads')
+        .select('*, stage:funnel_stages(*), page:facebook_pages(*), assigned:profiles!leads_assigned_to_fkey(id,full_name,email), lead_tags(tag_id, tags(id,name,color))')
+        .order('created_at', {ascending:false})
+        .limit(500);
+      if (error) { this.toast(error.message, 'error'); return; }
+      this.leads = data || [];
+    },
+
+    subscribeRealtime() {
+      if (this._chan) return;
+      this._chan = this.supabase.channel('rt-leads')
+        .on('postgres_changes', {event:'*', schema:'public', table:'leads'}, () => this.loadLeads())
+        .subscribe();
+    },
+
+    // ── HELPERS ───────────────────────────────────────────────────────
+    leadsByStage(stageId) {
+      return this.visibleLeads.filter(l => l.stage_id === stageId && l.status !== 'unfollowed');
+    },
+
+    timeAgo(iso) {
+      const s = (Date.now() - new Date(iso).getTime()) / 1000;
+      if (s < 60) return 'เมื่อสักครู่';
+      if (s < 3600) return `${Math.floor(s/60)}น.`;
+      if (s < 86400) return `${Math.floor(s/3600)}ชม.`;
+      return new Date(iso).toLocaleDateString('th-TH');
+    },
+
+    toast(msg, type='ok') {
+      const id = Date.now() + Math.random();
+      this.toasts.push({id, msg, type});
+      setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== id); }, 3500);
+    },
+
+    // ── CLIENT-SIDE DISTRIBUTE LEAD ──────────────────────────────────
+    // Flow: page → หา distribution rule → set pipeline + first stage + assigned_to
+    async clientDistributeLead(leadId, pageId) {
+      // 1. หา rule ที่ active สำหรับเพจนี้
+      const { data: rules } = await this.supabase.from('distribution_rules')
+        .select('*').eq('page_id', pageId).eq('is_active', true)
+        .order('created_at', {ascending:true}).limit(1);
+
+      if (!rules?.length) return; // ไม่มี rule: ลีดอยู่ในกองกลาง ไม่แจก
+
+      const rule = rules[0];
+      const updates = { last_activity_at: new Date().toISOString() };
+      const logParts = [];
+
+      // 2. ถ้า rule มี pipeline_id → set pipeline และ first stage ของ pipeline
+      if (rule.pipeline_id) {
+        updates.pipeline_id = rule.pipeline_id;
+        // หา first stage ของ pipeline (position ต่ำสุด ไม่ใช่ unfollow)
+        const pipelineFirstStage = this.stages
+          .filter(s => s.pipeline_id === rule.pipeline_id && !s.is_unfollow)
+          .sort((a, b) => a.position - b.position)[0];
+        if (pipelineFirstStage) {
+          updates.stage_id = pipelineFirstStage.id;
+          logParts.push(`Pipeline: ${this.pipelines.find(p=>p.id===rule.pipeline_id)?.name||'—'}`);
+          logParts.push(`Stage: ${pipelineFirstStage.name}`);
+        }
+      }
+
+      // 3. หา candidates (ทีม หรือ รายบุคคล)
+      let candidates = [];
+      if (rule.config?.user_ids?.length) {
+        candidates = rule.config.user_ids;
+      } else if (rule.team_id) {
+        const { data: members } = await this.supabase.from('team_members')
+          .select('user_id').eq('team_id', rule.team_id);
+        candidates = (members || []).map(m => m.user_id);
+      }
+
+      // 4. เลือก user ตาม method
+      if (candidates.length) {
+        let assignTo;
+        if (rule.method === 'round_robin') {
+          const lastIdx = rule.config?.last_index ?? -1;
+          const nextIdx = (lastIdx + 1) % candidates.length;
+          assignTo = candidates[nextIdx];
+          await this.supabase.from('distribution_rules')
+            .update({ config: {...(rule.config||{}), last_index: nextIdx} })
+            .eq('id', rule.id);
+        } else {
+          assignTo = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+        if (assignTo) {
+          updates.assigned_to = assignTo;
+          const person = this.profilesAll.find(p=>p.id===assignTo);
+          logParts.push(`แจกให้ ${person?.full_name||person?.email||'?'} (${rule.method})`);
+        }
+      }
+
+      // 5. อัพเดต lead ครั้งเดียว (pipeline + stage + assigned_to)
+      await this.supabase.from('leads').update(updates).eq('id', leadId);
+
+      // 6. log activity
+      await this.supabase.from('lead_activities').insert({
+        lead_id: leadId, type: 'assigned',
+        content: logParts.join(' • ') || 'กระจายลีดอัตโนมัติ',
+        created_by: this.user.id
+      });
+    },
+
+    // ── ACTIONS: PAGES ────────────────────────────────────────────────
+    async addPage() {
+      try {
+        const { error } = await this.supabase.from('facebook_pages')
+          .insert({...this.newPage, owner_id: this.user.id});
+        if (error) throw error;
+        this.showPageModal = false;
+        this.newPage = {name:'',page_id:'',token:''};
+        await this.loadPages();
+        this.toast('เพิ่มเพจแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async deletePage(id) {
+      if (!confirm('ลบเพจนี้?')) return;
+      const { error } = await this.supabase.from('facebook_pages').delete().eq('id', id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadPages();
+      this.toast('ลบเพจแล้ว');
+    },
+
+    // ── ACTIONS: TEAMS ────────────────────────────────────────────────
+    async createTeam() {
+      try {
+        const { data, error } = await this.supabase.from('teams')
+          .insert({name: this.newTeam.name}).select().single();
+        if (error) throw error;
+        // ผู้สร้างเป็น lead ของทีมอัตโนมัติ
+        await this.supabase.from('team_members')
+          .insert({team_id: data.id, user_id: this.user.id, is_lead: true});
+        // อัพเดต role เป็น team_lead ถ้าเป็น staff
+        if (this.profile?.role === 'staff') {
+          await this.supabase.from('profiles').update({role:'team_lead'}).eq('id', this.user.id);
+          this.profile = {...this.profile, role:'team_lead'};
+        }
+        this.showTeamModal = false;
+        this.newTeam.name = '';
+        await this.loadTeams();
+        this.toast('สร้างทีมแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async addMember(teamId, userId) {
+      if (!userId) return;
+      try {
+        const { error } = await this.supabase.from('team_members')
+          .insert({team_id: teamId, user_id: userId, is_lead: false});
+        if (error) throw error;
+        await this.loadTeams();
+        this.toast('เพิ่มสมาชิกแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async removeMember(teamId, userId) {
+      const { error } = await this.supabase.from('team_members')
+        .delete().match({team_id: teamId, user_id: userId});
+      if (error) return this.toast(error.message, 'error');
+      await this.loadTeams();
+      this.toast('นำสมาชิกออกแล้ว');
+    },
+
+    async toggleTeamLead(teamId, userId, isLead) {
+      const { error } = await this.supabase.from('team_members')
+        .update({is_lead: !isLead}).match({team_id: teamId, user_id: userId});
+      if (error) return this.toast(error.message, 'error');
+      // อัพเดต role ใน profiles
+      const newRole = !isLead ? 'team_lead' : 'staff';
+      await this.supabase.from('profiles').update({role: newRole}).eq('id', userId);
+      await Promise.all([this.loadTeams(), this.loadProfilesAll()]);
+      this.toast(!isLead ? 'ตั้งเป็นหัวหน้าทีมแล้ว' : 'ถอดหัวหน้าทีมแล้ว');
+    },
+
+    async deleteTeam(id) {
+      if (!confirm('ลบทีมนี้? สมาชิกจะถูกนำออกจากทีม')) return;
+      const { error } = await this.supabase.from('teams').delete().eq('id', id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadTeams();
+      this.toast('ลบทีมแล้ว');
+    },
+
+    // ── ACTIONS: PIPELINES ───────────────────────────────────────────
+    async createPipeline() {
+      if (!this.newPipeline.name.trim()) { this.toast('กรุณาใส่ชื่อ Pipeline', 'error'); return; }
+      try {
+        const { error } = await this.supabase.from('pipelines').insert({
+          ...this.newPipeline, created_by: this.user.id
+        });
+        if (error) throw error;
+        this.showPipelineModal = false;
+        this.newPipeline = { name: '', description: '', color: '#6366f1' };
+        await this.loadPipelines();
+        this.toast('สร้าง Pipeline แล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async deletePipeline(id) {
+      if (!confirm('ลบ Pipeline นี้? leads ทั้งหมดจะถูก unlink')) return;
+      const { error } = await this.supabase.from('pipelines').delete().eq('id', id);
+      if (error) return this.toast(error.message, 'error');
+      if (this.activePipelineId === id) this.activePipelineId = null;
+      await this.loadPipelines();
+      this.toast('ลบ Pipeline แล้ว');
+    },
+
+    async openPipelineMgmt(p) {
+      this.managingPipeline = { ...p };
+      this.mgmtPipelineTeams = [...(p.pipeline_teams || [])];
+      this.mgmtPipelineUsers = [...(p.pipeline_users || [])];
+      this.pipelineMgmtTab = 'stages';
+      this.mgmtNewStage = { name: '', color: '#6366f1', is_unfollow: false, _open: false };
+      this.mgmtNewRecall = { stage_id: '', inactive_days: 3, recall_to: 'pool' };
+      this.showPipelineMgmtModal = true;
+    },
+
+    // ── PIPELINE STAGE MANAGEMENT ─────────────────────────────────────
+    async addPipelineStage() {
+      if (!this.mgmtNewStage.name.trim() || !this.managingPipeline) return;
+      const existing = this.stages.filter(s => s.pipeline_id === this.managingPipeline.id);
+      const maxPos = existing.length ? Math.max(...existing.map(s => s.position)) : 0;
+      const { error } = await this.supabase.from('funnel_stages').insert({
+        name: this.mgmtNewStage.name.trim(),
+        color: this.mgmtNewStage.color,
+        is_unfollow: this.mgmtNewStage.is_unfollow,
+        position: maxPos + 1,
+        pipeline_id: this.managingPipeline.id
+      });
+      if (error) return this.toast(error.message, 'error');
+      this.mgmtNewStage = { name: '', color: '#6366f1', is_unfollow: false, _open: false };
+      await this.loadStages();
+      this.toast('เพิ่มขั้นตอนแล้ว');
+    },
+
+    async updateStageNameInline(stage, newName) {
+      if (!newName.trim()) return;
+      const { error } = await this.supabase.from('funnel_stages')
+        .update({ name: newName.trim() }).eq('id', stage.id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadStages();
+    },
+
+    async deletePipelineStage(s) {
+      const count = this.leads.filter(l => l.stage_id === s.id).length;
+      if (count > 0) { this.toast(`ลบไม่ได้: มีลีดอยู่ ${count} รายการ`, 'error'); return; }
+      if (!confirm(`ลบขั้นตอน "${s.name}"?`)) return;
+      const { error } = await this.supabase.from('funnel_stages').delete().eq('id', s.id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadStages();
+      this.toast('ลบขั้นตอนแล้ว');
+    },
+
+    async movePipelineStage(stage, dir) {
+      const arr = this.mgmtStages;
+      const idx = arr.findIndex(s => s.id === stage.id);
+      const swapIdx = idx + dir;
+      if (swapIdx < 0 || swapIdx >= arr.length) return;
+      const other = arr[swapIdx];
+      await Promise.all([
+        this.supabase.from('funnel_stages').update({ position: other.position }).eq('id', stage.id),
+        this.supabase.from('funnel_stages').update({ position: stage.position }).eq('id', other.id)
+      ]);
+      await this.loadStages();
+    },
+
+    async addMgmtRecallRule() {
+      if (!this.mgmtNewRecall.stage_id) { this.toast('กรุณาเลือกขั้นตอน', 'error'); return; }
+      try {
+        const { error } = await this.supabase.from('auto_recall_rules')
+          .insert({ ...this.mgmtNewRecall, is_active: true });
+        if (error) throw error;
+        this.mgmtNewRecall = { stage_id: '', inactive_days: 3, recall_to: 'pool' };
+        await this.loadRecallRules();
+        this.toast('เพิ่มกฎเรียกคืนแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async applyStageTemplate(type) {
+      if (!this.managingPipeline) return;
+      const templates = {
+        sales: [
+          { name:'ลีดใหม่',      color:'#8b5cf6', is_unfollow:false },
+          { name:'ติดต่อแล้ว',   color:'#06b6d4', is_unfollow:false },
+          { name:'นำเสนอ',       color:'#f59e0b', is_unfollow:false },
+          { name:'ปิดการขาย',   color:'#22c55e', is_unfollow:false },
+          { name:'เลิกติดตาม',  color:'#94a3b8', is_unfollow:true  },
+        ],
+        real_estate: [
+          { name:'ลีดใหม่',          color:'#8b5cf6', is_unfollow:false },
+          { name:'โทรติดต่อ',        color:'#06b6d4', is_unfollow:false },
+          { name:'กำลังติดตาม',      color:'#3b82f6', is_unfollow:false },
+          { name:'ส่งคูปอง',         color:'#f59e0b', is_unfollow:false },
+          { name:'นัดเข้าชม',        color:'#ec4899', is_unfollow:false },
+          { name:'เข้าชมแล้ว',       color:'#10b981', is_unfollow:false },
+          { name:'ปิดจอง',           color:'#22c55e', is_unfollow:false },
+          { name:'ทำสัญญา',          color:'#6366f1', is_unfollow:false },
+          { name:'เลิกติดตาม',       color:'#94a3b8', is_unfollow:true  },
+        ],
+        service: [
+          { name:'สนใจ',             color:'#8b5cf6', is_unfollow:false },
+          { name:'ส่งข้อมูล',        color:'#06b6d4', is_unfollow:false },
+          { name:'ทดลองใช้',         color:'#f59e0b', is_unfollow:false },
+          { name:'สมัคร/ซื้อแล้ว',  color:'#22c55e', is_unfollow:false },
+          { name:'เลิกติดตาม',       color:'#94a3b8', is_unfollow:true  },
+        ],
+      };
+      const tpl = templates[type];
+      if (!tpl) return;
+      if (!confirm(`ใช้ template "${type}"?\nขั้นตอนจะถูกเพิ่มต่อจากที่มีอยู่แล้ว`)) return;
+      const existing = this.stages.filter(s => s.pipeline_id === this.managingPipeline.id);
+      let pos = existing.length ? Math.max(...existing.map(s => s.position)) : 0;
+      for (const s of tpl) {
+        pos++;
+        await this.supabase.from('funnel_stages').insert({ ...s, position: pos, pipeline_id: this.managingPipeline.id });
+      }
+      await this.loadStages();
+      this.toast(`เพิ่ม template แล้ว (${tpl.length} ขั้นตอน)`);
+    },
+
+    async addPipelineTeam() {
+      if (!this.mgmtAddTeamId || !this.managingPipeline) return;
+      try {
+        const { error } = await this.supabase.from('pipeline_teams').insert({
+          pipeline_id: this.managingPipeline.id, team_id: this.mgmtAddTeamId
+        });
+        if (error) throw error;
+        this.mgmtAddTeamId = '';
+        await this.loadPipelines();
+        const fresh = this.pipelines.find(p => p.id === this.managingPipeline.id);
+        if (fresh) this.mgmtPipelineTeams = [...(fresh.pipeline_teams || [])];
+        this.toast('เพิ่มทีมแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async removePipelineTeam(teamId) {
+      await this.supabase.from('pipeline_teams')
+        .delete().match({ pipeline_id: this.managingPipeline.id, team_id: teamId });
+      await this.loadPipelines();
+      const fresh = this.pipelines.find(p => p.id === this.managingPipeline.id);
+      if (fresh) this.mgmtPipelineTeams = [...(fresh.pipeline_teams || [])];
+    },
+
+    async addPipelineUser() {
+      if (!this.mgmtAddUserId || !this.managingPipeline) return;
+      try {
+        const { error } = await this.supabase.from('pipeline_users').insert({
+          pipeline_id: this.managingPipeline.id, user_id: this.mgmtAddUserId
+        });
+        if (error) throw error;
+        this.mgmtAddUserId = '';
+        await this.loadPipelines();
+        const fresh = this.pipelines.find(p => p.id === this.managingPipeline.id);
+        if (fresh) this.mgmtPipelineUsers = [...(fresh.pipeline_users || [])];
+        this.toast('เพิ่มผู้ใช้แล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async removePipelineUser(userId) {
+      await this.supabase.from('pipeline_users')
+        .delete().match({ pipeline_id: this.managingPipeline.id, user_id: userId });
+      await this.loadPipelines();
+      const fresh = this.pipelines.find(p => p.id === this.managingPipeline.id);
+      if (fresh) this.mgmtPipelineUsers = [...(fresh.pipeline_users || [])];
+    },
+
+    pipelineLeadCount(pipelineId) {
+      return this.leads.filter(l => l.pipeline_id === pipelineId).length;
+    },
+
+    // ── ACTIONS: DISTRIBUTION RULES ───────────────────────────────────
+    async saveDistributionRule() {
+      try {
+        if (!this.newRule.page_id) throw new Error('กรุณาเลือกเพจ');
+        const payload = {
+          page_id: this.newRule.page_id,
+          method: this.newRule.method,
+          is_active: true,
+          config: {},
+          pipeline_id: this.newRule.pipeline_id || null
+        };
+        if (this.newRule.assign_type === 'team') {
+          if (!this.newRule.team_id) throw new Error('กรุณาเลือกทีม');
+          payload.team_id = this.newRule.team_id;
+        } else {
+          if (!this.newRule.user_ids.length) throw new Error('กรุณาเลือกผู้รับอย่างน้อย 1 คน');
+          payload.config = {user_ids: this.newRule.user_ids};
+        }
+        const { error } = await this.supabase.from('distribution_rules').insert(payload);
+        if (error) throw error;
+        this.showRuleModal = false;
+        this.newRule = {page_id:'',assign_type:'team',team_id:'',user_ids:[],method:'round_robin',pipeline_id:''};
+        await this.loadRules();
+        this.toast('บันทึกกฎแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async toggleRule(r) {
+      const { error } = await this.supabase.from('distribution_rules')
+        .update({is_active: !r.is_active}).eq('id', r.id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadRules();
+    },
+
+    async deleteRule(id) {
+      const { error } = await this.supabase.from('distribution_rules').delete().eq('id', id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadRules();
+      this.toast('ลบกฎแล้ว');
+    },
+
+    // ── ACTIONS: RECALL RULES ─────────────────────────────────────────
+    async saveRecallRule() {
+      try {
+        if (!this.newRecall.stage_id) throw new Error('กรุณาเลือกขั้นตอน');
+        const { error } = await this.supabase.from('auto_recall_rules')
+          .insert({...this.newRecall, is_active: true});
+        if (error) throw error;
+        this.showRecallModal = false;
+        this.newRecall = {stage_id:'',inactive_days:3,recall_to:'pool'};
+        await this.loadRecallRules();
+        this.toast('บันทึกกฎเรียกคืนแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async toggleRecallRule(r) {
+      const { error } = await this.supabase.from('auto_recall_rules')
+        .update({is_active: !r.is_active}).eq('id', r.id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadRecallRules();
+    },
+
+    async deleteRecallRule(id) {
+      const { error } = await this.supabase.from('auto_recall_rules').delete().eq('id', id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadRecallRules();
+      this.toast('ลบกฎแล้ว');
+    },
+
+    // CLIENT-SIDE RECALL (เรียกจาก UI button)
+    async runRecall() {
+      try {
+        let total = 0;
+        for (const rule of this.recallRules.filter(r => r.is_active)) {
+          const cutoff = new Date(Date.now() - rule.inactive_days * 86400000).toISOString();
+          const { data: stale } = await this.supabase.from('leads')
+            .select('id')
+            .eq('stage_id', rule.stage_id)
+            .eq('status', 'active')
+            .not('assigned_to', 'is', null)
+            .lt('last_activity_at', cutoff);
+
+          if (!stale?.length) continue;
+          const ids = stale.map(l => l.id);
+
+          const updatePayload = {
+            assigned_to: null,
+            last_activity_at: new Date().toISOString()
+          };
+
+          const { error } = await this.supabase.from('leads')
+            .update(updatePayload).in('id', ids);
+          if (error) throw error;
+
+          // log
+          await Promise.all(ids.map(lid =>
+            this.supabase.from('lead_activities').insert({
+              lead_id: lid, type: 'recalled',
+              content: `เรียกคืนอัตโนมัติ: ไม่มีกิจกรรม ${rule.inactive_days} วัน`,
+              created_by: this.user.id
+            })
+          ));
+          total += ids.length;
+        }
+        await this.loadLeads();
+        this.toast(`เรียกคืน ${total} ลีดสู่กองกลาง`);
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    // ── ACTIONS: FUNNEL STAGES ────────────────────────────────────────
+    async createStage() {
+      try {
+        if (!this.newStage.name) throw new Error('กรุณาใส่ชื่อขั้นตอน');
+        const maxPos = this.stages.length ? Math.max(...this.stages.map(s=>s.position)) : 0;
+        const { error } = await this.supabase.from('funnel_stages').insert({
+          ...this.newStage, position: maxPos + 1,
+          pipeline_id: this.activePipelineId || null
+        });
+        if (error) throw error;
+        this.showStageModal = false;
+        this.newStage = {name:'',color:'#6366f1',is_unfollow:false};
+        await this.loadStages();
+        this.toast('สร้างขั้นตอนแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async deleteStage(s) {
+      const count = this.leads.filter(l => l.stage_id === s.id).length;
+      if (count > 0) {
+        this.toast(`ไม่สามารถลบได้: มีลีดอยู่ ${count} รายการ`, 'error');
+        return;
+      }
+      if (!confirm(`ลบขั้นตอน "${s.name}"?`)) return;
+      const { error } = await this.supabase.from('funnel_stages').delete().eq('id', s.id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadStages();
+      this.toast('ลบขั้นตอนแล้ว');
+    },
+
+    async moveStage(stage, dir) {
+      const idx = this.stages.findIndex(s => s.id === stage.id);
+      const swapIdx = idx + dir;
+      if (swapIdx < 0 || swapIdx >= this.stages.length) return;
+      const other = this.stages[swapIdx];
+      // swap positions
+      await Promise.all([
+        this.supabase.from('funnel_stages').update({position: other.position}).eq('id', stage.id),
+        this.supabase.from('funnel_stages').update({position: stage.position}).eq('id', other.id)
+      ]);
+      await this.loadStages();
+    },
+
+    // ── ACTIONS: TAGS ─────────────────────────────────────────────────
+    async createTag() {
+      try {
+        if (!this.newTag.name) throw new Error('กรุณาใส่ชื่อแท็ก');
+        const { error } = await this.supabase.from('tags').insert({
+          ...this.newTag, created_by: this.user.id
+        });
+        if (error) throw error;
+        this.showTagModal = false;
+        this.newTag = {name:'',color:'#8b5cf6',type:'custom'};
+        await this.loadTags();
+        this.toast('สร้างแท็กแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async deleteTag(id) {
+      const { error } = await this.supabase.from('tags').delete().eq('id', id);
+      if (error) return this.toast(error.message, 'error');
+      await this.loadTags();
+      this.toast('ลบแท็กแล้ว');
+    },
+
+    // ── ACTIONS: LEADS ────────────────────────────────────────────────
+    async simulateLead() {
+      try {
+        if (!this.pages.length) { this.toast('กรุณาเพิ่มเพจก่อน', 'error'); this.activeTab='pages'; return; }
+        if (!this.stages.length) { this.toast('ไม่มีขั้นตอน Funnel', 'error'); return; }
+        const names = ['สมชาย ใจดี','สมหญิง รักงาน','นภา สุขใจ','วิชัย มานะ','ลูกค้าทดสอบ','อรุณ รุ่งเรือง','กัญญา สวัสดี'];
+
+        // --- Smart page selection ---
+        // เลือกเพจที่มีกฎกระจายลีดชี้ไปยัง pipeline ที่กำลัง active อยู่ก่อน
+        // ถ้าไม่มี → เลือกเพจที่มีกฎกระจายใดก็ได้ที่มี pipeline_id
+        // ถ้าไม่มีเลย → สุ่มเพจ
+        let page;
+        const activeRules = this.distRules.filter(r => r.is_active);
+        if (this.activePipelineId) {
+          const rulesForPipeline = activeRules.filter(r => r.pipeline_id === this.activePipelineId);
+          if (rulesForPipeline.length) {
+            const rule = rulesForPipeline[Math.floor(Math.random() * rulesForPipeline.length)];
+            page = this.pages.find(p => p.id === rule.page_id);
+          }
+        }
+        if (!page) {
+          const rulesWithPipeline = activeRules.filter(r => r.pipeline_id);
+          if (rulesWithPipeline.length) {
+            const rule = rulesWithPipeline[Math.floor(Math.random() * rulesWithPipeline.length)];
+            page = this.pages.find(p => p.id === rule.page_id);
+          }
+        }
+        page = page || this.pages[Math.floor(Math.random() * this.pages.length)];
+
+        // --- คำนวณ pipeline เป้าหมาย ---
+        // ลำดับ: activePipelineId → กฎของเพจที่เลือก → null
+        let targetPipelineId = this.activePipelineId;
+        if (!targetPipelineId) {
+          const ruleForPage = activeRules.find(r => r.page_id === page.id && r.pipeline_id);
+          if (ruleForPage) targetPipelineId = ruleForPage.pipeline_id;
+        }
+
+        // --- หา first stage ของ pipeline เป้าหมาย ---
+        const candidateStages = targetPipelineId
+          ? this.stages.filter(s => s.pipeline_id === targetPipelineId && !s.is_unfollow).sort((a,b) => a.position - b.position)
+          : this.stages.filter(s => !s.pipeline_id && !s.is_unfollow).sort((a,b) => a.position - b.position);
+        const firstStage = candidateStages[0] || this.stages.find(s => !s.is_unfollow) || this.stages[0];
+
+        const { data, error } = await this.supabase.from('leads').insert({
+          customer_name: names[Math.floor(Math.random()*names.length)],
+          facebook_id: 'fb_' + Math.floor(Math.random()*1e9),
+          page_id: page.id,
+          stage_id: firstStage.id,
+          pipeline_id: targetPipelineId || null,
+          status: 'active',
+          source: 'facebook',
+          last_activity_at: new Date().toISOString()
+        }).select().single();
+        if (error) throw error;
+
+        // กระจายลีด (อาจ update pipeline+stage+assigned_to อีกครั้ง)
+        await this.clientDistributeLead(data.id, page.id);
+        await this.supabase.from('lead_activities').insert({
+          lead_id: data.id, type: 'created',
+          content: `รับลีดจากเพจ ${page.name}`,
+          created_by: this.user.id
+        });
+        await this.loadLeads();
+
+        // toast แสดง pipeline + stage ที่ลีดเข้าไป
+        const finalLead = this.leads.find(l => l.id === data.id);
+        const pName = finalLead?.pipeline_id ? (this.pipelines.find(p=>p.id===finalLead.pipeline_id)?.name||'Pipeline') : null;
+        const sName = finalLead?.stage_id ? (this.stages.find(s=>s.id===finalLead.stage_id)?.name||'—') : '—';
+        this.toast(pName ? `จำลองลีดใหม่ → ${pName} (${sName})` : 'จำลองลีดใหม่แล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async changeLeadStage(stageId) {
+      if (!this.selectedLead || !stageId) return;
+      try {
+        const stage = this.stages.find(s => s.id === stageId);
+        const status = stage?.is_unfollow ? 'unfollowed' : 'active';
+        const { error } = await this.supabase.from('leads')
+          .update({stage_id: stageId, status, last_activity_at: new Date().toISOString()})
+          .eq('id', this.selectedLead.id);
+        if (error) throw error;
+        await this.supabase.from('lead_activities').insert({
+          lead_id: this.selectedLead.id, type: 'stage_change',
+          content: `ย้ายไปขั้นตอน "${stage?.name}"`,
+          created_by: this.user.id
+        });
+        await this.loadLeads();
+        this.selectedLead = this.leads.find(l => l.id === this.selectedLead.id);
+        await this.openLead(this.selectedLead);
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async reassignLead(userId) {
+      if (!this.selectedLead) return;
+      try {
+        const { error } = await this.supabase.from('leads')
+          .update({assigned_to: userId || null, last_activity_at: new Date().toISOString()})
+          .eq('id', this.selectedLead.id);
+        if (error) throw error;
+        const person = userId ? (this.profilesAll.find(p=>p.id===userId)?.full_name||'?') : 'กองกลาง';
+        await this.supabase.from('lead_activities').insert({
+          lead_id: this.selectedLead.id, type: 'assigned',
+          content: `แจกให้ ${person}`,
+          created_by: this.user.id
+        });
+        await this.loadLeads();
+        this.selectedLead = this.leads.find(l => l.id === this.selectedLead.id);
+        this.toast('แจกลีดแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async unfollowLead() {
+      if (!this.selectedLead) return;
+      try {
+        const unfollowStage = this.stages.find(s => s.is_unfollow);
+        const { error } = await this.supabase.from('leads')
+          .update({
+            status: 'unfollowed',
+            stage_id: unfollowStage?.id || this.selectedLead.stage_id,
+            last_activity_at: new Date().toISOString()
+          })
+          .eq('id', this.selectedLead.id);
+        if (error) throw error;
+        await this.supabase.from('lead_activities').insert({
+          lead_id: this.selectedLead.id, type: 'stage_change',
+          content: 'เลิกติดตามลีดนี้',
+          created_by: this.user.id
+        });
+        await this.loadLeads();
+        this.selectedLead = this.leads.find(l => l.id === this.selectedLead.id);
+        this.toast('เลิกติดตามแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async reactivateLead() {
+      if (!this.selectedLead) return;
+      try {
+        const firstStage = this.stages.find(s => !s.is_unfollow);
+        const { error } = await this.supabase.from('leads')
+          .update({
+            status: 'active',
+            stage_id: firstStage?.id || this.selectedLead.stage_id,
+            last_activity_at: new Date().toISOString()
+          })
+          .eq('id', this.selectedLead.id);
+        if (error) throw error;
+        await this.supabase.from('lead_activities').insert({
+          lead_id: this.selectedLead.id, type: 'stage_change',
+          content: 'เริ่มติดตามใหม่',
+          created_by: this.user.id
+        });
+        await this.loadLeads();
+        this.selectedLead = this.leads.find(l => l.id === this.selectedLead.id);
+        this.toast('กลับมาติดตามแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async updateLeadStage(lead, stage) {
+      try {
+        const status = stage.is_unfollow ? 'unfollowed' : 'active';
+        const { error } = await this.supabase.from('leads')
+          .update({stage_id: stage.id, status, last_activity_at: new Date().toISOString()})
+          .eq('id', lead.id);
+        if (error) throw error;
+        await this.supabase.from('lead_activities').insert({
+          lead_id: lead.id, type: 'stage_change',
+          content: `ย้ายไป "${stage.name}"`,
+          created_by: this.user.id
+        });
+        this.draggedLead = null;
+        this.dragOverStage = null;
+        await this.loadLeads();
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    dropLead(stage) {
+      if (this.draggedLead) this.updateLeadStage(this.draggedLead, stage);
+    },
+
+    async openLead(l) {
+      this.selectedLead = l;
+      // sync editable fields
+      this.editPhone = l.phone || '';
+      this.editEmail = l.email || '';
+      this.editValue = l.value || 0;
+      const [actRes] = await Promise.all([
+        this.supabase.from('lead_activities').select('*').eq('lead_id', l.id).order('created_at', {ascending:false}).limit(50),
+        this.loadReminders(l.id)
+      ]);
+      this.activities = actRes.data || [];
+    },
+
+    leadAge(iso) {
+      if (!iso) return '-';
+      const s = (Date.now() - new Date(iso).getTime()) / 1000;
+      if (s < 60) return 'เมื่อสักครู่';
+      if (s < 3600) return `${Math.floor(s/60)} นาที`;
+      const d = Math.floor(s / 86400);
+      const h = Math.floor((s % 86400) / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      if (d > 0) return `${d} วัน ${h} ชม.`;
+      return `${h} ชม. ${m} นาที`;
+    },
+
+    async saveLeadField(field, value) {
+      if (!this.selectedLead) return;
+      const { error } = await this.supabase.from('leads')
+        .update({ [field]: value, last_activity_at: new Date().toISOString() })
+        .eq('id', this.selectedLead.id);
+      if (error) { this.toast(error.message, 'error'); return; }
+      this.selectedLead = { ...this.selectedLead, [field]: value };
+      await this.loadLeads();
+    },
+
+    async advanceStage() {
+      if (!this.selectedLead) return;
+      const activeStages = this.pipelineStages.filter(s => !s.is_unfollow);
+      const idx = activeStages.findIndex(s => s.id === this.selectedLead.stage_id);
+      if (idx === -1 || idx >= activeStages.length - 1) {
+        this.toast('อยู่ขั้นตอนสุดท้ายแล้ว'); return;
+      }
+      await this.changeLeadStage(activeStages[idx + 1].id);
+    },
+
+    async loadReminders(leadId) {
+      const { data } = await this.supabase.from('lead_reminders')
+        .select('*').eq('lead_id', leadId).eq('is_done', false)
+        .order('remind_at');
+      this.reminders = data || [];
+    },
+
+    async saveReminder() {
+      if (!this.newReminder.remind_at) { this.toast('กรุณาเลือกวันและเวลา', 'error'); return; }
+      try {
+        const { error } = await this.supabase.from('lead_reminders').insert({
+          lead_id: this.selectedLead.id,
+          remind_at: this.newReminder.remind_at,
+          note: this.newReminder.note || null,
+          created_by: this.user.id
+        });
+        if (error) throw error;
+        this.showReminderModal = false;
+        this.newReminder = { remind_at: '', note: '' };
+        await this.loadReminders(this.selectedLead.id);
+        this.toast('ตั้งการแจ้งเตือนแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async deleteReminder(id) {
+      await this.supabase.from('lead_reminders').delete().eq('id', id);
+      if (this.selectedLead) await this.loadReminders(this.selectedLead.id);
+      this.toast('ลบการแจ้งเตือนแล้ว');
+    },
+
+    startReminderChecker() {
+      if (this._reminderTimer) return;
+      this.checkReminders(); // ตรวจทันที
+      this._reminderTimer = setInterval(() => this.checkReminders(), 30000); // ทุก 30 วินาที
+    },
+
+    async checkReminders() {
+      if (!this.user) return;
+      const now = new Date().toISOString();
+      const { data } = await this.supabase.from('lead_reminders')
+        .select('*, leads(customer_name)')
+        .eq('created_by', this.user.id)
+        .eq('is_done', false)
+        .lte('remind_at', now)
+        .limit(10);
+      for (const r of data || []) {
+        this.toast(`⏰ ${r.leads?.customer_name || 'Lead'}: ${r.note || 'ถึงเวลาแล้ว'}`);
+        await this.supabase.from('lead_reminders').update({ is_done: true }).eq('id', r.id);
+        // reload ถ้ากำลังดู lead นั้นอยู่
+        if (this.selectedLead?.id === r.lead_id) await this.loadReminders(r.lead_id);
+      }
+    },
+
+    hasTag(tg) {
+      return (this.selectedLead?.lead_tags||[]).some(lt => lt.tags?.id === tg.id || lt.tag_id === tg.id);
+    },
+
+    async toggleTag(tg) {
+      if (!this.selectedLead) return;
+      try {
+        const exists = this.hasTag(tg);
+        if (exists) {
+          await this.supabase.from('lead_tags')
+            .delete().match({lead_id: this.selectedLead.id, tag_id: tg.id});
+        } else {
+          await this.supabase.from('lead_tags')
+            .insert({lead_id: this.selectedLead.id, tag_id: tg.id});
+        }
+        await this.loadLeads();
+        this.selectedLead = this.leads.find(x => x.id === this.selectedLead.id);
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+
+    async addNote() {
+      if (!this.newNote.trim() || !this.selectedLead) return;
+      try {
+        await this.supabase.from('lead_activities').insert({
+          lead_id: this.selectedLead.id, type: 'note',
+          content: this.newNote, created_by: this.user.id
+        });
+        this.newNote = '';
+        await this.openLead(this.selectedLead);
+        this.toast('บันทึกโน้ตแล้ว');
+      } catch(e) { this.toast(e.message, 'error'); }
+    },
+  };
+}
+</script>
+</body>
+</html>

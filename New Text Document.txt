@@ -1,0 +1,32 @@
+Critical — ต้องแก้ก่อน
+C-1: Anon key hardcode ใน lib/supabase.ts
+ควรลบ fallback key ออก บังคับใช้ env var อย่างเดียว
+
+C-2: bootstrap() สร้าง profile ผ่าน anon client
+ถ้า RLS INSERT policy เปิดกว้างเกินไป ผู้ใช้ใหม่สามารถ upsert role: 'admin' ตัวเองได้โดยตรง ควรให้ trigger ฝั่ง DB จัดการเท่านั้น
+
+C-3: runRecall() ไม่มี transaction
+UPDATE leads สำเร็จ แต่ถ้า insert activity log บางตัว fail — leads ถูก recall ไปแล้วแต่ไม่มี audit trail ควรย้ายไปเป็น server RPC
+
+C-4: deleteRow(table, id) รับ table name เป็น string ไม่มี type constraint
+ควร narrow เป็น union type ของ table ที่อนุญาตเท่านั้น
+
+High — สำคัญมาก
+#	ปัญหา
+H-1	Lead visibility filter อยู่ฝั่ง client อย่างเดียว — loadCrmData โหลด leads ทั้ง 500 มาก่อน แล้วค่อย filter ใน browser
+H-2	Realtime channel ถูก unsubscribe/resubscribe ทุกครั้งที่เปิดลีด — selectedLeadId ใน dependency array
+H-3	บันทึกลีดได้ทั้งที่ stage_id ไม่ตรง pipeline ปัจจุบัน
+H-4	recall_to field (pool/admin/team) ถูก ignore ทั้งหมด — ลีดถูก recall ไปที่ null เสมอ
+H-5	moveStage() ยิง N+1+N queries ต่อการเรียงครั้งเดียว
+H-6	SQL function distribute_lead reference คอลัมน์ priority ใน distribution_rules — ถ้ายังไม่มี column นี้ในฐานข้อมูลจะ error ทันที
+H-7	checkReminders() เรียก loadCrmData() (9 queries) ทุกครั้ง per reminder ที่ครบกำหนด
+Medium / Low — แก้ได้ทีหลัง
+ปัญหาหลักๆ ได้แก่:
+
+RecallPanel ใน Pipeline modal ส่ง leads={[]} และ userId="" เสมอ → due count ผิด + audit log หาย
+simulateLead() ไม่เรียก distribute_lead RPC → round-robin index ไม่ขยับ
+Toast timer race condition (setTimeout ซ้อน)
+Lead drawer form reset กลาง session เมื่อ Realtime push มา
+ปุ่ม write ทุกปุ่มไม่มี loading/disabled state → double-submit ได้
+my_role() คืน NULL ถ้าไม่มี profile row → ควร COALESCE(..., 'staff')
+Hard limit 500 leads ไม่มีแจ้งเตือน
