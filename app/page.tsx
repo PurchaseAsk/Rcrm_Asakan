@@ -213,7 +213,7 @@ export default function HomePage() {
   const visibleLeads = useMemo(() => {
     if (!profile || !currentUserId) return [];
     const scoped = activePipelineId
-      ? data.leads.filter((lead) => lead.pipeline_id === activePipelineId)
+      ? data.leads.filter((lead) => lead.pipeline_id === activePipelineId || !lead.pipeline_id)
       : data.leads;
 
     if (profile.role === "admin") return scoped;
