@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Conversation, Message, Page, Profile } from "@/types/crm";
+import type { Conversation, Message, Page, Pipeline, Profile, Stage } from "@/types/crm";
 
 const supabase = createBrowserSupabase();
 
 export function ChatInbox({
   pages,
   profiles,
+  pipelines,
+  stages,
   userId,
   userRole,
   toast,
@@ -16,10 +18,12 @@ export function ChatInbox({
 }: {
   pages: Page[];
   profiles: Profile[];
+  pipelines: Pipeline[];
+  stages: Stage[];
   userId: string;
   userRole: string;
   toast: (message: string) => void;
-  onLeadCreated?: (leadId: string) => void;
+  onLeadCreated?: (leadId: string, pipelineId: string) => void;
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -31,9 +35,9 @@ export function ChatInbox({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string };
+  type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
   const [leadModal, setLeadModal] = useState<{ conv: Conversation; msgs: Message[] } | null>(null);
-  const [leadDraft, setLeadDraft] = useState<LeadDraft>({ customer_name: "", phone: "", email: "", assigned_to: "" });
+  const [leadDraft, setLeadDraft] = useState<LeadDraft>({ customer_name: "", phone: "", email: "", assigned_to: "", pipeline_id: "" });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -154,13 +158,22 @@ export function ChatInbox({
     }
   }
 
+  // stages for the currently selected pipeline in the draft
+  const draftStages = useMemo(() => {
+    if (!leadDraft.pipeline_id) return [];
+    const scoped = stages.filter((s) => s.pipeline_id === leadDraft.pipeline_id && !s.is_unfollow);
+    return scoped.length ? scoped : stages.filter((s) => !s.pipeline_id && !s.is_unfollow);
+  }, [leadDraft.pipeline_id, stages]);
+
   function openCreateLead(conv: Conversation) {
     if (conv.lead_id) return;
+    const defaultPipeline = pipelines[0]?.id ?? "";
     setLeadDraft({
       customer_name: conv.sender_name || "",
       phone: "",
       email: "",
       assigned_to: "",
+      pipeline_id: defaultPipeline,
     });
     setLeadModal({ conv, msgs: messages });
   }
@@ -168,9 +181,11 @@ export function ChatInbox({
   async function submitCreateLead() {
     if (!leadModal) return;
     if (!leadDraft.customer_name.trim()) return toast("กรุณากรอกชื่อลูกค้า");
+    if (!leadDraft.pipeline_id) return toast("กรุณาเลือก Pipeline");
     setSubmitting(true);
     try {
       const { conv, msgs } = leadModal;
+      const firstStageId = draftStages[0]?.id ?? null;
       const { data: lead, error } = await supabase
         .from("leads")
         .insert({
@@ -178,6 +193,8 @@ export function ChatInbox({
           phone: leadDraft.phone.trim() || null,
           email: leadDraft.email.trim() || null,
           assigned_to: leadDraft.assigned_to || null,
+          pipeline_id: leadDraft.pipeline_id,
+          stage_id: firstStageId,
           facebook_id: conv.sender_psid,
           page_id: conv.page_id,
           status: "active",
@@ -226,7 +243,7 @@ export function ChatInbox({
       toast("สร้างลีดสำเร็จ!");
       setLeadModal(null);
       await refreshConversations();
-      onLeadCreated?.(lead.id);
+      onLeadCreated?.(lead.id, leadDraft.pipeline_id);
     } finally {
       setSubmitting(false);
     }
@@ -505,6 +522,22 @@ export function ChatInbox({
                     type="email"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Pipeline *</label>
+                <select
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                  value={leadDraft.pipeline_id}
+                  onChange={(e) => setLeadDraft({ ...leadDraft, pipeline_id: e.target.value })}
+                >
+                  <option value="">— เลือก Pipeline —</option>
+                  {pipelines.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                {leadDraft.pipeline_id && draftStages[0] && (
+                  <p className="mt-1 text-xs text-slate-400">Stage เริ่มต้น: {draftStages[0].name}</p>
+                )}
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">มอบหมายให้</label>

@@ -511,10 +511,13 @@ export default function HomePage() {
             <ChatInbox
               pages={data.pages}
               profiles={data.profiles}
+              pipelines={data.pipelines}
+              stages={data.stages}
               userId={currentUserId}
               userRole={profile?.role ?? "staff"}
               toast={showToast}
-              onLeadCreated={(leadId) => {
+              onLeadCreated={(leadId, pipelineId) => {
+                setActivePipelineId(pipelineId);
                 setActiveTab("leads");
                 setSelectedLeadId(leadId);
               }}
