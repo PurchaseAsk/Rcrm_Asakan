@@ -493,8 +493,8 @@ export default function HomePage() {
               onManage={setManagingPipelineId}
             />
           )}
-          {activeTab === "pages" && canManage && <PagesPanel pages={data.pages} userId={currentUserId} reload={reload} toast={showToast} />}
-          {activeTab === "inbox" && <ChatInbox pages={data.pages} userId={currentUserId} toast={showToast} />}
+          {activeTab === "pages" && canManage && <PagesPanel pages={data.pages} teams={data.teams} userId={currentUserId} reload={reload} toast={showToast} />}
+          {activeTab === "inbox" && <ChatInbox pages={data.pages} userId={currentUserId} userRole={profile?.role ?? "staff"} toast={showToast} />}
         </section>
       </div>
 
@@ -1266,9 +1266,12 @@ function PipelinePanel({
   );
 }
 
-function PagesPanel({ pages, userId, reload, toast }: { pages: Page[]; userId: string; reload: () => Promise<void>; toast: (message: string) => void }) {
+function PagesPanel({ pages, teams, userId, reload, toast }: { pages: Page[]; teams: Team[]; userId: string; reload: () => Promise<void>; toast: (message: string) => void }) {
   const [form, setForm] = useState({ name: "", page_id: "", token: "" });
   const [busy, setBusy] = useState(false);
+  const [managingPage, setManagingPage] = useState<Page | null>(null);
+  const [assignedTeamIds, setAssignedTeamIds] = useState<string[]>([]);
+  const [savingTeams, setSavingTeams] = useState(false);
 
   async function createPage() {
     if (!form.name.trim() || !form.page_id.trim()) return toast("Page name and Page ID are required");
@@ -1283,6 +1286,31 @@ function PagesPanel({ pages, userId, reload, toast }: { pages: Page[]; userId: s
     }
   }
 
+  async function openTeamModal(page: Page) {
+    setManagingPage(page);
+    const { data } = await supabase.from("page_teams").select("team_id").eq("page_id", page.id);
+    setAssignedTeamIds((data ?? []).map((r: { team_id: string }) => r.team_id));
+  }
+
+  async function saveTeams() {
+    if (!managingPage) return;
+    setSavingTeams(true);
+    try {
+      await supabase.from("page_teams").delete().eq("page_id", managingPage.id);
+      if (assignedTeamIds.length > 0) {
+        await supabase.from("page_teams").insert(assignedTeamIds.map((tid) => ({ page_id: managingPage.id, team_id: tid })));
+      }
+      toast("บันทึกสิทธิ์ทีมแล้ว");
+      setManagingPage(null);
+    } finally {
+      setSavingTeams(false);
+    }
+  }
+
+  function toggleTeam(teamId: string) {
+    setAssignedTeamIds((prev) => prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId]);
+  }
+
   return (
     <Panel title="Facebook pages">
       <div className="mb-4 grid gap-2 md:grid-cols-[1fr_1fr_1fr_120px]">
@@ -1292,14 +1320,48 @@ function PagesPanel({ pages, userId, reload, toast }: { pages: Page[]; userId: s
         <div className="flex items-end"><button className="h-10 w-full rounded-lg bg-brand-700 text-sm font-medium text-white disabled:opacity-50" disabled={busy} onClick={createPage}>{busy ? "Working…" : "Create"}</button></div>
       </div>
       <DataTable
-        headers={["Name", "Page ID", "Status", "Actions"]}
+        headers={["Name", "Page ID", "Status", "Inbox Teams", "Actions"]}
         rows={pages.map((page) => [
           page.name,
           page.page_id,
           page.is_active ? "Active" : "Off",
+          <button key={`pt-${page.id}`} onClick={() => void openTeamModal(page)} className="rounded px-2 py-1 text-xs text-brand-700 underline hover:text-brand-900">กำหนดทีม</button>,
           <RowActions key={page.id} isActive={page.is_active} onToggle={() => toggleBoolean("facebook_pages", page.id, "is_active", !page.is_active, reload, toast)} onDelete={() => deleteRow("facebook_pages", page.id, reload, toast)} />,
         ])}
       />
+
+      {managingPage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 font-semibold text-slate-950">กำหนดทีมสำหรับ Inbox</h3>
+            <p className="mb-4 text-sm text-slate-500">
+              เพจ: <span className="font-medium">{managingPage.name}</span>
+              <br />ถ้าไม่เลือกทีม = ทุกคนเห็น
+            </p>
+            <div className="mb-4 space-y-2">
+              {teams.length === 0 ? (
+                <p className="text-sm text-slate-400">ยังไม่มีทีม</p>
+              ) : teams.map((team) => (
+                <label key={team.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={assignedTeamIds.includes(team.id)}
+                    onChange={() => toggleTeam(team.id)}
+                    className="h-4 w-4 rounded border-slate-300 accent-brand-700"
+                  />
+                  <span className="text-sm font-medium text-slate-800">{team.name}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setManagingPage(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm">ยกเลิก</button>
+              <button onClick={() => void saveTeams()} disabled={savingTeams} className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                {savingTeams ? "กำลังบันทึก…" : "บันทึก"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Panel>
   );
 }
@@ -1307,10 +1369,12 @@ function PagesPanel({ pages, userId, reload, toast }: { pages: Page[]; userId: s
 function ChatInbox({
   pages,
   userId,
+  userRole,
   toast,
 }: {
   pages: Page[];
   userId: string;
+  userRole: string;
   toast: (message: string) => void;
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -1348,11 +1412,34 @@ function ChatInbox({
   }, []);
 
   async function refreshConversations() {
-    const { data } = await supabase
+    // For non-admin: filter conversations to pages the user's teams can access
+    let allowedPageIds: string[] | null = null;
+    if (userRole !== "admin") {
+      const [{ data: memberRows }, { data: pageTeamRows }, { data: allPageRows }] = await Promise.all([
+        supabase.from("team_members").select("team_id").eq("user_id", userId),
+        supabase.from("page_teams").select("page_id, team_id"),
+        supabase.from("facebook_pages").select("id"),
+      ]);
+      const myTeamIds = new Set((memberRows ?? []).map((r: { team_id: string }) => r.team_id));
+      const restrictedPages = new Set((pageTeamRows ?? []).map((r: { page_id: string }) => r.page_id));
+      const myPages = new Set((pageTeamRows ?? []).filter((r: { team_id: string }) => myTeamIds.has(r.team_id)).map((r: { page_id: string }) => r.page_id));
+      const openPages = (allPageRows ?? []).filter((p: { id: string }) => !restrictedPages.has(p.id)).map((p: { id: string }) => p.id);
+      allowedPageIds = [...openPages, ...Array.from(myPages)];
+    }
+
+    let query = supabase
       .from("conversations")
       .select("*, facebook_pages(id, name, page_id), leads(id, customer_name)")
       .order("last_message_at", { ascending: false })
       .limit(100);
+
+    if (allowedPageIds !== null) {
+      query = allowedPageIds.length > 0
+        ? query.in("page_id", allowedPageIds)
+        : query.eq("page_id", "00000000-0000-0000-0000-000000000000"); // empty result
+    }
+
+    const { data } = await query;
     setConversations((data || []) as Conversation[]);
     setLoading(false);
   }
@@ -1442,24 +1529,70 @@ function ChatInbox({
 
   const selectedConv = conversations.find((c) => c.id === selectedConvId) ?? null;
 
+  // unique pages that have conversations
+  const convPages = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const c of conversations) {
+      if (c.facebook_pages && !seen.has(c.page_id)) {
+        seen.set(c.page_id, c.facebook_pages.name);
+      }
+    }
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+  }, [conversations]);
+
+  const [filterPageId, setFilterPageId] = useState<string | null>(null);
+
+  const visibleConvs = filterPageId
+    ? conversations.filter((c) => c.page_id === filterPageId)
+    : conversations;
+
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="grid h-[calc(100dvh-160px)] min-h-[500px] md:grid-cols-[280px_1fr]">
         <div className={`flex min-h-0 flex-col overflow-hidden border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}>
           <div className="shrink-0 border-b border-slate-200 px-4 py-3">
             <h2 className="font-semibold text-slate-950">Inbox</h2>
-            <p className="text-xs text-slate-500">{conversations.length} conversations</p>
+            <p className="text-xs text-slate-500">{visibleConvs.length} conversations</p>
           </div>
+
+          {convPages.length > 1 && (
+            <div className="shrink-0 flex gap-1 overflow-x-auto border-b border-slate-100 px-2 py-1.5 scrollbar-none">
+              <button
+                onClick={() => setFilterPageId(null)}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  filterPageId === null
+                    ? "bg-brand-700 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                ทั้งหมด
+              </button>
+              {convPages.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setFilterPageId(p.id)}
+                  className={`shrink-0 max-w-[140px] truncate rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    filterPageId === p.id
+                      ? "bg-brand-700 text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="p-4 text-center text-sm text-slate-400">Loading…</div>
-            ) : conversations.length === 0 ? (
+            ) : visibleConvs.length === 0 ? (
               <div className="p-6 text-center text-sm text-slate-400">
                 <p className="font-medium">No conversations yet</p>
                 <p className="mt-1">Messages from Facebook pages will appear here once the webhook is connected.</p>
               </div>
             ) : (
-              conversations.map((conv) => (
+              visibleConvs.map((conv) => (
                 <button
                   key={conv.id}
                   className={`w-full border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${conv.id === selectedConvId ? "border-l-2 border-l-brand-700 bg-brand-50" : ""}`}
