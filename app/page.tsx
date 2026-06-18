@@ -517,9 +517,12 @@ export default function HomePage() {
               userRole={profile?.role ?? "staff"}
               toast={showToast}
               onLeadCreated={(leadId, pipelineId) => {
-                setActivePipelineId(pipelineId);
-                setActiveTab("leads");
-                setSelectedLeadId(leadId);
+                void loadCrmData(supabase).then((fresh) => {
+                  setData(fresh);
+                  setActivePipelineId(pipelineId);
+                  setActiveTab("leads");
+                  setSelectedLeadId(leadId);
+                });
               }}
             />
           )}
