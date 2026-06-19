@@ -8,6 +8,8 @@ import type { Session } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
+  BellRing,
+  BookUser,
   Boxes,
   Clock,
   Inbox,
@@ -38,6 +40,7 @@ import {
 } from "@/lib/helpers";
 
 import { ChatInbox } from "@/components/ChatInbox";
+import { CustomersPanel } from "@/components/CustomersPanel";
 import { Dashboard } from "@/components/Dashboard";
 import { FunnelBoard } from "@/components/FunnelBoard";
 import { LeadDrawer } from "@/components/LeadDrawer";
@@ -48,9 +51,11 @@ import { PipelineBar } from "@/components/PipelineBar";
 import { PipelineManagementModal } from "@/components/PipelineManagementModal";
 import { PipelinePanel } from "@/components/PipelinePanel";
 import { RecallPanel } from "@/components/RecallPanel";
+import { RemindersTab } from "@/components/RemindersTab";
 import { RulesPanel } from "@/components/RulesPanel";
 import { StageChangeNoteModal } from "@/components/StageChangeNoteModal";
 import { StagesPanel } from "@/components/StagesPanel";
+import { MyTagsPanel } from "@/components/MyTagsPanel";
 import { TagsPanel } from "@/components/TagsPanel";
 import { TeamsPanel } from "@/components/TeamsPanel";
 import { FullScreenState } from "@/components/ui/FullScreenState";
@@ -61,15 +66,18 @@ const mainTabs: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "leads", label: "Leads", icon: UserRound },
   { id: "funnel", label: "Funnel", icon: Split },
   { id: "inbox", label: "Inbox", icon: Inbox },
+  { id: "reminders", label: "Reminders", icon: BellRing },
+  { id: "my-tags", label: "แท็กของฉัน", icon: Tags },
 ];
 
 const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean }[] = [
+  { id: "customers", label: "ทะเบียนลูกค้า", icon: BookUser },
   { id: "teams", label: "Teams", icon: Users },
   { id: "pipelines", label: "Pipelines", icon: Boxes },
   { id: "stages", label: "Stages", icon: Workflow, managerOnly: true },
   { id: "rules", label: "Rules", icon: Settings, managerOnly: true },
   { id: "recall", label: "Recall", icon: Clock, managerOnly: true },
-  { id: "tags", label: "Tags", icon: Tags },
+  { id: "tags", label: "Global Tags", icon: Tags, managerOnly: true },
   { id: "pages", label: "Pages", icon: Bell, managerOnly: true },
 ];
 
@@ -82,6 +90,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [activePipelineId, setActivePipelineId] = useState("");
   const [leadFilter, setLeadFilter] = useState<"active" | "unfollowed">("active");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -193,7 +202,9 @@ export default function HomePage() {
       return;
     }
 
-    const activeStillExists = data.pipelines.some((pipeline) => pipeline.id === activePipelineId);
+    const activeStillExists =
+      activePipelineId === "__no_pipeline__" ||
+      data.pipelines.some((pipeline) => pipeline.id === activePipelineId);
     if (!activeStillExists) {
       setActivePipelineId(data.pipelines[0].id);
     }
@@ -214,13 +225,32 @@ export default function HomePage() {
     return [...ids];
   }, [currentUserId, data.teams]);
 
+  // Profiles that the current user can filter leads by (admin/team_lead only)
+  const filterableProfiles = useMemo(() => {
+    if (!profile || !currentUserId) return [];
+    if (profile.role === "admin") return data.profiles;
+    if (profile.role === "team_lead") {
+      const memberIds = new Set(myTeamMemberIds);
+      return data.profiles.filter((p) => memberIds.has(p.id));
+    }
+    return [];
+  }, [currentUserId, data.profiles, myTeamMemberIds, profile]);
+
   const visibleLeads = useMemo(() => {
     if (!profile || !currentUserId) return [];
-    const scoped = activePipelineId
-      ? data.leads.filter((lead) => lead.pipeline_id === activePipelineId || !lead.pipeline_id)
-      : data.leads;
 
-    if (profile.role === "admin") return scoped;
+    let scoped = data.leads;
+    if (activePipelineId === "__no_pipeline__") {
+      scoped = data.leads.filter((lead) => !lead.pipeline_id);
+    } else if (activePipelineId) {
+      scoped = data.leads.filter((lead) => lead.pipeline_id === activePipelineId);
+    }
+
+    // Staff always sees only own + pool
+    if (profile.role === "staff") {
+      return scoped.filter((lead) => !lead.assigned_to || lead.assigned_to === currentUserId);
+    }
+    // Team lead sees own team + pool
     if (profile.role === "team_lead") {
       return scoped.filter(
         (lead) =>
@@ -229,17 +259,20 @@ export default function HomePage() {
           myTeamMemberIds.includes(lead.assigned_to),
       );
     }
-    return scoped.filter((lead) => !lead.assigned_to || lead.assigned_to === currentUserId);
+    // Admin sees all
+    return scoped;
   }, [activePipelineId, currentUserId, data.leads, myTeamMemberIds, profile]);
 
   const pipelineStages = useMemo(() => {
-    if (!activePipelineId) return data.stages;
+    if (!activePipelineId || activePipelineId === "__no_pipeline__") {
+      return data.stages.filter((stage) => !stage.pipeline_id);
+    }
     const scoped = data.stages.filter((stage) => stage.pipeline_id === activePipelineId);
     return scoped.length ? scoped : data.stages.filter((stage) => !stage.pipeline_id);
   }, [activePipelineId, data.stages]);
 
   const editablePipelineStages = useMemo(() => {
-    if (!activePipelineId) return [];
+    if (!activePipelineId || activePipelineId === "__no_pipeline__") return [];
     return data.stages.filter((stage) => stage.pipeline_id === activePipelineId);
   }, [activePipelineId, data.stages]);
 
@@ -249,6 +282,8 @@ export default function HomePage() {
       const byStatus =
         leadFilter === "unfollowed" ? lead.status === "unfollowed" : lead.status !== "unfollowed";
       if (!byStatus) return false;
+      if (assigneeFilter === "__pool__") { if (lead.assigned_to) return false; }
+      else if (assigneeFilter && lead.assigned_to !== assigneeFilter) return false;
       if (!q) return true;
       const haystack = [
         lead.customer_name,
@@ -265,7 +300,7 @@ export default function HomePage() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [leadFilter, search, visibleLeads]);
+  }, [assigneeFilter, leadFilter, search, visibleLeads]);
 
   function showToast(message: string) {
     if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
@@ -452,6 +487,9 @@ export default function HomePage() {
               filter={leadFilter}
               setFilter={setLeadFilter}
               profiles={data.profiles}
+              filterableProfiles={filterableProfiles}
+              assigneeFilter={assigneeFilter}
+              setAssigneeFilter={setAssigneeFilter}
               onOpenLead={openLead}
               reload={reload}
             />
@@ -462,6 +500,9 @@ export default function HomePage() {
               leads={filteredLeads}
               draggedLeadId={draggedLeadId}
               setDraggedLeadId={setDraggedLeadId}
+              filterableProfiles={filterableProfiles}
+              assigneeFilter={assigneeFilter}
+              setAssigneeFilter={setAssigneeFilter}
               onMoveLead={async (leadId, stage) => {
                 const moved = await updateLeadStage(
                   leadId,
@@ -528,8 +569,19 @@ export default function HomePage() {
               </Panel>
             )
           )}
-          {activeTab === "tags" && (
-            <TagsPanel tags={data.tags} userId={currentUserId} reload={reload} toast={showToast} />
+          {activeTab === "tags" && canManage && (
+            <TagsPanel tags={data.tags} userId={currentUserId} canManage={canManage} reload={reload} toast={showToast} />
+          )}
+          {activeTab === "my-tags" && (
+            <MyTagsPanel
+              tags={data.tags}
+              leads={visibleLeads}
+              profiles={data.profiles}
+              userId={currentUserId}
+              reload={reload}
+              toast={showToast}
+              onOpenLead={openLead}
+            />
           )}
           {activeTab === "pipelines" && (
             <PipelinePanel
@@ -550,6 +602,18 @@ export default function HomePage() {
               reload={reload}
               toast={showToast}
             />
+          )}
+          {activeTab === "customers" && (
+            <CustomersPanel
+              leads={data.leads}
+              stages={data.stages}
+              pipelines={data.pipelines}
+              profiles={data.profiles}
+              onOpenLead={openLead}
+            />
+          )}
+          {activeTab === "reminders" && (
+            <RemindersTab userId={currentUserId} onOpenLead={openLead} />
           )}
           {activeTab === "inbox" && (
             <ChatInbox
@@ -581,6 +645,7 @@ export default function HomePage() {
           profiles={data.profiles}
           tags={data.tags}
           userId={currentUserId}
+          userRole={profile?.role ?? "staff"}
           requestStageChangeNote={requestStageChangeNote}
           onClose={() => setSelectedLeadId(null)}
           reload={reloadSelectedLead}

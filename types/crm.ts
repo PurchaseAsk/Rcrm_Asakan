@@ -34,10 +34,21 @@ export type Page = {
   is_active: boolean;
 };
 
+export type LeadMeta = {
+  ad_id?: string | null;
+  ad_name?: string | null;
+  adset_id?: string | null;
+  adset_name?: string | null;
+  campaign_id?: string | null;
+  campaign_name?: string | null;
+  form_id?: string | null;
+};
+
 export type Lead = {
   id: string;
   customer_name: string;
   facebook_id: string | null;
+  facebook_lead_id: string | null;
   phone: string | null;
   email: string | null;
   value: number | null;
@@ -47,6 +58,7 @@ export type Lead = {
   assigned_to: string | null;
   status: "active" | "unfollowed";
   source: string | null;
+  metadata: LeadMeta | null;
   last_activity_at: string;
   created_at: string;
   stage?: Stage | null;
@@ -78,7 +90,7 @@ export type Tag = {
   id: string;
   name: string;
   color: string;
-  type: "system" | "custom";
+  type: "global" | "personal";
   created_by: string | null;
 };
 

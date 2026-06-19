@@ -8,20 +8,14 @@ function adminSupabase() {
   );
 }
 
-// Mirror of SQL normalize_phone() — strip non-digits, +66/66 → 0
-function normalizePhone(phone: string): string | null {
-  if (!phone?.trim()) return null;
-  const digits = phone.replace(/\D/g, "");
-  if (!digits) return null;
-  if (digits.length === 11 && digits.startsWith("66")) return "0" + digits.slice(2);
-  return digits;
-}
-
-type LeadgenValue = {
+// What Facebook sends in the leadgen webhook change value
+type LeadgenWebhookValue = {
   leadgen_id?: string;
   page_id?: string;
   form_id?: string;
-  field_data?: { name: string; values: string[] }[];
+  ad_id?: string;
+  adset_id?: string;
+  campaign_id?: string;
 };
 
 type FbEntry = {
@@ -35,7 +29,22 @@ type FbEntry = {
       attachments?: { type: string; payload: { url?: string } }[];
     };
   }[];
-  changes?: { field: string; value: LeadgenValue }[];
+  changes?: { field: string; value: LeadgenWebhookValue }[];
+};
+
+// Full lead data returned by Graph API GET /{leadgen_id}
+type LeadgenApiResult = {
+  field_data?: { name: string; values: string[] }[];
+  ad_id?: string;
+  adset_id?: string;
+  campaign_id?: string;
+  form_id?: string;
+};
+
+type AdApiResult = {
+  name?: string;
+  adset?: { name?: string };
+  campaign?: { name?: string };
 };
 
 export async function GET(request: NextRequest) {
@@ -58,7 +67,6 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = body as { object?: string; entry?: FbEntry[] };
-
   if (payload.object !== "page") return NextResponse.json({ status: "ignored" });
 
   const supabase = adminSupabase();
@@ -73,11 +81,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!page) continue;
+    const pageToken = page.token ? String(page.token) : null;
+    const leadgenToken = process.env.FB_LEADGEN_TOKEN ?? pageToken;
 
     // ── Facebook Lead Ads (leadgen form submission) ───────────────────────────
     for (const change of entry.changes ?? []) {
       if (change.field !== "leadgen") continue;
-      await handleLeadgen(supabase, page.id, change.value);
+      if (leadgenToken) {
+        await handleLeadgen(supabase, page.id, change.value, leadgenToken);
+      }
     }
 
     // ── Facebook Messenger ────────────────────────────────────────────────────
@@ -120,8 +132,8 @@ export async function POST(request: NextRequest) {
         { onConflict: "fb_message_id", ignoreDuplicates: true },
       );
 
-      if (!conv.sender_name && page.token) {
-        void enrichSenderName(supabase, conv.id, senderPsid, String(page.token));
+      if (!conv.sender_name && pageToken) {
+        void enrichSenderName(supabase, conv.id, senderPsid, pageToken);
       }
     }
   }
@@ -132,21 +144,47 @@ export async function POST(request: NextRequest) {
 async function handleLeadgen(
   supabase: SupabaseClient,
   pageId: string,
-  value: LeadgenValue,
+  webhookValue: LeadgenWebhookValue,
+  pageToken: string,
 ) {
-  const fields = value.field_data ?? [];
+  const { leadgen_id } = webhookValue;
+  if (!leadgen_id) return;
+
+  // Fetch full field data from Graph API (webhook only sends the ID)
+  const leadData = await fetchLeadgenData(leadgen_id, pageToken);
+  if (!leadData) return;
+
+  const fields = leadData.field_data ?? [];
   const get = (name: string) => fields.find((f) => f.name === name)?.values[0] ?? null;
 
   const rawPhone = get("phone_number") ?? get("phone");
-  const name = get("full_name") ?? get("name");
+  const name = get("full_name") ?? get("name") ?? get("first_name");
   const email = get("email");
 
-  // Attempt insert first. If the unique index on normalize_phone(phone) fires
-  // (race condition or pre-existing lead), Supabase returns null data with no rows.
-  // We then fall back to find-and-merge so the webhook never errors on duplicates.
-  // TODO: for full reliability, log raw payload to a facebook_lead_events table
-  //       before processing, so no submission is ever silently lost.
-  const { data: lead, error: insertError } = await supabase
+  // Fetch ad/campaign names if we have an ad_id
+  const adId = webhookValue.ad_id ?? leadData.ad_id;
+  const adDetails = adId ? await fetchAdDetails(adId, pageToken) : null;
+
+  const metadata = {
+    ...(adId ? { ad_id: adId } : {}),
+    ...(adDetails?.ad_name ? { ad_name: adDetails.ad_name } : {}),
+    ...(webhookValue.adset_id ?? leadData.adset_id
+      ? { adset_id: webhookValue.adset_id ?? leadData.adset_id }
+      : {}),
+    ...(adDetails?.adset_name ? { adset_name: adDetails.adset_name } : {}),
+    ...(webhookValue.campaign_id ?? leadData.campaign_id
+      ? { campaign_id: webhookValue.campaign_id ?? leadData.campaign_id }
+      : {}),
+    ...(adDetails?.campaign_name ? { campaign_name: adDetails.campaign_name } : {}),
+    ...(webhookValue.form_id ?? leadData.form_id
+      ? { form_id: webhookValue.form_id ?? leadData.form_id }
+      : {}),
+  };
+
+  const activitySuffix = adDetails?.campaign_name ? ` · แคมเปญ: ${adDetails.campaign_name}` : "";
+
+  // Insert-first: facebook_lead_id UNIQUE index prevents duplicates at DB level
+  const { data: lead } = await supabase
     .from("leads")
     .insert({
       customer_name: name ?? "Facebook Lead",
@@ -155,25 +193,25 @@ async function handleLeadgen(
       page_id: pageId,
       source: "facebook",
       status: "active",
+      facebook_lead_id: leadgen_id,
+      metadata: Object.keys(metadata).length ? metadata : null,
       last_activity_at: new Date().toISOString(),
     })
     .select("id")
     .single();
 
   if (lead) {
-    // New lead created — log activity and distribute
     await supabase.from("lead_activities").insert({
       lead_id: lead.id,
       type: "created",
-      content: "สร้างลีดจาก Facebook Lead Form",
+      content: `สร้างลีดจาก Facebook Lead Form${activitySuffix}`,
       created_by: null,
     });
     await supabase.rpc("distribute_lead", { p_lead_id: lead.id });
     return;
   }
 
-  // Insert failed (unique conflict or other error) — find the existing lead and merge
-  void insertError; // acknowledged; merging instead
+  // Insert failed — find existing lead by phone and merge
   if (!rawPhone) return;
   const { data: dups } = await supabase.rpc("find_lead_by_phone", { p_phone: rawPhone }) as {
     data: { id: string; customer_name: string }[] | null;
@@ -185,15 +223,47 @@ async function handleLeadgen(
     .from("leads")
     .update({
       ...(email ? { email } : {}),
+      ...(Object.keys(metadata).length ? { metadata } : {}),
       last_activity_at: new Date().toISOString(),
     })
     .eq("id", existing.id);
+
   await supabase.from("lead_activities").insert({
     lead_id: existing.id,
     type: "note",
-    content: `Facebook Lead Form received — merged with existing lead (same phone)`,
+    content: `Facebook Lead Form received — merged with existing lead (same phone)${activitySuffix}`,
     created_by: null,
   });
+}
+
+async function fetchLeadgenData(leadgenId: string, token: string): Promise<LeadgenApiResult | null> {
+  try {
+    const url = `https://graph.facebook.com/v20.0/${leadgenId}?fields=field_data,ad_id,adset_id,campaign_id,form_id&access_token=${encodeURIComponent(token)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return (await res.json()) as LeadgenApiResult;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAdDetails(
+  adId: string,
+  token: string,
+): Promise<{ ad_name: string | null; adset_name: string | null; campaign_name: string | null }> {
+  try {
+    const url = `https://graph.facebook.com/v20.0/${adId}?fields=name,adset{name},campaign{name}&access_token=${encodeURIComponent(token)}`;
+    const res = await fetch(url);
+    if (!res.ok) return { ad_name: null, adset_name: null, campaign_name: null };
+    const data = (await res.json()) as AdApiResult;
+    return {
+      ad_name: data.name ?? null,
+      adset_name: data.adset?.name ?? null,
+      campaign_name: data.campaign?.name ?? null,
+    };
+  } catch {
+    return { ad_name: null, adset_name: null, campaign_name: null };
+  }
 }
 
 async function enrichSenderName(
@@ -204,7 +274,7 @@ async function enrichSenderName(
 ) {
   try {
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${psid}?fields=name&access_token=${token}`,
+      `https://graph.facebook.com/v20.0/${psid}?fields=name&access_token=${encodeURIComponent(token)}`,
     );
     if (!res.ok) return;
     const data = (await res.json()) as { name?: string };

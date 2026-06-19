@@ -1,7 +1,7 @@
 "use client";
 
 import { GripVertical } from "lucide-react";
-import type { Lead, Stage } from "@/types/crm";
+import type { Lead, Profile, Stage } from "@/types/crm";
 import { EmptyLine } from "@/components/ui/EmptyLine";
 
 export function FunnelBoard({
@@ -9,6 +9,9 @@ export function FunnelBoard({
   leads,
   draggedLeadId,
   setDraggedLeadId,
+  filterableProfiles,
+  assigneeFilter,
+  setAssigneeFilter,
   onMoveLead,
   onOpenLead,
 }: {
@@ -16,11 +19,35 @@ export function FunnelBoard({
   leads: Lead[];
   draggedLeadId: string | null;
   setDraggedLeadId: (id: string | null) => void;
+  filterableProfiles?: Profile[];
+  assigneeFilter?: string;
+  setAssigneeFilter?: (id: string) => void;
   onMoveLead: (leadId: string, stage: Stage) => Promise<void>;
   onOpenLead: (lead: Lead) => void;
 }) {
+  const canFilterByMember = !!filterableProfiles?.length && !!setAssigneeFilter;
+
   return (
-    <section className="overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 shadow-sm scrollbar-thin">
+    <section className="space-y-2">
+      {canFilterByMember && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500">ดูลีดของ:</span>
+          <select
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-brand-600 focus:outline-none"
+            value={assigneeFilter ?? ""}
+            onChange={(e) => setAssigneeFilter!(e.target.value)}
+          >
+            <option value="">ทุกคน</option>
+            <option value="__pool__">Pool (ไม่มีเจ้าของ)</option>
+            {filterableProfiles!.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.full_name || p.email}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 shadow-sm scrollbar-thin">
       <div className="grid min-w-[640px] auto-cols-fr grid-flow-col gap-1.5">
         {stages.map((stage) => {
           const stageLeads = leads.filter((lead) => lead.stage_id === stage.id);
@@ -66,6 +93,7 @@ export function FunnelBoard({
             </div>
           );
         })}
+      </div>
       </div>
     </section>
   );

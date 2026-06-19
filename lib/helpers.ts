@@ -246,18 +246,48 @@ export async function checkReminders(
   toast: (message: string) => void,
   reloadSelectedLead: () => Promise<void>,
 ) {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
   const { data } = await supabase
     .from("lead_reminders")
     .select("*, leads(customer_name)")
     .eq("created_by", userId)
     .eq("is_done", false)
-    .lte("remind_at", new Date().toISOString())
-    .limit(10);
+    .lte("remind_at", now.toISOString())
+    .limit(20);
   const due = (data || []) as Reminder[];
   if (!due.length) return;
-  due.forEach((r) => toast(`Reminder: ${r.leads?.customer_name || "Lead"} ${r.note || ""}`.trim()));
-  await Promise.all(due.map((r) => supabase.from("lead_reminders").update({ is_done: true }).eq("id", r.id)));
-  await reloadSelectedLead();
+
+  // Notify but do NOT auto-mark done — user must confirm completion
+  due.forEach((r) => toast(`🔔 Reminder: ${r.leads?.customer_name || "Lead"}${r.note ? ` · ${r.note}` : ""}`));
+
+  // Rollover overdue reminders (from a previous day) to tomorrow 09:00
+  const overdue = due.filter((r) => new Date(r.remind_at) < todayStart);
+  if (overdue.length) {
+    const tomorrow = new Date(todayStart);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+
+    await Promise.all(
+      overdue.map(async (r) => {
+        const originalDate = new Date(r.remind_at).toLocaleDateString("th-TH");
+        const baseNote = r.note?.replace(/\s*\(ค้างมาจาก[^)]*\)/, "").trim() || "";
+        const rolloverNote = `${baseNote}${baseNote ? " " : ""}(ค้างมาจาก ${originalDate})`.trim();
+        await Promise.all([
+          supabase.from("lead_reminders").insert({
+            lead_id: r.lead_id,
+            remind_at: tomorrow.toISOString(),
+            note: rolloverNote,
+            created_by: userId,
+          }),
+          supabase.from("lead_reminders").update({ is_done: true }).eq("id", r.id),
+        ]);
+      }),
+    );
+    await reloadSelectedLead();
+  }
 }
 
 export async function simulateLead(

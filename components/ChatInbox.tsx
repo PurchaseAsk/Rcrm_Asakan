@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import { normalizePhone } from "@/lib/helpers";
 import type { Conversation, Message, Page, Pipeline, Profile, Stage } from "@/types/crm";
 import html2canvas from "html2canvas";
 

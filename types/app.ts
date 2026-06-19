@@ -59,11 +59,14 @@ export type TabId =
   | "dashboard"
   | "leads"
   | "funnel"
+  | "inbox"
+  | "reminders"
   | "teams"
+  | "pipelines"
+  | "stages"
   | "rules"
   | "recall"
-  | "stages"
   | "tags"
-  | "pipelines"
+  | "my-tags"
   | "pages"
-  | "inbox";
+  | "customers";

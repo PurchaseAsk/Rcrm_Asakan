@@ -31,6 +31,7 @@ export function LeadDrawer({
   profiles,
   tags,
   userId,
+  userRole,
   requestStageChangeNote,
   onClose,
   reload,
@@ -42,6 +43,7 @@ export function LeadDrawer({
   profiles: Profile[];
   tags: Tag[];
   userId: string;
+  userRole: "admin" | "team_lead" | "staff";
   requestStageChangeNote: (stageName: string) => Promise<string | null>;
   onClose: () => void;
   reload: () => Promise<void>;
@@ -56,9 +58,17 @@ export function LeadDrawer({
     assigned_to: lead.assigned_to || "",
   });
   const [note, setNote] = useState("");
-  const [reminder, setReminder] = useState({ remind_at: "", note: "" });
+  const [reminder, setReminder] = useState({ date: "", time: "09:00", note: "" });
   const [busy, setBusy] = useState(false);
+  const [editingInfo, setEditingInfo] = useState(false);
   const currentActorName = actorName(userId, profiles);
+
+  // Staff can only change assignee if they ARE the current assignee (transfer out) or lead is unassigned
+  const canChangeAssignee =
+    userRole === "admin" ||
+    userRole === "team_lead" ||
+    !lead.assigned_to ||
+    lead.assigned_to === userId;
 
   useEffect(() => {
     setForm({
@@ -74,7 +84,7 @@ export function LeadDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id]);
 
-  async function saveLead() {
+  async function saveLeadInfo() {
     setBusy(true);
     try {
       const stage = stages.find((item) => item.id === form.stage_id);
@@ -83,7 +93,7 @@ export function LeadDrawer({
         toast("Stage ไม่ตรงกับ Pipeline ของลีดนี้ กรุณาเลือก Stage ใหม่");
         return;
       }
-      const stageChanged = form.stage_id !== (lead.stage_id || "");
+      const stageChanged = false;
       const assigneeChanged = form.assigned_to !== (lead.assigned_to || "");
       const stageChangeNote = stageChanged
         ? await requestStageChangeNote(stage?.name || "selected stage")
@@ -97,9 +107,7 @@ export function LeadDrawer({
           phone: form.phone || null,
           email: form.email || null,
           value: Number(form.value || 0),
-          stage_id: form.stage_id || null,
           assigned_to: form.assigned_to || null,
-          status: stage?.is_unfollow ? "unfollowed" : "active",
           last_activity_at: new Date().toISOString(),
         })
         .eq("id", lead.id);
@@ -136,7 +144,54 @@ export function LeadDrawer({
       }
       await supabase.from("lead_activities").insert(activities);
       await reload();
-      toast("Lead saved");
+      setEditingInfo(false);
+      toast("Lead info saved");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function moveLeadStage() {
+    setBusy(true);
+    try {
+      const stage = stages.find((item) => item.id === form.stage_id);
+      if (!stage) {
+        toast("Choose a stage");
+        return;
+      }
+      if (lead.pipeline_id && stage.pipeline_id && stage.pipeline_id !== lead.pipeline_id) {
+        toast("Stage does not belong to this lead pipeline");
+        return;
+      }
+      if (form.stage_id === (lead.stage_id || "")) {
+        toast("Stage is unchanged");
+        return;
+      }
+
+      const stageChangeNote = await requestStageChangeNote(stage.name);
+      if (!stageChangeNote) return;
+
+      const { error } = await supabase
+        .from("leads")
+        .update({
+          stage_id: stage.id,
+          status: stage.is_unfollow ? "unfollowed" : "active",
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq("id", lead.id);
+      if (error) {
+        toast(error.message);
+        return;
+      }
+
+      await supabase.from("lead_activities").insert({
+        lead_id: lead.id,
+        type: "stage_change",
+        content: `${currentActorName} moved lead to ${stage.name}: ${stageChangeNote}`,
+        created_by: userId,
+      });
+      await reload();
+      toast("Stage moved");
     } finally {
       setBusy(false);
     }
@@ -164,12 +219,13 @@ export function LeadDrawer({
   }
 
   async function saveReminder() {
-    if (!reminder.remind_at) return toast("Choose reminder time");
+    if (!reminder.date) return toast("เลือกวันที่ก่อน");
+    const remind_at = `${reminder.date}T${reminder.time || "09:00"}`;
     setBusy(true);
     try {
       const { error } = await supabase.from("lead_reminders").insert({
         lead_id: lead.id,
-        remind_at: reminder.remind_at,
+        remind_at,
         note: reminder.note || null,
         created_by: userId,
       });
@@ -177,7 +233,7 @@ export function LeadDrawer({
         toast(error.message);
         return;
       }
-      setReminder({ remind_at: "", note: "" });
+      setReminder({ date: "", time: "09:00", note: "" });
       await reload();
     } finally {
       setBusy(false);
@@ -194,9 +250,28 @@ export function LeadDrawer({
               {lead.page?.name || "No page"} · {recallCountdownText(lead, stages)}
             </p>
           </div>
-          <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>
-            Close
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className={
+                editingInfo
+                  ? "rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  : "rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              }
+              disabled={busy}
+              onClick={() => {
+                if (editingInfo) {
+                  void saveLeadInfo();
+                  return;
+                }
+                setEditingInfo(true);
+              }}
+            >
+              {editingInfo ? "Save" : "Edit"}
+            </button>
+            <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto p-4 scrollbar-thin">
@@ -205,24 +280,28 @@ export function LeadDrawer({
               label="Customer name"
               value={form.customer_name}
               onChange={(value) => setForm({ ...form, customer_name: value })}
+              disabled={!editingInfo}
             />
             <Field
               label="Phone"
               value={form.phone}
               onChange={(value) => setForm({ ...form, phone: value })}
               maxLength={10}
+              disabled={!editingInfo}
             />
             <Field
               label="Email"
               value={form.email}
               onChange={(value) => setForm({ ...form, email: value })}
               type="email"
+              disabled={!editingInfo}
             />
             <Field
               label="Value"
               value={form.value}
               onChange={(value) => setForm({ ...form, value })}
               type="number"
+              disabled={!editingInfo}
             />
             <Select
               label="Stage"
@@ -241,15 +320,42 @@ export function LeadDrawer({
               }))}
               allowEmpty
               emptyLabel="Pool"
+              disabled={!editingInfo || !canChangeAssignee}
             />
             <button
               className="h-10 rounded-lg bg-brand-700 text-sm font-medium text-white disabled:opacity-50 md:col-span-2"
               disabled={busy}
-              onClick={saveLead}
+              onClick={moveLeadStage}
             >
-              {busy ? "Saving…" : "Save lead"}
+              {busy ? "Moving..." : "Move stage"}
             </button>
           </section>
+
+          {lead.metadata && (lead.metadata.campaign_name || lead.metadata.ad_name || lead.metadata.adset_name) && (
+            <section className="rounded-lg border border-blue-100 bg-blue-50 p-3">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600">ข้อมูลโฆษณา</h3>
+              <dl className="space-y-1 text-sm">
+                {lead.metadata.campaign_name && (
+                  <div className="flex gap-2">
+                    <dt className="w-24 shrink-0 text-slate-400">Campaign</dt>
+                    <dd className="font-medium text-slate-800">{lead.metadata.campaign_name}</dd>
+                  </div>
+                )}
+                {lead.metadata.adset_name && (
+                  <div className="flex gap-2">
+                    <dt className="w-24 shrink-0 text-slate-400">Ad Set</dt>
+                    <dd className="font-medium text-slate-800">{lead.metadata.adset_name}</dd>
+                  </div>
+                )}
+                {lead.metadata.ad_name && (
+                  <div className="flex gap-2">
+                    <dt className="w-24 shrink-0 text-slate-400">Ad</dt>
+                    <dd className="font-medium text-slate-800">{lead.metadata.ad_name}</dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          )}
 
           <section>
             <h3 className="mb-2 font-semibold text-slate-950">Tags</h3>
@@ -291,13 +397,25 @@ export function LeadDrawer({
 
           <section>
             <h3 className="mb-2 font-semibold text-slate-950">Reminders</h3>
-            <div className="grid gap-2 md:grid-cols-[180px_1fr_90px]">
+            <div className="grid gap-2 md:grid-cols-[150px_110px_1fr_90px]">
               <input
                 className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
-                type="datetime-local"
-                value={reminder.remind_at}
-                onChange={(event) => setReminder({ ...reminder, remind_at: event.target.value })}
+                type="date"
+                value={reminder.date}
+                onChange={(e) => setReminder({ ...reminder, date: e.target.value })}
               />
+              <select
+                className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
+                value={reminder.time}
+                onChange={(e) => setReminder({ ...reminder, time: e.target.value })}
+              >
+                {Array.from({ length: 32 }, (_, i) => {
+                  const h = Math.floor(i / 2) + 7;
+                  const m = i % 2 === 0 ? "00" : "30";
+                  const val = `${String(h).padStart(2, "0")}:${m}`;
+                  return <option key={val} value={val}>{val}</option>;
+                })}
+              </select>
               <input
                 className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
                 value={reminder.note}

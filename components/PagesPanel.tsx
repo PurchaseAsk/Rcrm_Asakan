@@ -29,6 +29,9 @@ export function PagesPanel({
   const [managingPage, setManagingPage] = useState<Page | null>(null);
   const [assignedTeamIds, setAssignedTeamIds] = useState<string[]>([]);
   const [savingTeams, setSavingTeams] = useState(false);
+  const [editingTokenPageId, setEditingTokenPageId] = useState<string | null>(null);
+  const [editingToken, setEditingToken] = useState("");
+  const [savingToken, setSavingToken] = useState(false);
 
   async function createPage() {
     if (!form.name.trim() || !form.page_id.trim()) return toast("Page name and Page ID are required");
@@ -71,6 +74,24 @@ export function PagesPanel({
     }
   }
 
+  async function saveToken() {
+    if (!editingTokenPageId || !editingToken.trim()) return;
+    setSavingToken(true);
+    try {
+      const { error } = await supabase
+        .from("facebook_pages")
+        .update({ token: editingToken.trim() })
+        .eq("id", editingTokenPageId);
+      if (error) { toast(error.message); return; }
+      toast("บันทึก Token แล้ว");
+      setEditingTokenPageId(null);
+      setEditingToken("");
+      await reload();
+    } finally {
+      setSavingToken(false);
+    }
+  }
+
   function toggleTeam(teamId: string) {
     setAssignedTeamIds((prev) =>
       prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId],
@@ -94,7 +115,7 @@ export function PagesPanel({
         </div>
       </div>
       <DataTable
-        headers={["Name", "Page ID", "Status", "Inbox Teams", "Actions"]}
+        headers={["Name", "Page ID", "Status", "Inbox Teams", "Token", "Actions"]}
         rows={pages.map((page) => [
           page.name,
           page.page_id,
@@ -106,6 +127,13 @@ export function PagesPanel({
           >
             กำหนดทีม
           </button>,
+          <button
+            key={`tk-${page.id}`}
+            onClick={() => { setEditingTokenPageId(page.id); setEditingToken(""); }}
+            className="rounded px-2 py-1 text-xs text-emerald-700 underline hover:text-emerald-900"
+          >
+            {(page as Page & { token?: string }).token ? "เปลี่ยน Token" : "ตั้ง Token"}
+          </button>,
           <RowActions
             key={page.id}
             isActive={page.is_active}
@@ -114,6 +142,39 @@ export function PagesPanel({
           />,
         ])}
       />
+
+      {editingTokenPageId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 font-semibold text-slate-950">ตั้งค่า Page Access Token</h3>
+            <p className="mb-4 text-sm text-slate-500">
+              วาง Long-lived Page Access Token ที่ได้จาก Graph API Explorer
+            </p>
+            <textarea
+              className="w-full rounded-lg border border-slate-200 p-3 text-xs font-mono text-slate-800 focus:border-brand-600 focus:outline-none"
+              rows={4}
+              placeholder="EAAxxxxxxxxxxxxxxx..."
+              value={editingToken}
+              onChange={(e) => setEditingToken(e.target.value)}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => { setEditingTokenPageId(null); setEditingToken(""); }}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => void saveToken()}
+                disabled={savingToken || !editingToken.trim()}
+                className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {savingToken ? "กำลังบันทึก…" : "บันทึก"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {managingPage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
