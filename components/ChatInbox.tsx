@@ -119,6 +119,20 @@ export function ChatInbox({
     setSelectedConvId(conv.id);
     setMessages([]);
     await refreshMessages(conv.id);
+
+    if (!conv.sender_name) {
+      try {
+        const res = await fetch("/api/facebook/enrich-name", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conv_id: conv.id }),
+        });
+        if (res.ok) {
+          const result = (await res.json()) as { name?: string | null };
+          if (result.name) await refreshConversations();
+        }
+      } catch { /* non-critical */ }
+    }
   }
 
   async function sendReply() {
