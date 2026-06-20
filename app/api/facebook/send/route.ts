@@ -58,12 +58,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const fbData = (await fbRes.json()) as { message_id?: string };
+
   await Promise.all([
     supabase.from("messages").insert({
       conversation_id,
       direction: "outbound",
       content: text.trim(),
       sent_by: sent_by ?? null,
+      fb_message_id: fbData.message_id ?? null,
     }),
     supabase
       .from("conversations")

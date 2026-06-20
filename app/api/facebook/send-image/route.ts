@@ -82,6 +82,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const fbData = (await fbRes.json()) as { message_id?: string };
+
   // Save to DB
   await Promise.all([
     supabase.from("messages").insert({
@@ -91,6 +93,7 @@ export async function POST(request: NextRequest) {
       attachment_url: publicUrl,
       attachment_type: "image",
       sent_by: sentBy ?? null,
+      fb_message_id: fbData.message_id ?? null,
     }),
     supabase
       .from("conversations")
