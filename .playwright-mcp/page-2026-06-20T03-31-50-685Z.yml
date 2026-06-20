@@ -1,0 +1,99 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic:
+      - iframe
+    - generic:
+      - iframe
+    - generic:
+      - iframe
+    - generic:
+      - iframe
+    - generic [ref=e3]:
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - progressbar [ref=e12]
+          - generic [ref=e13]:
+            - progressbar [ref=e14]
+            - progressbar [ref=e15]
+            - progressbar [ref=e16]
+            - progressbar [ref=e17]
+            - progressbar [ref=e18]
+        - generic [ref=e19]:
+          - progressbar [ref=e20]
+          - progressbar [ref=e21]
+          - progressbar [ref=e22]
+      - generic [ref=e24]:
+        - generic [ref=e28]: Graph API Explorer
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - generic [ref=e33]:
+              - button "Favorites" [ref=e35] [cursor=pointer]:
+                - generic [ref=e38]: Favorites
+              - generic [ref=e39]:
+                - button "GET" [ref=e41] [cursor=pointer]:
+                  - generic [ref=e45]: GET
+                - generic [ref=e48]:
+                  - link "← graph." [ref=e49] [cursor=pointer]:
+                    - /url: "#"
+                  - button ".facebook.com/" [ref=e51] [cursor=pointer]:
+                    - generic [ref=e55]: .facebook.com/
+                - button "v25.0" [ref=e58] [cursor=pointer]:
+                  - generic [ref=e62]: v25.0
+                - generic [ref=e64]: /
+                - generic [ref=e65]:
+                  - combobox [ref=e68]: me?fields=id,name
+                  - button "ลบออก" [ref=e69] [cursor=pointer]
+            - button "ส่ง" [ref=e73] [cursor=pointer]:
+              - generic [ref=e75]: ส่ง
+          - generic [ref=e77]:
+            - generic [ref=e81]:
+              - generic:
+                - generic:
+                  - list
+            - generic [ref=e82]:
+              - generic [ref=e87]:
+                - generic:
+                  - generic:
+                    - button "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้" [ref=e88] [cursor=pointer]
+                    - button "ปิดป๊อปอัพและย้อนกลับ" [ref=e90] [cursor=pointer]
+                - generic [ref=e97]:
+                  - button "คัดลอกข้อมูลดีบัก" [ref=e98]:
+                    - button "คัดลอกข้อมูลดีบัก" [disabled] [ref=e100]:
+                      - generic [ref=e102]: คัดลอกข้อมูลดีบัก
+                  - button "รับรหัส" [disabled] [ref=e103]:
+                    - generic [ref=e106]: รับรหัส
+                  - button "บันทึกเซสชั่น" [disabled] [ref=e107]:
+                    - generic [ref=e109]: บันทึกเซสชั่น
+              - generic [ref=e115]:
+                - heading "โทเค็นการเข้าถึง" [level=4] [ref=e116]
+                - generic [ref=e118]:
+                  - generic [ref=e119]:
+                    - textbox [ref=e122]:
+                      - /placeholder: โทเค็นการเข้าถึง
+                      - text: EAA9ZCvF0lmNoBR9Mm4kbHfPZCLmJcvDBUKHL3cZAZAZCDphWJPRxrdyflwfgylQE3YjgevGMYZAhSV6lqj79TSP7004zguX3baHctQT59kZCwUhBECoMw9MaAUl0bMV4HsvJvXjI15jE49Hqv9MlxXozBWV7qBKA51MLf7tBVAX547eTkv8RH7RWyYeqRkayU9ZCRZC3hNgZANqtOQotLBEi6mABFFdWGhdNffswa8djwj0ISkG4mCEmpZC7AZDZD
+                    - button "Copy Token" [ref=e125] [cursor=pointer]:
+                      - generic [ref=e128]: Copy Token
+                    - progressbar [ref=e130]
+                  - button "Generate Access Token" [ref=e131] [cursor=pointer]:
+                    - generic [ref=e133]: Generate Access Token
+                - generic [ref=e134]: แอพ Meta
+                - generic:
+                  - generic:
+                    - button "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้" [ref=e135] [cursor=pointer]
+                    - button "ปิดป๊อปอัพและย้อนกลับ" [ref=e137] [cursor=pointer]
+                - button "Rcrm_Asakan" [ref=e140] [cursor=pointer]:
+                  - generic [ref=e146]: Rcrm_Asakan
+                - generic [ref=e148]: ผู้ใช้หรือเพจ
+                - generic [ref=e149]:
+                  - generic:
+                    - generic:
+                      - button "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้" [ref=e150] [cursor=pointer]
+                      - button "ปิดป๊อปอัพและย้อนกลับ" [ref=e152] [cursor=pointer]
+                  - button "กำลังโหลดโทเค็น" [ref=e154] [cursor=pointer]:
+                    - generic [ref=e158]: กำลังโหลดโทเค็น
+  - generic:
+    - region "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้"
+  - generic:
+    - region "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้"
+  - generic:
+    - region "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้"

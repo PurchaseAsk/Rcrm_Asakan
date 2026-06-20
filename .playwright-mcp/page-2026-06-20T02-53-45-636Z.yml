@@ -1,0 +1,247 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic:
+      - iframe
+    - generic:
+      - iframe
+    - generic:
+      - iframe
+    - generic:
+      - iframe
+    - generic [ref=e3]:
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - link "โลโก้ Meta" [ref=e12] [cursor=pointer]:
+            - /url: /?no_redirect=true
+            - img "โลโก้ Meta" [ref=e14]
+          - tablist [ref=e23]:
+            - link "แอพของฉัน" [ref=e24] [cursor=pointer]:
+              - /url: /apps/
+              - generic [ref=e27]: แอพของฉัน
+            - link "การดำเนินการที่จำเป็น" [ref=e28] [cursor=pointer]:
+              - /url: /required-actions/
+              - generic [ref=e31]: การดำเนินการที่จำเป็น
+            - tab "เอกสาร" [ref=e32] [cursor=pointer]:
+              - generic [ref=e35]: เอกสาร
+            - tab "เครื่องมือ" [selected] [ref=e37] [cursor=pointer]:
+              - generic [ref=e40]: เครื่องมือ
+            - tab "การสนับสนุน" [ref=e42] [cursor=pointer]:
+              - generic [ref=e45]: การสนับสนุน
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - generic [ref=e54]: คำค้นหา
+            - textbox "คำค้นหา" [ref=e65]:
+              - /placeholder: ค้นหา...
+          - link [ref=e68] [cursor=pointer]:
+            - /url: "#"
+          - link "Facebook" [ref=e73] [cursor=pointer]:
+            - /url: "#"
+            - img "Facebook" [ref=e78]
+      - generic [ref=e80]:
+        - generic [ref=e84]: Graph API Explorer
+        - generic [ref=e87]:
+          - generic [ref=e88]:
+            - generic [ref=e89]:
+              - button "Favorites" [ref=e91] [cursor=pointer]:
+                - generic [ref=e94]: Favorites
+              - generic [ref=e95]:
+                - button "GET" [ref=e97] [cursor=pointer]:
+                  - generic [ref=e101]: GET
+                - generic [ref=e104]:
+                  - link "← graph." [ref=e105] [cursor=pointer]:
+                    - /url: "#"
+                  - button ".facebook.com/" [ref=e107] [cursor=pointer]:
+                    - generic [ref=e111]: .facebook.com/
+                - button "v25.0" [ref=e114] [cursor=pointer]:
+                  - generic [ref=e118]: v25.0
+                - generic [ref=e120]: /
+                - generic [ref=e121]:
+                  - combobox [ref=e124]: me?fields=id,name
+                  - button "ลบออก" [ref=e125] [cursor=pointer]
+            - button "ส่ง" [ref=e129] [cursor=pointer]:
+              - generic [ref=e131]: ส่ง
+          - generic [ref=e133]:
+            - generic [ref=e137]:
+              - generic:
+                - generic:
+                  - list
+            - generic [ref=e138]:
+              - generic [ref=e143]:
+                - generic:
+                  - generic:
+                    - button "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้" [ref=e144] [cursor=pointer]
+                    - button "ปิดป๊อปอัพและย้อนกลับ" [ref=e146] [cursor=pointer]
+                - generic [ref=e153]:
+                  - button "คัดลอกข้อมูลดีบัก" [ref=e154]:
+                    - button "คัดลอกข้อมูลดีบัก" [disabled] [ref=e156]:
+                      - generic [ref=e158]: คัดลอกข้อมูลดีบัก
+                  - button "รับรหัส" [disabled] [ref=e159]:
+                    - generic [ref=e162]: รับรหัส
+                  - button "บันทึกเซสชั่น" [disabled] [ref=e163]:
+                    - generic [ref=e165]: บันทึกเซสชั่น
+              - generic [ref=e171]:
+                - heading "โทเค็นการเข้าถึง" [level=4] [ref=e172]
+                - generic [ref=e174]:
+                  - generic [ref=e175]:
+                    - textbox [ref=e178]:
+                      - /placeholder: โทเค็นการเข้าถึง
+                      - text: EAA9ZCvF0lmNoBR5wdV8MuryWqZBEeVZArMlcHo1exuuRXj6XLQc5gsARja9JhlJWOHHZBNQYIMbqgvVO1pO1wCY5Pd3NYk3ZCORvEppzATnXKLsfJNZCIGXt7DGgBrdCbPJFZBOtuDZBUXVbZCuInqyZCTARcTQanATP8jq2gAKAMd0JoPZChAze8ciabJhKLfZCelj13trx8mpSXhxDZCjxuUGBDJt3Uq6L4uyqJUUSaNvxdjZAjwMxmTiXLc
+                    - button "Copy Token" [ref=e181] [cursor=pointer]:
+                      - generic [ref=e184]: Copy Token
+                  - button "Generate Access Token" [disabled] [ref=e187]:
+                    - generic [ref=e189]: Generate Access Token
+                - generic [ref=e190]: แอพ Meta
+                - generic:
+                  - generic:
+                    - button "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้" [ref=e191] [cursor=pointer]
+                    - button "ปิดป๊อปอัพและย้อนกลับ" [ref=e193] [cursor=pointer]
+                - button "Rcrm_Asakan" [ref=e196] [cursor=pointer]:
+                  - generic [ref=e202]: Rcrm_Asakan
+                - generic [ref=e204]: ผู้ใช้หรือเพจ
+                - generic [ref=e205]:
+                  - generic:
+                    - generic:
+                      - button "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้" [ref=e206] [cursor=pointer]
+                      - button "ปิดป๊อปอัพและย้อนกลับ" [ref=e208] [cursor=pointer]
+                  - button "โทเค็นการเข้าถึงของผู้ใช้" [ref=e210] [cursor=pointer]:
+                    - generic [ref=e214]: โทเค็นการเข้าถึงของผู้ใช้
+                - generic [ref=e220]:
+                  - radio "Permissions" [checked] [disabled] [ref=e221]:
+                    - generic [ref=e223]: Permissions
+                  - radio "Configurations" [disabled] [ref=e224]:
+                    - generic [ref=e226]: Configurations
+                - generic [ref=e228]:
+                  - heading "สิทธิ์การอนุญาต Reset Clear" [level=4] [ref=e229]:
+                    - text: สิทธิ์การอนุญาต
+                    - link "Reset Clear" [ref=e230] [cursor=pointer]:
+                      - /url: /docs/facebook-login/permissions/
+                      - generic [ref=e233]:
+                        - button "Reset" [ref=e234]:
+                          - generic [ref=e237]: Reset
+                        - button "Clear" [ref=e238]:
+                          - generic [ref=e241]: Clear
+                  - generic:
+                    - list
+                  - generic:
+                    - generic:
+                      - button "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้" [ref=e242] [cursor=pointer]
+                      - button "ปิดป๊อปอัพและย้อนกลับ" [ref=e244] [cursor=pointer]
+                  - combobox [ref=e248]
+                  - button "เพิ่มสิทธิ์การอนุญาต" [ref=e250] [cursor=pointer]:
+                    - generic [ref=e254]: เพิ่มสิทธิ์การอนุญาต
+      - contentinfo [ref=e259]:
+        - generic [ref=e260]:
+          - separator [ref=e261]
+          - generic [ref=e263]:
+            - generic [ref=e265]:
+              - generic [ref=e267]:
+                - img "Meta" [ref=e269]
+                - list [ref=e271]:
+                  - listitem [ref=e272]:
+                    - link "Facebook" [ref=e273] [cursor=pointer]:
+                      - /url: https://www.facebook.com/MetaforDevelopers
+                      - img "Facebook" [ref=e274]
+                  - listitem [ref=e275]:
+                    - link "Instagram" [ref=e276] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fwww.instagram.com%2Fmetafordevelopers%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR6A1Z7xew_LzCMB8QnY9N4bv8y74NenMAcknDN5jPBnO3BNx3PWDtCzOCyTxg_aem_eNxAjQ-nGDnDMGJOYSA2bg&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                      - img "Instagram" [ref=e277]
+                  - listitem [ref=e278]:
+                    - link "X" [ref=e279] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Ftwitter.com%2Fmetafordevs%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR5SxzyBeOdazniCgGjZR5RFtTAizJSCIQ2u9AMH5RPEZibWPFgnIWtw66rvGw_aem_tESdllyZSU8Jdp5FsykuYA&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                      - img "X" [ref=e280]
+                  - listitem [ref=e281]:
+                    - link "LinkedIn" [ref=e282] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fwww.linkedin.com%2Fshowcase%2Fmeta-for-developers%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR5X3VQ0iizwKPO_PIjyJ1CjklmlWYjQ_WMrQ0W1llsRsYPzg20iCgurOrGHOg_aem_HRVg5py8FedpxCn9NM0ZkQ&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                      - img "LinkedIn" [ref=e283]
+                  - listitem [ref=e284]:
+                    - link "YouTube" [ref=e285] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fwww.youtube.com%2FMetaDevelopers%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR744r7Obb1KhLC61VQMFodK7FLReGUNCpn2JaTn8-IebKz1TUilg8rK8dl5dw_aem_spMUJVb4L9zKU-EHgEBOgg&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                      - img "YouTube" [ref=e286]
+              - generic [ref=e288]:
+                - generic [ref=e291]:
+                  - heading "Build with Meta" [level=2] [ref=e292]:
+                    - generic [ref=e293]: Build with Meta
+                  - list [ref=e294]:
+                    - listitem [ref=e295]:
+                      - link "AI" [ref=e297] [cursor=pointer]:
+                        - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fwww.llama.com%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR4YIVX5iZ9HUdAUh3YbE-vIqHcSc8VPVaUJwG_Z817oMfUyvs5MO5Qqn5LALA_aem_KJN6S0gvfhZutWE7_1TFMQ&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                    - listitem [ref=e298]:
+                      - link "Meta Horizon" [ref=e300] [cursor=pointer]:
+                        - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fdevelopers.meta.com%2Fhorizon%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR5X3VQ0iizwKPO_PIjyJ1CjklmlWYjQ_WMrQ0W1llsRsYPzg20iCgurOrGHOg_aem_HRVg5py8FedpxCn9NM0ZkQ&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                    - listitem [ref=e301]:
+                      - link "Social technologies" [ref=e303] [cursor=pointer]:
+                        - /url: /social-technologies/
+                    - listitem [ref=e304]:
+                      - link "Wearables" [ref=e306] [cursor=pointer]:
+                        - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fdevelopers.meta.com%2Fwearables%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR744r7Obb1KhLC61VQMFodK7FLReGUNCpn2JaTn8-IebKz1TUilg8rK8dl5dw_aem_spMUJVb4L9zKU-EHgEBOgg&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                - generic [ref=e309]:
+                  - heading "News" [level=2] [ref=e310]:
+                    - generic [ref=e311]: News
+                  - list [ref=e312]:
+                    - listitem [ref=e313]:
+                      - link "Meta for Developers" [ref=e315] [cursor=pointer]:
+                        - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fdevelopers.meta.com%2Fblog%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR7q3TXFhrzjltuvv0eCZwuNRtFJNzxsU-aSawDeMaKDcKcLD6EqLbb6CZionA_aem_HJfN2YY-DEy6UTIZThtpMg&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                    - listitem [ref=e316]:
+                      - link "Blog" [ref=e318] [cursor=pointer]:
+                        - /url: /blog/
+                    - listitem [ref=e319]:
+                      - link "Success stories" [ref=e321] [cursor=pointer]:
+                        - /url: /success-stories/
+                - generic [ref=e324]:
+                  - heading "Support" [level=2] [ref=e325]:
+                    - generic [ref=e326]: Support
+                  - list [ref=e327]:
+                    - listitem [ref=e328]:
+                      - link "Developer Support" [ref=e330] [cursor=pointer]:
+                        - /url: /support/
+                    - listitem [ref=e331]:
+                      - link "Bug tool" [ref=e333] [cursor=pointer]:
+                        - /url: /support/bugs/
+                    - listitem [ref=e334]:
+                      - link "Platform status" [ref=e336] [cursor=pointer]:
+                        - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fmetastatus.com%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR5LYRpCkIhwJAfyHzoJ7ui43fODMDZg0BMjCBlov2i06rqXO_LEmzKOnUrTPg_aem_P72rCX-R2pJVG4lnn4aBcA&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                    - listitem [ref=e337]:
+                      - link "Developer community forum" [ref=e339] [cursor=pointer]:
+                        - /url: https://www.facebook.com/groups/fbdevelopers/
+                    - listitem [ref=e340]:
+                      - link "Report an incident" [ref=e342] [cursor=pointer]:
+                        - /url: /incident/report/
+                - generic [ref=e345]:
+                  - heading "About us" [level=2] [ref=e346]:
+                    - generic [ref=e347]: About us
+                  - list [ref=e348]:
+                    - listitem [ref=e349]:
+                      - link "About" [ref=e351] [cursor=pointer]:
+                        - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fabout.fb.com%2F&h=AUBaKCb_pc2mnRF_JUawTYD1oBU82bBmklqTE5NdLwh1p22mezGmY-n8TcgeUVwb4EjTHJbUl20_8A3Y2_QczKDmEVTSKOkXqNw5nmKty06m04PFM0C1G2IggjTy_Jz9PH49pg
+                    - listitem [ref=e352]:
+                      - link "Careers" [ref=e354] [cursor=pointer]:
+                        - /url: https://www.facebook.com/careers
+                - generic [ref=e357]:
+                  - heading "Terms and policies" [level=2] [ref=e358]:
+                    - generic [ref=e359]: Terms and policies
+                  - list [ref=e360]:
+                    - listitem [ref=e361]:
+                      - link "Responsible platform initiatives" [ref=e363] [cursor=pointer]:
+                        - /url: /products/responsible-platform-initiatives/
+                    - listitem [ref=e364]:
+                      - link "Platform terms" [ref=e366] [cursor=pointer]:
+                        - /url: /terms/dfc_platform_terms/
+                    - listitem [ref=e367]:
+                      - link "Developer policies" [ref=e369] [cursor=pointer]:
+                        - /url: /devpolicy/
+                    - listitem [ref=e370]:
+                      - link "Privacy policy" [ref=e372] [cursor=pointer]:
+                        - /url: https://www.facebook.com/about/privacy
+                    - listitem [ref=e373]:
+                      - link "Cookies" [ref=e375] [cursor=pointer]:
+                        - /url: https://www.facebook.com/help/cookies
+            - button "เปลี่ยนภาษา" [ref=e380] [cursor=pointer]:
+              - generic [ref=e382]: English (US)
+  - generic:
+    - region "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้"
+  - generic:
+    - region "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้"
+  - generic:
+    - region "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้"
+  - generic:
+    - region "เรียนรู้เกี่ยวกับคุณสมบัติใหม่นี้"

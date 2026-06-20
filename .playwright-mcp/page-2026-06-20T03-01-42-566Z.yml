@@ -1,0 +1,392 @@
+- generic [ref=e12]:
+  - generic [ref=e20]:
+    - generic [ref=e21]:
+      - button "Facebook" [ref=e23] [cursor=pointer]:
+        - generic [ref=e29]:
+          - generic:
+            - img
+          - img "Facebook" [ref=e31]
+      - generic [ref=e34]:
+        - button "แก้ไขรูปภาพหน้าปก" [ref=e52] [cursor=pointer]:
+          - generic [ref=e55]:
+            - img [ref=e57]
+            - generic [ref=e60]: แก้ไขรูปภาพหน้าปก
+            - img [ref=e61]
+        - generic [ref=e64]:
+          - generic [ref=e66]:
+            - link "Facebook" [ref=e70] [cursor=pointer]:
+              - /url: "#"
+              - img "Facebook" [ref=e75]
+            - link "Instagram" [ref=e79] [cursor=pointer]:
+              - /url: "#"
+              - img "Instagram" [ref=e84]
+          - generic [ref=e87]:
+            - generic [ref=e88]:
+              - heading "Wela condo" [level=1] [ref=e89]
+              - button "Facebook 5.7 พัน ผู้ติดตาม Instagram 273 ผู้ติดตาม" [ref=e92] [cursor=pointer]:
+                - generic [ref=e95]:
+                  - generic [ref=e98]:
+                    - img "Facebook" [ref=e99]
+                    - generic [ref=e100]: 5.7 พัน
+                    - generic [ref=e101]: ผู้ติดตาม
+                  - generic [ref=e105]:
+                    - img "Instagram" [ref=e106]
+                    - generic [ref=e107]: "273"
+                    - generic [ref=e108]: ผู้ติดตาม
+                  - img [ref=e110]
+            - generic [ref=e114]:
+              - link "แก้ไขเพจ Facebook" [ref=e115] [cursor=pointer]:
+                - /url: "#"
+              - text: "|"
+              - link "แก้ไขโปรไฟล์ Instagram" [ref=e116] [cursor=pointer]:
+                - /url: "#"
+              - link "รับเครื่องหมายการตรวจสอบยืนยัน" [ref=e119] [cursor=pointer]:
+                - /url: "#"
+    - generic [ref=e127]:
+      - button "สร้างโพสต์" [ref=e129] [cursor=pointer]:
+        - generic [ref=e134]: สร้างโพสต์
+      - button "สร้างโฆษณา" [ref=e136] [cursor=pointer]:
+        - generic [ref=e141]: สร้างโฆษณา
+      - button "สร้างคลิป Reels" [ref=e143] [cursor=pointer]:
+        - generic [ref=e148]: สร้างคลิป Reels
+      - button "สร้างสตอรี่" [ref=e150] [cursor=pointer]:
+        - generic [ref=e155]: สร้างสตอรี่
+      - button "เพิ่มเติม" [ref=e156] [cursor=pointer]:
+        - generic [ref=e159]:
+          - generic [ref=e160]: เพิ่มเติม
+          - img [ref=e161]
+    - generic [ref=e172]:
+      - generic [ref=e185]:
+        - heading "การแจ้งเตือน" [level=3] [ref=e190]
+        - generic [ref=e195]:
+          - generic [ref=e196]:
+            - generic [ref=e197]:
+              - img [ref=e198]
+              - generic [ref=e200]: Alert
+            - button "ปิด" [ref=e201] [cursor=pointer]:
+              - generic [ref=e203]:
+                - generic [ref=e204]: ปิด
+                - img [ref=e206]
+          - generic [ref=e209]:
+            - generic [ref=e210]: ข้อความบน Instagram จะไม่สามารถใช้งานได้ในกล่องข้อความจนกว่าคุณจะยืนยันว่าผู้คนที่จัดการเพจ Facebook ของคุณสามารถจัดการข้อความบน Instagram ของคุณได้ด้วยเช่นกัน
+            - button "เริ่มตั้งค่า" [ref=e211] [cursor=pointer]:
+              - generic [ref=e215]: เริ่มตั้งค่า
+      - generic [ref=e230]:
+        - heading "รายการสิ่งที่ต้องทำ" [level=1] [ref=e232]
+        - generic [ref=e233]: ตรวจดูข้อความที่ยังไม่ได้อ่าน ความคิดเห็น และสิ่งอื่นๆ ที่คุณอาจต้องจัดการ
+      - list [ref=e249]:
+        - generic [ref=e252]:
+          - listitem [ref=e253]:
+            - button "ความคิดเห็น 6 ดูทั้งหมด" [expanded] [ref=e254] [cursor=pointer]:
+              - generic [ref=e256]:
+                - listitem [ref=e258]:
+                  - generic [ref=e260]:
+                    - heading "ความคิดเห็น" [level=3] [ref=e261]
+                    - generic [ref=e263]:
+                      - generic [ref=e265]: "6"
+                      - status [ref=e266]: 6 new s
+                    - link "ดูทั้งหมด" [ref=e268]:
+                      - /url: https://business.facebook.com/latest/inbox/facebook?business_id=1802165933495480&asset_id=103959052166459&folder=TODO
+                - img [ref=e270]
+          - region [ref=e273]:
+            - group [ref=e278]:
+              - link "Facebook พัชรนันท์ วิวัฒน์บวรวงษ์ หาคนเช่าไห้ไหมคะ และอีก 1 คน 22 นาที" [ref=e280] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/inbox/facebook?business_id=1802165933495480&asset_id=103959052166459&folder=TODO&selected_item_id=1036878642207824
+                - generic [ref=e282]:
+                  - img "Facebook" [ref=e286]
+                  - generic [ref=e290]:
+                    - generic [ref=e292]: พัชรนันท์ วิวัฒน์บวรวงษ์
+                    - generic [ref=e293]:
+                      - generic [ref=e294]: หาคนเช่าไห้ไหมคะ
+                      - generic [ref=e295]: และอีก 1 คน
+                    - generic [ref=e297]: 22 นาที
+              - link "Facebook Wigg Suchatchawi โครงการการันตีใช่มั๊ยคะ หรือแค่ชวนเชื่อ และคนอื่นๆ อีก 7 คน 1 ชม." [ref=e299] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/inbox/facebook?business_id=1802165933495480&asset_id=103959052166459&folder=TODO&selected_item_id=1034370532458635
+                - generic [ref=e301]:
+                  - img "Facebook" [ref=e305]
+                  - generic [ref=e309]:
+                    - generic [ref=e311]: Wigg Suchatchawi
+                    - generic [ref=e312]:
+                      - generic [ref=e313]: โครงการการันตีใช่มั๊ยคะ หรือแค่ชวนเชื่อ
+                      - generic [ref=e314]: และคนอื่นๆ อีก 7 คน
+                    - generic [ref=e316]: 1 ชม.
+              - link "Facebook Empty Papa ครับสนใจครับ 14 ชม." [ref=e318] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/inbox/facebook?business_id=1802165933495480&asset_id=103959052166459&folder=TODO&selected_item_id=1036371675591854
+                - generic [ref=e320]:
+                  - img "Facebook" [ref=e324]
+                  - generic [ref=e328]:
+                    - generic [ref=e330]: Empty Papa
+                    - generic [ref=e332]: ครับสนใจครับ
+                    - generic [ref=e334]: 14 ชม.
+              - link "Facebook Jan Ashley ยอดเยี่ยม และอีก 1 คน 21 ชม." [ref=e336] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/inbox/facebook?business_id=1802165933495480&asset_id=103959052166459&folder=TODO&selected_item_id=1026678663227822
+                - generic [ref=e338]:
+                  - img "Facebook" [ref=e342]
+                  - generic [ref=e346]:
+                    - generic [ref=e348]: Jan Ashley
+                    - generic [ref=e349]:
+                      - generic [ref=e350]: ยอดเยี่ยม
+                      - generic [ref=e351]: และอีก 1 คน
+                    - generic [ref=e353]: 21 ชม.
+              - link [ref=e355] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/inbox/facebook?business_id=1802165933495480&asset_id=103959052166459&folder=TODO&selected_item_id=1034609649101390
+                - generic [ref=e357]:
+                  - img "Facebook" [ref=e361]
+                  - generic [ref=e365]:
+                    - generic [ref=e367]: Wela condo
+                    - generic [ref=e369]: "🏠 อยู่ติด MRT 0 เมตร แล้วได้คอนโดที่ \"กว้างจนรู้สึกเหมือนบ้าน\" ด้วย? WELA เคหะราม สเตชั่น ติดสถานี MRT 0 เมตร เริ่มต้น 1.99 ล้าน* 1 Bedroom Plus ขนาด 36 ตร.ม. ทำเป็น 2 ห้องนอนได้* . 🚇 ออกจากห้องก็เดินถึงสถานีเลย ไม่ต้องรอรถ ไม่ต้องเดินไกล แต่ที่พิเศษกว่านั้น คือคอนโดที่ไม่อึดอัด... . 📐 หน้ากว้าง 6.5 เมตร — กว้างกว่าคอนโดทั่วไปเห็นๆ 🏠 1 Bedroom Plus ขนาด 36 ตร.ม. ทำเป็น 2 ห้องนอนได้* 🛋️ วางโซฟา โต๊ะทานข้าว เตียงใหญ่ ได้สบาย ไม่ต้องประหยัดพื้นที่ 💰 เริ่มต้น 1.99 ล้าน* 🎁 ฟรี เฟอร์นิเจอร์ครบชุด / แอร์ / ค่าโอน 🔌 ฟรี! เครื่องใช้ไฟฟ้าสูงสุด 17 รายการ — ย้ายเข้าได้เลย ไม่ต้องซื้อเพิ่ม ⭐ จองวันนี้ รับฟรีทองคำมูลค่าสูงสุด 1 บาท* 🎉 ลงทะเบียนรับ Voucher 100,000 บาท* \"บ้าน\" ไม่ต้องเป็นบ้านเดี่ยวก็ได้... แค่มีพื้นที่ที่ \"รู้สึกเป็นบ้าน\" และเดินทางง่าย ก็พอ . . 🏡 Feel Like Home — WELA เคหะราม สเตชั่น 🎉 แหล่งอำนวยความสะดวกใกล้คอนโด 𝗪𝗲𝗹𝗮 𝗞𝗲𝗵𝗮-𝗥𝗮𝗺 𝗦𝘁𝗮𝘁𝗶𝗼𝗻 📍 ใกล้ MRT สถานีเคหะรามคำแหง 0 ก้าว 📍 ใกล้ MRT สายสีชมพู 1 สถานี 📍 ใกล้ Motorway และทางด่วนฉลองรัช 📍 ใกล้แฟชั่น ไอซ์แลนด์ เพียง 10 นาที 📍 ใกล้ ม.เกษมบัณฑิต เพียง 5 นาที 📍 ใกล้ร.ร. เทพอักษร 900 ม. 📍 ใกล้รพ. เสรีรักษ์ 2.7 กม. 🚗 และอื่นๆ อีกมากมาย ทั้งสวนสยาม ตลาดมีนบุรี เดอะมอลล์บางกะปิ สนามราชมังคลาฯ เป็นต้น . *เงื่อนไขเป็นไปตามที่บริษัทกำหนด 💁‍♀️ สอบถามข้อมูลเพิ่มเติม/ For more information 📞 Tel : 082-526-5566 ✉️ Inbox : http://m.me/103959052166459 📱 LINE Official : @welacondo ﾠ #รถไฟฟ้าสายสีส้ม #รถไฟฟ้าสายสีชมพู #คอนโดรามคำแหง #คอนโดย่านรามคำแหงมีนบุรี #คอนโดล้านต้นๆ #คอนโดติดรถไฟฟ้า #จองตอนนี้ #คอนโดใหม่ #คอนโดใกล้ห้าง #จองวันนี้ #อัสสกาญจน์ #asakan #ติดรถไฟฟ้า #รถไฟฟ้าสายสีส้ม"
+                    - generic [ref=e371]: 2 วัน
+              - link "Instagram networkingpm text if offer available 3 วัน" [ref=e373] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/inbox/instagram?business_id=1802165933495480&asset_id=103959052166459&folder=TODO&selected_item_id=1034379399124415
+                - generic [ref=e375]:
+                  - img "Instagram" [ref=e379]
+                  - generic [ref=e383]:
+                    - generic [ref=e385]: networkingpm
+                    - generic [ref=e387]: text if offer available
+                    - generic [ref=e389]: 3 วัน
+        - generic [ref=e392]:
+          - separator [ref=e394]
+          - listitem [ref=e395]:
+            - button "ข้อความ 5+" [ref=e396] [cursor=pointer]:
+              - generic [ref=e398]:
+                - listitem [ref=e400]:
+                  - generic [ref=e402]:
+                    - heading "ข้อความ" [level=3] [ref=e403]
+                    - generic [ref=e405]:
+                      - generic [ref=e407]: 5+
+                      - status [ref=e408]: 6 new s
+                - img [ref=e410]
+        - generic [ref=e414]:
+          - separator [ref=e416]
+          - listitem [ref=e417]:
+            - button "ศูนย์ข้อมูลลูกค้า" [ref=e418] [cursor=pointer]:
+              - generic [ref=e420]:
+                - listitem [ref=e422]:
+                  - heading "ศูนย์ข้อมูลลูกค้า" [level=3] [ref=e425]
+                - img [ref=e427]
+      - generic [ref=e451]:
+        - generic [ref=e453]:
+          - generic [ref=e456]:
+            - generic [ref=e458]:
+              - generic [ref=e459]:
+                - heading "แผนรายสัปดาห์" [level=3] [ref=e460]
+                - img [ref=e465]
+                - generic [ref=e468]:
+                  - generic [ref=e469]:
+                    - img [ref=e471]
+                    - generic [ref=e474]: เหลืออีก 1 วัน
+                  - status [ref=e475]: เหลืออีก 1 วัน
+              - generic [ref=e476]: เตรียมธุรกิจของคุณให้ประสบความสำเร็จด้วยการทำงานที่แนะนำให้เสร็จสิ้น
+            - button "ดูแผนเต็ม" [ref=e478] [cursor=pointer]:
+              - generic [ref=e481]:
+                - img [ref=e482]
+                - generic [ref=e485]: ดูแผนเต็ม
+          - generic [ref=e486]:
+            - heading "ทำให้เสร็จอย่างน้อย 4 งานเพื่อทำแผนนี้ให้เสร็จสิ้น" [level=3] [ref=e488]
+            - generic [ref=e489]:
+              - progressbar [ref=e490]
+              - generic [ref=e494]:
+                - generic [ref=e496]: เป้าหมายรายสัปดาห์
+                - status [ref=e497]: เป้าหมายรายสัปดาห์
+            - generic [ref=e499]: เสร็จแล้ว 0 จาก 5 งาน
+        - generic [ref=e502]:
+          - button "เผยแพร่โฆษณา 1 รายการ 0 / 1" [ref=e506] [cursor=pointer]:
+            - generic [ref=e514]:
+              - generic [ref=e516]: เผยแพร่โฆษณา 1 รายการ
+              - generic [ref=e518]: 0 / 1
+          - button "เผยแพร่ 1 สตอรี่บน Instagram 0 / 1" [ref=e522] [cursor=pointer]:
+            - generic [ref=e530]:
+              - generic [ref=e532]: เผยแพร่ 1 สตอรี่บน Instagram
+              - generic [ref=e534]: 0 / 1
+          - button "เผยแพร่ 1 โพสต์บน Facebook 0 / 1" [ref=e538] [cursor=pointer]:
+            - generic [ref=e546]:
+              - generic [ref=e548]: เผยแพร่ 1 โพสต์บน Facebook
+              - generic [ref=e550]: 0 / 1
+      - generic [ref=e565]:
+        - heading "จัดการเนื้อหาการตลาดของคุณ" [level=1] [ref=e567]
+        - generic [ref=e568]: ดูโพสต์ สตอรี่ และโฆษณาของคุณทั้งที่เผยแพร่ไปล่าสุดและที่กำลังจะมาถึง รวมถึงกำหนดเวลาให้กับเนื้อหาเพื่อวางแผนล่วงหน้า
+      - progressbar [ref=e571]
+  - generic [ref=e595]:
+    - generic [ref=e597]:
+      - button "Meta Business Suite" [ref=e598] [cursor=pointer]:
+        - generic [ref=e600]: Meta Business Suite
+      - combobox "Instagram Facebook Wela condo, asakancondo" [ref=e612] [cursor=pointer]:
+        - generic [ref=e620]:
+          - generic [ref=e621]:
+            - generic [ref=e623]:
+              - img "Instagram" [ref=e628]
+              - img "Facebook" [ref=e633]
+            - generic [ref=e635]: Wela condo, asakancondo
+          - img [ref=e636]
+    - navigation "ลิงก์" [ref=e642]:
+      - generic [ref=e643]: ลิงก์
+      - list [ref=e644]:
+        - generic [ref=e645]:
+          - listitem [ref=e649]:
+            - generic [ref=e651]:
+              - link "หน้าหลัก" [ref=e652] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/home?business_id=1802165933495480&asset_id=103959052166459
+                - generic [ref=e653]: หน้าหลัก
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: หน้าหลัก
+          - listitem [ref=e657]:
+            - generic [ref=e659]:
+              - link "การแจ้งเตือน" [ref=e660] [cursor=pointer]:
+                - generic [ref=e661]: การแจ้งเตือน
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: การแจ้งเตือน
+          - listitem [ref=e666]:
+            - generic [ref=e668]:
+              - link "ตัวจัดการโฆษณา" [ref=e669] [cursor=pointer]:
+                - generic [ref=e670]: ตัวจัดการโฆษณา
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: ตัวจัดการโฆษณา
+          - listitem [ref=e674]:
+            - generic [ref=e676]:
+              - link "กล่องข้อความ" [ref=e677] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/inbox?business_id=1802165933495480&asset_id=103959052166459
+                - generic [ref=e678]: กล่องข้อความ
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: กล่องข้อความ
+          - listitem [ref=e682]:
+            - generic [ref=e684]:
+              - link "ศูนย์ข้อมูลลูกค้า" [ref=e685] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/leads_center?business_id=1802165933495480&asset_id=103959052166459
+                - generic [ref=e686]: ศูนย์ข้อมูลลูกค้า
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: ศูนย์ข้อมูลลูกค้า
+          - listitem [ref=e691]:
+            - generic [ref=e693]:
+              - link "เนื้อหา" [ref=e694] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/posts?business_id=1802165933495480&asset_id=103959052166459
+                - generic [ref=e695]: เนื้อหา
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: เนื้อหา
+          - listitem [ref=e699]:
+            - generic [ref=e701]:
+              - link "ครีเอเตอร์มาร์เก็ตเพลส" [ref=e702] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/creator_marketplace?business_id=1802165933495480&asset_id=103959052166459&cm_entrypoint=biz_kit_nav_route_item
+                - generic [ref=e703]: ครีเอเตอร์มาร์เก็ตเพลส
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: ครีเอเตอร์มาร์เก็ตเพลส
+          - listitem [ref=e708]:
+            - generic [ref=e710]:
+              - link "โฆษณา" [ref=e711] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/ad_center/ads_summary?business_id=1802165933495480&asset_id=103959052166459
+                - generic [ref=e712]: โฆษณา
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: โฆษณา
+          - listitem [ref=e717]:
+            - generic [ref=e719]:
+              - link "ข้อมูลเชิงลึก" [ref=e720] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/insights?business_id=1802165933495480&asset_id=103959052166459
+                - generic [ref=e721]: ข้อมูลเชิงลึก
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: ข้อมูลเชิงลึก
+          - listitem [ref=e725]:
+            - generic [ref=e727]:
+              - link "เครื่องมือทั้งหมด" [ref=e728] [cursor=pointer]:
+                - generic [ref=e729]: เครื่องมือทั้งหมด
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: เครื่องมือทั้งหมด
+          - generic [ref=e732]:
+            - generic [ref=e733]:
+              - separator [ref=e735]
+              - generic [ref=e736]: ใช้บ่อย
+              - separator [ref=e738]
+              - button "ยุบรายการไฟล์" [ref=e739] [cursor=pointer]:
+                - generic [ref=e741]:
+                  - generic [ref=e742]: ยุบรายการไฟล์
+                  - img [ref=e744]
+            - listitem [ref=e749]:
+              - generic [ref=e751]:
+                - link "กฎแบบอัตโนมัติ" [ref=e752] [cursor=pointer]:
+                  - /url: https://business.facebook.com/ads/manager/rules/?business_id=1802165933495480&global_scope_id=1802165933495480&nav_entry_point=bm_global_nav_shortcut&nav_source=flyout_menu
+                  - generic [ref=e753]: กฎแบบอัตโนมัติ
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: กฎแบบอัตโนมัติ
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+            - listitem [ref=e756]:
+              - generic [ref=e758]:
+                - link "การเรียกเก็บเงินและการชำระเงิน" [ref=e759] [cursor=pointer]:
+                  - /url: https://business.facebook.com/billing_hub/?business_id=1802165933495480&placement=mbs_all_tools_menu
+                  - generic [ref=e760]: การเรียกเก็บเงินและการชำระเงิน
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: การเรียกเก็บเงินและการชำระเงิน
+            - listitem [ref=e763]:
+              - generic [ref=e765]:
+                - link "กลุ่มเป้าหมาย" [ref=e766] [cursor=pointer]:
+                  - /url: https://business.facebook.com/ads/manager/audiences/?business_id=1802165933495480&nav_source=business_manager
+                  - generic [ref=e767]: กลุ่มเป้าหมาย
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: กลุ่มเป้าหมาย
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+          - button "แก้ไขการนำทางแถบด้านข้าง" [ref=e770] [cursor=pointer]:
+            - generic [ref=e774]: แก้ไข
+    - generic [ref=e778]:
+      - listitem [ref=e781]:
+        - generic [ref=e783]:
+          - link "ค้นหา" [ref=e784] [cursor=pointer]:
+            - generic [ref=e785]: ค้นหา
+          - generic:
+            - generic:
+              - generic:
+                - generic: ค้นหา
+          - generic:
+            - generic:
+              - img
+      - navigation "ลิงก์" [ref=e786]:
+        - generic [ref=e787]: ลิงก์
+        - list [ref=e788]:
+          - listitem [ref=e792]:
+            - generic [ref=e794]:
+              - link "การตั้งค่า" [ref=e795] [cursor=pointer]:
+                - /url: https://business.facebook.com/latest/settings/business_users?business_id=1802165933495480&asset_id=103959052166459
+                - generic [ref=e796]: การตั้งค่า
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: การตั้งค่า
+      - listitem [ref=e803]:
+        - generic [ref=e805]:
+          - link "ความช่วยเหลือ" [ref=e806] [cursor=pointer]:
+            - generic [ref=e807]: ความช่วยเหลือ
+          - generic:
+            - generic:
+              - generic:
+                - generic: ความช่วยเหลือ
+          - generic:
+            - generic:
+              - img

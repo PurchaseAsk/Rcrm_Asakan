@@ -1,0 +1,11 @@
+- generic [ref=e2]:
+  - generic:
+    - iframe
+  - generic:
+    - iframe
+  - generic:
+    - iframe
+  - generic:
+    - iframe
+  - progressbar [ref=e6]:
+    - img [ref=e7]

@@ -1,0 +1,25 @@
+- generic [ref=e11]:
+  - generic [ref=e14]:
+    - img [ref=e15]
+    - generic [ref=e19]:
+      - generic [ref=e20]: เพิ่มหมายเลขโทรศัพท์เพื่อรับการแจ้งเตือนทางธุรกิจที่สำคัญ
+      - generic [ref=e21]: รับการแจ้งเตือนเกี่ยวกับบัญชีของคุณทางโทรศัพท์โดยตรง คุณสามารถไปที่ตัวจัดการโฆษณาเพื่อควบคุมการแจ้งเตือนที่คุณได้รับหรือเลือกไม่รับได้ทุกเมื่อ
+    - link "ไปที่การตั้งค่าบัญชีโฆษณา" [ref=e22] [cursor=pointer]:
+      - /url: https://adsmanager.facebook.com/adsmanager/?act=1996138661251891&edit_contact=pm&tool=AD_ACCOUNT_SETTINGS
+      - generic [ref=e26]: ไปที่การตั้งค่าบัญชีโฆษณา
+    - button "ปิด" [ref=e27] [cursor=pointer]:
+      - generic [ref=e29]:
+        - generic [ref=e30]: ปิด
+        - img [ref=e32]
+  - generic [ref=e45]:
+    - generic [ref=e47]:
+      - progressbar [ref=e49]
+      - toolbar [ref=e52]:
+        - generic [ref=e53]:
+          - progressbar [ref=e55]
+          - generic [ref=e56]:
+            - progressbar [ref=e57]
+            - progressbar [ref=e60]
+    - generic [ref=e63]:
+      - progressbar [ref=e69]
+      - progressbar [ref=e102]

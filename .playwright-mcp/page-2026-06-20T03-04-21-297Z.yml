@@ -1,0 +1,208 @@
+- generic [ref=e2]:
+  - generic:
+    - iframe
+  - generic:
+    - iframe
+  - generic:
+    - iframe
+  - generic:
+    - iframe
+  - generic [ref=e3]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - link "โลโก้ Meta" [ref=e12] [cursor=pointer]:
+          - /url: /?no_redirect=true
+          - img "โลโก้ Meta" [ref=e14]
+        - tablist [ref=e23]:
+          - link "แอพของฉัน" [ref=e24] [cursor=pointer]:
+            - /url: /apps/
+            - generic [ref=e27]: แอพของฉัน
+          - link "การดำเนินการที่จำเป็น" [ref=e28] [cursor=pointer]:
+            - /url: /required-actions/
+            - generic [ref=e31]: การดำเนินการที่จำเป็น
+          - tab "เอกสาร" [ref=e32] [cursor=pointer]:
+            - generic [ref=e35]: เอกสาร
+          - tab "เครื่องมือ" [selected] [ref=e37] [cursor=pointer]:
+            - generic [ref=e40]: เครื่องมือ
+          - tab "การสนับสนุน" [ref=e42] [cursor=pointer]:
+            - generic [ref=e45]: การสนับสนุน
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e54]: คำค้นหา
+          - textbox "คำค้นหา" [ref=e65]:
+            - /placeholder: ค้นหา...
+        - link [ref=e68] [cursor=pointer]:
+          - /url: "#"
+        - link "Facebook" [ref=e73] [cursor=pointer]:
+          - /url: "#"
+          - img "Facebook" [ref=e78]
+    - main [ref=e81]:
+      - generic [ref=e82]:
+        - generic [ref=e85]: เครื่องมือทดสอบโฆษณาแบบกรอกฟอร์ม
+        - generic [ref=e86]: ใช้เครื่องมือนี้เพื่อทดสอบการผสาน API หรือ CRM ของคุณ คุณสามารถสร้างการทดสอบซึ่งนำไปสู่การยืนยันว่าการผสานของคุณได้รับการตั้งค่าให้รับข้อมูลได้อย่างถูกต้อง
+        - table [ref=e90]:
+          - rowgroup [ref=e91]:
+            - 'row "เพจ: เลือกหน้า The Celine Condo" [ref=e92]':
+              - rowheader "เพจ:" [ref=e93]
+              - cell "เลือกหน้า The Celine Condo" [ref=e94]:
+                - generic [ref=e95]:
+                  - generic [ref=e101]: เลือกหน้า
+                  - combobox "เลือกหน้า The Celine Condo" [ref=e106] [cursor=pointer]:
+                    - generic [ref=e113]: The Celine Condo
+            - 'row "Page Diagnostics App ID: 532160876956612 - Manychat เปิด App ID: 1008894166257710 - R-Chat เปิด" [ref=e116]':
+              - rowheader [ref=e117]
+              - 'cell "Page Diagnostics App ID: 532160876956612 - Manychat เปิด App ID: 1008894166257710 - R-Chat เปิด" [ref=e118]':
+                - generic "Page Diagnostics" [ref=e120]:
+                  - generic [ref=e121]:
+                    - heading "Page Diagnostics" [level=3] [ref=e125]
+                    - list [ref=e130]:
+                      - listitem [ref=e131]: ผู้ใช้มีสิทธิ์การอนุญาตสำหรับข้อมูลลูกค้า
+                      - listitem [ref=e133]:
+                        - text: เปิดใช้งานตัวจัดการสิทธิ์การเข้าถึงข้อมูลลูกค้าแล้ว
+                        - link "เรียนรู้เพิ่มเติม" [ref=e136] [cursor=pointer]:
+                          - /url: https://www.facebook.com/business/help/618808448980683
+                      - listitem [ref=e137]: ผู้ใช้เป็นผู้ดูแลเพจ
+                - generic [ref=e139]:
+                  - generic [ref=e144]:
+                    - 'heading "App ID: 532160876956612 - Manychat" [level=4] [ref=e151]'
+                    - button "เปิด" [ref=e152] [cursor=pointer]:
+                      - generic [ref=e155]: เปิด
+                  - generic [ref=e162]:
+                    - 'heading "App ID: 1008894166257710 - R-Chat" [level=4] [ref=e169]'
+                    - button "เปิด" [ref=e170] [cursor=pointer]:
+                      - generic [ref=e173]: เปิด
+            - 'row "Product: Product Lead Retrieval" [ref=e176]':
+              - rowheader "Product:" [ref=e177]
+              - cell "Product Lead Retrieval" [ref=e178]:
+                - generic [ref=e179]:
+                  - generic [ref=e185]: Product
+                  - combobox "Product Lead Retrieval" [ref=e190] [cursor=pointer]:
+                    - generic [ref=e197]: Lead Retrieval
+            - 'row "แบบฟอร์ม: เลือกแบบฟอร์ม Celine FEB26" [ref=e200]':
+              - rowheader "แบบฟอร์ม:" [ref=e201]
+              - cell "เลือกแบบฟอร์ม Celine FEB26" [ref=e202]:
+                - generic [ref=e204]:
+                  - generic [ref=e210]: เลือกแบบฟอร์ม
+                  - combobox "เลือกแบบฟอร์ม Celine FEB26" [ref=e215] [cursor=pointer]:
+                    - generic [ref=e222]: Celine FEB26
+            - row "You can create one lead per form. You'll need to delete an existing lead in order to create a new one." [ref=e225]:
+              - rowheader [ref=e226]
+              - cell "You can create one lead per form. You'll need to delete an existing lead in order to create a new one." [ref=e227]
+          - rowgroup [ref=e228]:
+            - row "สร้างข้อมูลลูกค้า ลบข้อมูลลูกค้า แบบฟอร์มตัวอย่าง" [ref=e229]:
+              - rowheader [ref=e230]
+              - cell "สร้างข้อมูลลูกค้า ลบข้อมูลลูกค้า แบบฟอร์มตัวอย่าง" [ref=e231]:
+                - button "สร้างข้อมูลลูกค้า" [ref=e232] [cursor=pointer]:
+                  - generic [ref=e236]: สร้างข้อมูลลูกค้า
+                - button "ลบข้อมูลลูกค้า" [ref=e237] [cursor=pointer]:
+                  - generic [ref=e241]: ลบข้อมูลลูกค้า
+                - button "แบบฟอร์มตัวอย่าง" [ref=e245] [cursor=pointer]:
+                  - generic [ref=e249]: แบบฟอร์มตัวอย่าง
+    - contentinfo [ref=e253]:
+      - generic [ref=e254]:
+        - separator [ref=e255]
+        - generic [ref=e257]:
+          - generic [ref=e259]:
+            - generic [ref=e261]:
+              - img "Meta" [ref=e263]
+              - list [ref=e265]:
+                - listitem [ref=e266]:
+                  - link "Facebook" [ref=e267] [cursor=pointer]:
+                    - /url: https://www.facebook.com/MetaforDevelopers
+                    - img "Facebook" [ref=e268]
+                - listitem [ref=e269]:
+                  - link "Instagram" [ref=e270] [cursor=pointer]:
+                    - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fwww.instagram.com%2Fmetafordevelopers%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR5wONKBRkCCCawRpJVc0zqCdJQhKnC1seZCBRL8l59qNboyt9hIxTuNg7-h0A_aem_7unlGeAVLboRr5c-_rUODA&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+                    - img "Instagram" [ref=e271]
+                - listitem [ref=e272]:
+                  - link "X" [ref=e273] [cursor=pointer]:
+                    - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Ftwitter.com%2Fmetafordevs%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR4dFreN1BpvavMJz56QwdXrWW2nmuZI_JxlFUxkAS6gaGzvibxcC0YJct3ysA_aem_O00lLtlLAMTG-3ePMVYFLg&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+                    - img "X" [ref=e274]
+                - listitem [ref=e275]:
+                  - link "LinkedIn" [ref=e276] [cursor=pointer]:
+                    - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fwww.linkedin.com%2Fshowcase%2Fmeta-for-developers%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR6TqwALWeyZJHQWQCHSirVrr0EaWgZfDa3SVghrI9q--IOfRZFb_5Wp2cEN8g_aem_vM6XP4zBNM5DAGaVomqbzg&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+                    - img "LinkedIn" [ref=e277]
+                - listitem [ref=e278]:
+                  - link "YouTube" [ref=e279] [cursor=pointer]:
+                    - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fwww.youtube.com%2FMetaDevelopers%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR4Rk2_WTJQrusPFwckQKf79i4iccy14y6hm1O4m7SbqlGevli-Gz4UjDgDJKw_aem_Gx-njy6sPVls2Fpc9nywXQ&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+                    - img "YouTube" [ref=e280]
+            - generic [ref=e282]:
+              - generic [ref=e285]:
+                - heading "Build with Meta" [level=2] [ref=e286]:
+                  - generic [ref=e287]: Build with Meta
+                - list [ref=e288]:
+                  - listitem [ref=e289]:
+                    - link "AI" [ref=e291] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fwww.llama.com%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR6-zUFHbkyuURODR2iAREzdvKpU6NycqHM6RGFTnLbqWWV8PGqIDrKE968d7w_aem_f9daD1PXLurVIvqnseWYAQ&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+                  - listitem [ref=e292]:
+                    - link "Meta Horizon" [ref=e294] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fdevelopers.meta.com%2Fhorizon%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR4dFreN1BpvavMJz56QwdXrWW2nmuZI_JxlFUxkAS6gaGzvibxcC0YJct3ysA_aem_O00lLtlLAMTG-3ePMVYFLg&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+                  - listitem [ref=e295]:
+                    - link "Social technologies" [ref=e297] [cursor=pointer]:
+                      - /url: /social-technologies/
+                  - listitem [ref=e298]:
+                    - link "Wearables" [ref=e300] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fdevelopers.meta.com%2Fwearables%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR4AHGo8FMqwNmsG18xX4UKouWzO7oTvjG5PbtVY_nagdQf5I0xVaIiEmNSW3g_aem_NjmTK4PYtoDpaAXY8Mjc9Q&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+              - generic [ref=e303]:
+                - heading "News" [level=2] [ref=e304]:
+                  - generic [ref=e305]: News
+                - list [ref=e306]:
+                  - listitem [ref=e307]:
+                    - link "Meta for Developers" [ref=e309] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fdevelopers.meta.com%2Fblog%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR4Rk2_WTJQrusPFwckQKf79i4iccy14y6hm1O4m7SbqlGevli-Gz4UjDgDJKw_aem_Gx-njy6sPVls2Fpc9nywXQ&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+                  - listitem [ref=e310]:
+                    - link "Blog" [ref=e312] [cursor=pointer]:
+                      - /url: /blog/
+                  - listitem [ref=e313]:
+                    - link "Success stories" [ref=e315] [cursor=pointer]:
+                      - /url: /success-stories/
+              - generic [ref=e318]:
+                - heading "Support" [level=2] [ref=e319]:
+                  - generic [ref=e320]: Support
+                - list [ref=e321]:
+                  - listitem [ref=e322]:
+                    - link "Developer Support" [ref=e324] [cursor=pointer]:
+                      - /url: /support/
+                  - listitem [ref=e325]:
+                    - link "Bug tool" [ref=e327] [cursor=pointer]:
+                      - /url: /support/bugs/
+                  - listitem [ref=e328]:
+                    - link "Platform status" [ref=e330] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fmetastatus.com%2F%3Ffbclid%3DIwZXh0bgNhZW0CMTAAYnJpZBExdDkxU0NQWEpnb1QxdGtFTnNydGMGYXBwX2lkATAAAR4Rk2_WTJQrusPFwckQKf79i4iccy14y6hm1O4m7SbqlGevli-Gz4UjDgDJKw_aem_Gx-njy6sPVls2Fpc9nywXQ&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+                  - listitem [ref=e331]:
+                    - link "Developer community forum" [ref=e333] [cursor=pointer]:
+                      - /url: https://www.facebook.com/groups/fbdevelopers/
+                  - listitem [ref=e334]:
+                    - link "Report an incident" [ref=e336] [cursor=pointer]:
+                      - /url: /incident/report/
+              - generic [ref=e339]:
+                - heading "About us" [level=2] [ref=e340]:
+                  - generic [ref=e341]: About us
+                - list [ref=e342]:
+                  - listitem [ref=e343]:
+                    - link "About" [ref=e345] [cursor=pointer]:
+                      - /url: https://l.facebook.com/l.php?u=https%3A%2F%2Fabout.fb.com%2F&h=AUDhMiTWEJszGO0yRDmIisJ01C3ZsRyhppzqXUqJM7kp-sv9Wi41O9YwitKT6lMMeeIrvgSWVh_TzYr2td1dpmtmt_1oZ4fi1Hvpq-01zgJJGlmGSLEQEhYYNi9PwVVe99q8aQ
+                  - listitem [ref=e346]:
+                    - link "Careers" [ref=e348] [cursor=pointer]:
+                      - /url: https://www.facebook.com/careers
+              - generic [ref=e351]:
+                - heading "Terms and policies" [level=2] [ref=e352]:
+                  - generic [ref=e353]: Terms and policies
+                - list [ref=e354]:
+                  - listitem [ref=e355]:
+                    - link "Responsible platform initiatives" [ref=e357] [cursor=pointer]:
+                      - /url: /products/responsible-platform-initiatives/
+                  - listitem [ref=e358]:
+                    - link "Platform terms" [ref=e360] [cursor=pointer]:
+                      - /url: /terms/dfc_platform_terms/
+                  - listitem [ref=e361]:
+                    - link "Developer policies" [ref=e363] [cursor=pointer]:
+                      - /url: /devpolicy/
+                  - listitem [ref=e364]:
+                    - link "Privacy policy" [ref=e366] [cursor=pointer]:
+                      - /url: https://www.facebook.com/about/privacy
+                  - listitem [ref=e367]:
+                    - link "Cookies" [ref=e369] [cursor=pointer]:
+                      - /url: https://www.facebook.com/help/cookies
+          - button "เปลี่ยนภาษา" [ref=e374] [cursor=pointer]:
+            - generic [ref=e376]: English (US)

@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "meta:subscribe": "node scripts/meta-subscribe.mjs",
     "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {

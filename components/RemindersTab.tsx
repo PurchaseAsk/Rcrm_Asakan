@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bell, RefreshCcw, CheckCircle, X } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Reminder } from "@/types/crm";
@@ -22,7 +22,7 @@ export function RemindersTab({
   const [completionNote, setCompletionNote] = useState("");
   const [saving, setSaving] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -34,9 +34,9 @@ export function RemindersTab({
       .order("remind_at", { ascending: true });
     setReminders((data || []) as ReminderWithLead[]);
     setLoading(false);
-  }
+  }, [userId]);
 
-  useEffect(() => { void load(); }, [userId]);
+  useEffect(() => { void load(); }, [load]);
 
   async function confirmDone(r: ReminderWithLead) {
     if (!completionNote.trim()) return;

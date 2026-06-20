@@ -1,0 +1,50 @@
+- generic [active]:
+  - generic:
+    - generic:
+      - iframe
+    - generic:
+      - iframe
+    - generic:
+      - iframe
+    - generic:
+      - iframe
+    - generic [ref=e1]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "โลโก้ Meta" [ref=e7] [cursor=pointer]:
+            - /url: /?no_redirect=true
+            - img "โลโก้ Meta" [ref=e9]
+          - tablist [ref=e18]:
+            - link "แอพของฉัน" [ref=e19] [cursor=pointer]:
+              - /url: /apps/
+              - generic [ref=e22]: แอพของฉัน
+            - link "การดำเนินการที่จำเป็น" [ref=e23] [cursor=pointer]:
+              - /url: /required-actions/
+              - generic [ref=e26]: การดำเนินการที่จำเป็น
+            - tab "เอกสาร" [ref=e27] [cursor=pointer]:
+              - generic [ref=e30]: เอกสาร
+            - tab "เครื่องมือ" [ref=e32] [cursor=pointer]:
+              - generic [ref=e35]: เครื่องมือ
+            - tab "การสนับสนุน" [ref=e37] [cursor=pointer]:
+              - generic [ref=e40]: การสนับสนุน
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - generic [ref=e49]: คำค้นหา
+            - textbox "คำค้นหา" [ref=e60]:
+              - /placeholder: ค้นหา...
+          - link [ref=e63] [cursor=pointer]:
+            - /url: "#"
+          - link "Facebook" [ref=e68] [cursor=pointer]:
+            - /url: "#"
+            - img "Facebook" [ref=e73]
+      - generic [ref=e74]:
+        - generic [ref=e76]:
+          - progressbar [ref=e77]
+          - progressbar [ref=e94]
+        - generic [ref=e110]:
+          - progressbar [ref=e111]
+          - progressbar [ref=e112]
+          - progressbar [ref=e113]
+          - progressbar [ref=e114]
+          - progressbar [ref=e115]
+          - progressbar [ref=e116]

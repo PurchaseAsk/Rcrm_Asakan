@@ -1,0 +1,672 @@
+- generic [ref=e5]:
+  - progressbar [ref=e6]
+  - generic [ref=e13]:
+    - generic [ref=e16]:
+      - img [ref=e17]
+      - generic [ref=e21]:
+        - generic [ref=e22]: เพิ่มหมายเลขโทรศัพท์เพื่อรับการแจ้งเตือนทางธุรกิจที่สำคัญ
+        - generic [ref=e23]: รับการแจ้งเตือนเกี่ยวกับบัญชีของคุณทางโทรศัพท์โดยตรง คุณสามารถไปที่ตัวจัดการโฆษณาเพื่อควบคุมการแจ้งเตือนที่คุณได้รับหรือเลือกไม่รับได้ทุกเมื่อ
+      - link "ไปที่การตั้งค่าบัญชีโฆษณา" [ref=e24] [cursor=pointer]:
+        - /url: https://adsmanager.facebook.com/adsmanager/?act=1996138661251891&edit_contact=pm&tool=AD_ACCOUNT_SETTINGS
+        - generic [ref=e28]: ไปที่การตั้งค่าบัญชีโฆษณา
+      - button "ปิด" [ref=e29] [cursor=pointer]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: ปิด
+          - img [ref=e34]
+    - generic [ref=e37]:
+      - generic [ref=e50]:
+        - generic [ref=e52]:
+          - heading "การตั้งค่า" [level=1] [ref=e53]
+          - toolbar [ref=e55]:
+            - generic [ref=e58]:
+              - heading "Wela Business" [level=4] [ref=e59]
+              - generic [ref=e60]: พอร์ตโฟลิโอธุรกิจ
+            - button "Facebook" [ref=e61] [cursor=pointer]:
+              - generic [ref=e67]:
+                - generic:
+                  - img
+                - img "Facebook" [ref=e69]
+        - generic [ref=e70]:
+          - generic [ref=e77]:
+            - generic [ref=e80]:
+              - navigation [ref=e81]:
+                - list [ref=e82]:
+                  - listitem [ref=e85]:
+                    - link "ข้อมูลธุรกิจ" [ref=e87] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/business_info?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: ข้อมูลธุรกิจ
+              - navigation "ผู้ใช้" [ref=e93]:
+                - list [ref=e94]:
+                  - listitem [ref=e95]:
+                    - generic [ref=e96]:
+                      - button "ผู้ใช้" [expanded] [ref=e98] [cursor=pointer]
+                      - generic:
+                        - listitem:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: ผู้ใช้
+                            - button "เปิด/ปิดกลุ่ม" [ref=e104] [cursor=pointer]:
+                              - generic [ref=e106]:
+                                - generic [ref=e107]: เปิด/ปิดกลุ่ม
+                                - img [ref=e109]
+                    - list [ref=e113]:
+                      - generic [ref=e116]:
+                        - link "ผู้คน" [ref=e118] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/business_users?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: ผู้คน
+                      - generic [ref=e125]:
+                        - link "พาร์ทเนอร์" [ref=e127] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/partners?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: พาร์ทเนอร์
+                      - generic [ref=e134]:
+                        - link "ผู้ใช้ระบบ" [ref=e136] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/system_users?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: ผู้ใช้ระบบ
+              - navigation "บัญชี" [ref=e141]:
+                - list [ref=e142]:
+                  - listitem [ref=e143]:
+                    - generic [ref=e144]:
+                      - button "บัญชี" [expanded] [ref=e146] [cursor=pointer]
+                      - generic:
+                        - listitem:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: บัญชี
+                            - button "เปิด/ปิดกลุ่ม" [ref=e152] [cursor=pointer]:
+                              - generic [ref=e154]:
+                                - generic [ref=e155]: เปิด/ปิดกลุ่ม
+                                - img [ref=e157]
+                    - list [ref=e161]:
+                      - generic [ref=e164]:
+                        - link "เพจ" [ref=e166] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/pages?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: เพจ
+                      - generic [ref=e173]:
+                        - link "บัญชีโฆษณา" [ref=e175] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/ad_accounts?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: บัญชีโฆษณา
+                      - generic [ref=e182]:
+                        - link "กลุ่มสินทรัพย์ธุรกิจ" [ref=e184] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/business_asset_groups?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: กลุ่มสินทรัพย์ธุรกิจ
+                      - generic [ref=e191]:
+                        - link "แอพ" [ref=e193] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/apps?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: แอพ
+                      - generic [ref=e200]:
+                        - link "บัญชี Instagram" [ref=e202] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/instagram_account?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: บัญชี Instagram
+                      - generic [ref=e209]:
+                        - link "บัญชี WhatsApp" [ref=e211] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/whatsapp_account?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: บัญชี WhatsApp
+                      - generic [ref=e218]:
+                        - link "บัญชี Threads" [ref=e220] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/threads_account?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: บัญชี Threads
+              - navigation "แหล่งข้อมูล" [ref=e225]:
+                - list [ref=e226]:
+                  - listitem [ref=e227]:
+                    - generic [ref=e228]:
+                      - button "แหล่งข้อมูล" [ref=e230] [cursor=pointer]
+                      - generic:
+                        - listitem:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: แหล่งข้อมูล
+                            - button "เปิด/ปิดกลุ่ม" [ref=e236] [cursor=pointer]:
+                              - generic [ref=e238]:
+                                - generic [ref=e239]: เปิด/ปิดกลุ่ม
+                                - img [ref=e241]
+                    - list [ref=e244]:
+                      - generic [ref=e247]:
+                        - link "แค็ตตาล็อก" [ref=e249] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/product_catalogs?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: แค็ตตาล็อก
+                      - generic [ref=e256]:
+                        - link "ชุดข้อมูลและพิกเซล" [ref=e258] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/events_dataset_and_pixel?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: ชุดข้อมูลและพิกเซล
+                      - generic [ref=e265]:
+                        - link "ชุดเหตุการณ์แบบออฟไลน์" [ref=e267] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/offline_event_sets?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: ชุดเหตุการณ์แบบออฟไลน์
+                      - generic [ref=e274]:
+                        - link "คอนเวอร์ชั่นแบบกำหนดเอง" [ref=e276] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/custom_conversions?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: คอนเวอร์ชั่นแบบกำหนดเอง
+                      - generic [ref=e283]:
+                        - link "กลุ่มเป้าหมายที่ใช้ร่วมกัน" [ref=e285] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/shared_audiences?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: กลุ่มเป้าหมายที่ใช้ร่วมกัน
+                      - generic [ref=e292]:
+                        - link "โฟลเดอร์ชิ้นงานโฆษณาธุรกิจ" [ref=e294] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/business_creative_folders?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: โฟลเดอร์ชิ้นงานโฆษณาธุรกิจ
+              - navigation [ref=e299]:
+                - list [ref=e300]:
+                  - listitem [ref=e303]:
+                    - link "คำขอ" [ref=e305] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/requests?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: คำขอ
+              - navigation "ความปลอดภัยและความเหมาะสมของแบรนด์" [ref=e311]:
+                - list [ref=e312]:
+                  - listitem [ref=e313]:
+                    - generic [ref=e314]:
+                      - button "ความปลอดภัยและความเหมาะสมของแบรนด์" [ref=e316] [cursor=pointer]
+                      - generic:
+                        - listitem:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: ความปลอดภัยและความเหมาะสมของแบรนด์
+                            - button "เปิด/ปิดกลุ่ม" [ref=e322] [cursor=pointer]:
+                              - generic [ref=e324]:
+                                - generic [ref=e325]: เปิด/ปิดกลุ่ม
+                                - img [ref=e327]
+                    - list [ref=e330]:
+                      - generic [ref=e333]:
+                        - link "โดเมน" [ref=e335] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/domains?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: โดเมน
+                      - generic [ref=e342]:
+                        - link "รายการผู้เผยแพร่ที่บล็อก" [ref=e344] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/block_lists?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: รายการผู้เผยแพร่ที่บล็อก
+              - navigation "การผสานการทำงาน" [ref=e349]:
+                - list [ref=e350]:
+                  - listitem [ref=e351]:
+                    - generic [ref=e352]:
+                      - button "การผสานการทำงาน" [expanded] [ref=e354] [cursor=pointer]
+                      - generic:
+                        - listitem:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic: การผสานการทำงาน
+                            - button "เปิด/ปิดกลุ่ม" [ref=e360] [cursor=pointer]:
+                              - generic [ref=e362]:
+                                - generic [ref=e363]: เปิด/ปิดกลุ่ม
+                                - img [ref=e365]
+                    - list [ref=e369]:
+                      - generic [ref=e372]:
+                        - link "แอพที่เชื่อมต่อ" [ref=e374] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/connected_apps?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: แอพที่เชื่อมต่อ
+                      - generic [ref=e381]:
+                        - link "สิทธิ์การเข้าถึงข้อมูลลูกค้า" [ref=e383] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/leads_access?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: สิทธิ์การเข้าถึงข้อมูลลูกค้า
+                      - generic [ref=e390]:
+                        - link "การกำหนดเส้นทางการสนทนา" [ref=e392] [cursor=pointer]:
+                          - /url: https://business.facebook.com/latest/settings/conversation_routing?business_id=1802165933495480
+                        - generic:
+                          - listitem:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic: การกำหนดเส้นทางการสนทนา
+              - navigation [ref=e397]:
+                - list [ref=e398]:
+                  - listitem [ref=e401]:
+                    - link "การเรียกเก็บเงินและการชำระเงิน" [ref=e403] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/billing_hub?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: การเรียกเก็บเงินและการชำระเงิน
+              - navigation [ref=e409]:
+                - list [ref=e410]:
+                  - listitem [ref=e413]:
+                    - link "Meta Verified" [ref=e415] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/mv4b?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: Meta Verified
+                  - listitem [ref=e423]:
+                    - link "เพจข่าว" [ref=e425] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/news_pages?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: เพจข่าว
+                  - listitem [ref=e433]:
+                    - link "ฮับโฆษณาพาร์ทเนอร์" [ref=e435] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/business_ad_partnerships?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: ฮับโฆษณาพาร์ทเนอร์
+                  - listitem [ref=e443]:
+                    - link "ศูนย์การรักษาความปลอดภัย" [ref=e445] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/security_center?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: ศูนย์การรักษาความปลอดภัย
+                  - listitem [ref=e453]:
+                    - link "การแจ้งเตือน" [ref=e455] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/notifications?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: การแจ้งเตือน
+                  - listitem [ref=e463]:
+                    - link "คำแนะนำการตั้งค่า" [ref=e465] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/setup_guide?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: คำแนะนำการตั้งค่า
+                  - listitem [ref=e473]:
+                    - link "สินทรัพย์ของธุรกิจ" [ref=e475] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/business_assets?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: สินทรัพย์ของธุรกิจ
+                  - listitem [ref=e483]:
+                    - link "การอนุญาตและการตรวจสอบยืนยัน" [ref=e485] [cursor=pointer]:
+                      - /url: https://business.facebook.com/latest/settings/authorizations_verifications?business_id=1802165933495480
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: การอนุญาตและการตรวจสอบยืนยัน
+                  - listitem [ref=e493]:
+                    - link "การตั้งค่าบัญชีโฆษณา" [ref=e495] [cursor=pointer]:
+                      - /url: https://business.facebook.com/ads/manager/account_settings/?business_id=1802165933495480&nav_source=business_manager
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: การตั้งค่าบัญชีโฆษณา
+                          - generic:
+                            - img
+                  - listitem [ref=e503]:
+                    - link "การตั้งค่าภาษา" [ref=e505] [cursor=pointer]:
+                      - /url: https://www.facebook.com/settings/?tab=language
+                    - generic:
+                      - listitem:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: การตั้งค่าภาษา
+                          - generic:
+                            - img
+            - button "ยุบ" [ref=e516] [cursor=pointer]:
+              - generic [ref=e518]:
+                - generic [ref=e519]: ยุบ
+                - img [ref=e521]
+          - grid "สินทรัพย์ธุรกิจ" [ref=e541]:
+            - rowgroup [ref=e542]:
+              - row "ชื่อ Full access สิทธิ์การเข้าถึงบางส่วน พาร์ทเนอร์" [ref=e543]:
+                - columnheader "ชื่อ" [ref=e544] [cursor=pointer]:
+                  - generic [ref=e546]:
+                    - button "ชื่อ" [ref=e547]:
+                      - heading "ชื่อ" [level=4] [ref=e550]
+                    - img [ref=e553]
+                - columnheader "Full access" [ref=e556]:
+                  - generic [ref=e559]:
+                    - heading "Full access" [level=4] [ref=e562]
+                    - img [ref=e567]
+                - columnheader "สิทธิ์การเข้าถึงบางส่วน" [ref=e570]:
+                  - generic [ref=e573]:
+                    - heading "สิทธิ์การเข้าถึงบางส่วน" [level=4] [ref=e576]
+                    - img [ref=e581]
+                - columnheader "พาร์ทเนอร์" [ref=e584]:
+                  - generic [ref=e587]:
+                    - heading "พาร์ทเนอร์" [level=4] [ref=e590]
+                    - img [ref=e595]
+                - columnheader [ref=e598]
+            - rowgroup [ref=e599]:
+              - row "Facebook The Celine Condo กำลังโหลด... กำลังโหลด... กำลังโหลด... Details" [ref=e600] [cursor=pointer]:
+                - gridcell "Facebook The Celine Condo" [ref=e601]:
+                  - button "Facebook The Celine Condo" [ref=e603]:
+                    - generic [ref=e608]:
+                      - img "Facebook" [ref=e613]
+                      - heading "The Celine Condo" [level=4] [ref=e616]
+                - gridcell "กำลังโหลด..." [ref=e617]:
+                  - progressbar [ref=e621]
+                - gridcell "กำลังโหลด..." [ref=e623]:
+                  - progressbar [ref=e627]
+                - gridcell "กำลังโหลด..." [ref=e629]:
+                  - progressbar [ref=e633]
+                - gridcell "Details" [ref=e635]:
+                  - button "Details" [ref=e637]:
+                    - link "Details" [ref=e640]:
+                      - /url: "#"
+              - row "Facebook Asakan Elysium Phahol 59 กำลังโหลด... กำลังโหลด... กำลังโหลด... Details" [ref=e641] [cursor=pointer]:
+                - gridcell "Facebook Asakan Elysium Phahol 59" [ref=e642]:
+                  - button "Facebook Asakan Elysium Phahol 59" [ref=e644]:
+                    - generic [ref=e649]:
+                      - img "Facebook" [ref=e654]
+                      - heading "Asakan Elysium Phahol 59" [level=4] [ref=e657]
+                - gridcell "กำลังโหลด..." [ref=e658]:
+                  - progressbar [ref=e662]
+                - gridcell "กำลังโหลด..." [ref=e664]:
+                  - progressbar [ref=e668]
+                - gridcell "กำลังโหลด..." [ref=e670]:
+                  - progressbar [ref=e674]
+                - gridcell "Details" [ref=e676]:
+                  - button "Details" [ref=e678]:
+                    - link "Details" [ref=e681]:
+                      - /url: "#"
+              - row "Facebook คอนโดลงทุน คอนโดปล่อยเช่า คอนโดเงินเหลือ รามคำแหง มีนบุรี เสรีไทย กำลังโหลด... กำลังโหลด... กำลังโหลด... Details" [ref=e682] [cursor=pointer]:
+                - gridcell "Facebook คอนโดลงทุน คอนโดปล่อยเช่า คอนโดเงินเหลือ รามคำแหง มีนบุรี เสรีไทย" [ref=e683]:
+                  - button "Facebook คอนโดลงทุน คอนโดปล่อยเช่า คอนโดเงินเหลือ รามคำแหง มีนบุรี เสรีไทย" [ref=e685]:
+                    - generic [ref=e690]:
+                      - img "Facebook" [ref=e695]
+                      - heading "คอนโดลงทุน คอนโดปล่อยเช่า คอนโดเงินเหลือ รามคำแหง มีนบุรี เสรีไทย" [level=4] [ref=e698]
+                - gridcell "กำลังโหลด..." [ref=e699]:
+                  - progressbar [ref=e703]
+                - gridcell "กำลังโหลด..." [ref=e705]:
+                  - progressbar [ref=e709]
+                - gridcell "กำลังโหลด..." [ref=e711]:
+                  - progressbar [ref=e715]
+                - gridcell "Details" [ref=e717]:
+                  - button "Details" [ref=e719]:
+                    - link "Details" [ref=e722]:
+                      - /url: "#"
+              - row "Facebook Wela condo เพจธุรกิจหลัก กำลังโหลด... กำลังโหลด... กำลังโหลด... Details" [ref=e723] [cursor=pointer]:
+                - gridcell "Facebook Wela condo เพจธุรกิจหลัก" [ref=e724]:
+                  - button "Facebook Wela condo เพจธุรกิจหลัก" [ref=e726]:
+                    - generic [ref=e731]:
+                      - img "Facebook" [ref=e736]
+                      - generic [ref=e737]:
+                        - heading "Wela condo" [level=4] [ref=e739]
+                        - generic [ref=e740]: เพจธุรกิจหลัก
+                - gridcell "กำลังโหลด..." [ref=e741]:
+                  - progressbar [ref=e745]
+                - gridcell "กำลังโหลด..." [ref=e747]:
+                  - progressbar [ref=e751]
+                - gridcell "กำลังโหลด..." [ref=e753]:
+                  - progressbar [ref=e757]
+                - gridcell "Details" [ref=e759]:
+                  - button "Details" [ref=e761]:
+                    - link "Details" [ref=e764]:
+                      - /url: "#"
+      - generic [ref=e770]:
+        - generic [ref=e772]:
+          - button "Meta Business Suite" [ref=e773] [cursor=pointer]:
+            - generic [ref=e775]: Meta Business Suite
+          - button "Pressable" [ref=e783] [cursor=pointer]
+        - navigation "ลิงก์" [ref=e791]:
+          - generic [ref=e792]: ลิงก์
+          - list [ref=e793]:
+            - generic [ref=e794]:
+              - listitem [ref=e798]:
+                - generic [ref=e800]:
+                  - link "หน้าหลัก" [ref=e801] [cursor=pointer]:
+                    - /url: https://business.facebook.com/latest/home?business_id=1802165933495480
+                    - generic [ref=e802]: หน้าหลัก
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: หน้าหลัก
+              - listitem [ref=e806]:
+                - generic [ref=e808]:
+                  - link "การแจ้งเตือน" [ref=e809] [cursor=pointer]:
+                    - generic [ref=e810]: การแจ้งเตือน
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: การแจ้งเตือน
+              - listitem [ref=e815]:
+                - generic [ref=e817]:
+                  - link "ตัวจัดการโฆษณา" [ref=e818] [cursor=pointer]:
+                    - generic [ref=e819]: ตัวจัดการโฆษณา
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: ตัวจัดการโฆษณา
+              - listitem [ref=e823]:
+                - generic [ref=e825]:
+                  - link "กล่องข้อความ" [ref=e826] [cursor=pointer]:
+                    - /url: https://business.facebook.com/latest/inbox?business_id=1802165933495480
+                    - generic [ref=e827]: กล่องข้อความ
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: กล่องข้อความ
+              - listitem [ref=e832]:
+                - generic [ref=e834]:
+                  - link "เนื้อหา" [ref=e835] [cursor=pointer]:
+                    - /url: https://business.facebook.com/latest/posts?business_id=1802165933495480
+                    - generic [ref=e836]: เนื้อหา
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: เนื้อหา
+              - listitem [ref=e840]:
+                - generic [ref=e842]:
+                  - link "ครีเอเตอร์มาร์เก็ตเพลส" [ref=e843] [cursor=pointer]:
+                    - /url: https://business.facebook.com/latest/creator_marketplace?business_id=1802165933495480&cm_entrypoint=biz_kit_nav_route_item
+                    - generic [ref=e844]: ครีเอเตอร์มาร์เก็ตเพลส
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: ครีเอเตอร์มาร์เก็ตเพลส
+              - listitem [ref=e849]:
+                - generic [ref=e851]:
+                  - link "โฆษณา" [ref=e852] [cursor=pointer]:
+                    - /url: https://business.facebook.com/latest/ad_center/ads_summary?business_id=1802165933495480
+                    - generic [ref=e853]: โฆษณา
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: โฆษณา
+              - listitem [ref=e858]:
+                - generic [ref=e860]:
+                  - link "ข้อมูลเชิงลึก" [ref=e861] [cursor=pointer]:
+                    - /url: https://business.facebook.com/latest/insights?business_id=1802165933495480
+                    - generic [ref=e862]: ข้อมูลเชิงลึก
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: ข้อมูลเชิงลึก
+              - listitem [ref=e866]:
+                - generic [ref=e868]:
+                  - link "เครื่องมือทั้งหมด" [ref=e869] [cursor=pointer]:
+                    - generic [ref=e870]: เครื่องมือทั้งหมด
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: เครื่องมือทั้งหมด
+              - generic [ref=e872]:
+                - separator [ref=e873]
+                - listitem [ref=e876]:
+                  - generic [ref=e878]:
+                    - link "ตัวจัดการเหตุการณ์" [ref=e879] [cursor=pointer]:
+                      - /url: https://business.facebook.com/events_manager2/?business_id=1802165933495480&global_scope_id=1802165933495480&nav_source=biz_nav
+                      - generic [ref=e880]: ตัวจัดการเหตุการณ์
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: ตัวจัดการเหตุการณ์
+                - listitem [ref=e883]:
+                  - generic [ref=e885]:
+                    - link "กฎแบบอัตโนมัติ" [ref=e886] [cursor=pointer]:
+                      - /url: https://business.facebook.com/ads/manager/rules/?business_id=1802165933495480&global_scope_id=1802165933495480&nav_entry_point=bm_global_nav_shortcut&nav_source=flyout_menu
+                      - generic [ref=e887]: กฎแบบอัตโนมัติ
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: กฎแบบอัตโนมัติ
+                - listitem [ref=e890]:
+                  - generic [ref=e892]:
+                    - link "การเรียกเก็บเงินและการชำระเงิน" [ref=e893] [cursor=pointer]:
+                      - /url: https://business.facebook.com/billing_hub/?business_id=1802165933495480&placement=mbs_all_tools_menu
+                      - generic [ref=e894]: การเรียกเก็บเงินและการชำระเงิน
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: การเรียกเก็บเงินและการชำระเงิน
+        - generic [ref=e897]:
+          - listitem [ref=e900]:
+            - generic [ref=e902]:
+              - link "ค้นหา" [ref=e903] [cursor=pointer]:
+                - generic [ref=e904]: ค้นหา
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: ค้นหา
+              - generic:
+                - generic:
+                  - img
+          - navigation "ลิงก์" [ref=e905]:
+            - generic [ref=e906]: ลิงก์
+            - list [ref=e907]:
+              - listitem [ref=e911]:
+                - generic [ref=e913]:
+                  - link "การตั้งค่า" [ref=e914] [cursor=pointer]:
+                    - /url: https://business.facebook.com/latest/settings/business_users?business_id=1802165933495480
+                    - generic [ref=e915]: การตั้งค่า
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: การตั้งค่า
+          - listitem [ref=e922]:
+            - generic [ref=e924]:
+              - link "ความช่วยเหลือ" [ref=e925] [cursor=pointer]:
+                - generic [ref=e926]: ความช่วยเหลือ
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: ความช่วยเหลือ
+              - generic:
+                - generic:
+                  - img
