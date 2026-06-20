@@ -82,7 +82,9 @@ export async function POST(request: NextRequest) {
 
     if (!page) continue;
     const pageToken = page.token ? String(page.token) : null;
-    const leadgenToken = process.env.FB_LEADGEN_TOKEN ?? pageToken;
+    const pageEnvToken = (process.env[`FB_PAGE_TOKEN_${fbPageId}`] as string | undefined) ?? null;
+    const leadgenToken = pageEnvToken ?? pageToken ?? process.env.FB_LEADGEN_TOKEN ?? null;
+    const msgToken = (process.env[`FB_MSG_TOKEN_${fbPageId}`] as string | undefined) ?? pageToken ?? null;
 
     // ── Facebook Lead Ads (leadgen form submission) ───────────────────────────
     for (const change of entry.changes ?? []) {
@@ -132,8 +134,8 @@ export async function POST(request: NextRequest) {
         { onConflict: "fb_message_id", ignoreDuplicates: true },
       );
 
-      if (!conv.sender_name && pageToken) {
-        void enrichSenderName(supabase, conv.id, senderPsid, pageToken);
+      if (!conv.sender_name && msgToken) {
+        void enrichSenderName(supabase, conv.id, senderPsid, msgToken);
       }
     }
   }
