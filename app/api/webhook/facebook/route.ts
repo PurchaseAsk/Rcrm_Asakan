@@ -22,6 +22,7 @@ type FbEntry = {
   id: string;
   messaging?: {
     sender: { id: string };
+    recipient: { id: string };
     message?: {
       mid: string;
       text?: string;
@@ -96,13 +97,16 @@ export async function POST(request: NextRequest) {
 
     // ── Facebook Messenger ────────────────────────────────────────────────────
     for (const event of entry.messaging ?? []) {
-      if (!event.message || event.message.is_echo) continue;
+      if (!event.message) continue;
+
+      const isEcho = !!event.message.is_echo;
+      // echo = sent by page admin via FB Messenger; sender.id is the page, recipient.id is the user
+      const senderPsid = isEcho ? event.recipient.id : event.sender.id;
 
       const hasText = !!event.message.text;
       const hasAttachment = (event.message.attachments?.length ?? 0) > 0;
       if (!hasText && !hasAttachment) continue;
 
-      const senderPsid = event.sender.id;
       const fbMessageId = event.message.mid;
       const text = event.message.text ?? null;
       const attachment = event.message.attachments?.[0] ?? null;
@@ -125,7 +129,7 @@ export async function POST(request: NextRequest) {
       await supabase.from("messages").upsert(
         {
           conversation_id: conv.id,
-          direction: "inbound",
+          direction: isEcho ? "outbound" : "inbound",
           content: text,
           attachment_url: attachment?.payload?.url ?? null,
           attachment_type: attachment?.type ?? null,
@@ -134,7 +138,7 @@ export async function POST(request: NextRequest) {
         { onConflict: "fb_message_id", ignoreDuplicates: true },
       );
 
-      if (!conv.sender_name && msgToken) {
+      if (!isEcho && !conv.sender_name && msgToken) {
         void enrichSenderName(supabase, conv.id, senderPsid, msgToken);
       }
     }
@@ -278,12 +282,18 @@ async function enrichSenderName(
     const res = await fetch(
       `https://graph.facebook.com/v20.0/${psid}?fields=name&access_token=${encodeURIComponent(token)}`,
     );
-    if (!res.ok) return;
+    if (!res.ok) {
+      const errBody = (await res.json().catch(() => ({}))) as unknown;
+      console.error("[enrichSenderName] Graph API error psid=%s status=%d body=%s", psid, res.status, JSON.stringify(errBody));
+      return;
+    }
     const data = (await res.json()) as { name?: string };
     if (data.name) {
       await supabase.from("conversations").update({ sender_name: data.name }).eq("id", convId);
+    } else {
+      console.warn("[enrichSenderName] No name returned for psid=%s", psid);
     }
-  } catch {
-    // non-critical
+  } catch (e) {
+    console.error("[enrichSenderName] fetch error psid=%s", psid, e);
   }
 }
