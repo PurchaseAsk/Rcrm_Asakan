@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { Search, ChevronDown, ChevronUp } from "lucide-react";
-import { normalizePhone, actorName } from "@/lib/helpers";
+import { Search, ChevronDown, ChevronUp, Download } from "lucide-react";
+import { normalizePhone, actorName, sourceLabel } from "@/lib/helpers";
 import type { Lead, Pipeline, Profile, Stage } from "@/types/crm";
 
 type Customer = {
@@ -10,6 +10,28 @@ type Customer = {
   phone: string | null;
   leads: Lead[];
 };
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+function daysAgoStr(n: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+function monthStartStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+type DatePreset = "all" | "today" | "7d" | "30d" | "month";
+const PRESETS: { id: DatePreset; label: string }[] = [
+  { id: "all", label: "ทั้งหมด" },
+  { id: "today", label: "วันนี้" },
+  { id: "7d", label: "7 วัน" },
+  { id: "30d", label: "30 วัน" },
+  { id: "month", label: "เดือนนี้" },
+];
 
 export function CustomersPanel({
   leads,
@@ -26,10 +48,41 @@ export function CustomersPanel({
 }) {
   const [search, setSearch] = useState("");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  function setPreset(p: DatePreset) {
+    const today = todayStr();
+    if (p === "all") { setDateFrom(""); setDateTo(""); }
+    else if (p === "today") { setDateFrom(today); setDateTo(today); }
+    else if (p === "7d") { setDateFrom(daysAgoStr(6)); setDateTo(today); }
+    else if (p === "30d") { setDateFrom(daysAgoStr(29)); setDateTo(today); }
+    else if (p === "month") { setDateFrom(monthStartStr()); setDateTo(today); }
+  }
+
+  function activePreset(): DatePreset | null {
+    const today = todayStr();
+    if (!dateFrom && !dateTo) return "all";
+    if (dateFrom === today && dateTo === today) return "today";
+    if (dateFrom === daysAgoStr(6) && dateTo === today) return "7d";
+    if (dateFrom === daysAgoStr(29) && dateTo === today) return "30d";
+    if (dateFrom === monthStartStr() && dateTo === today) return "month";
+    return null;
+  }
+
+  const dateFilteredLeads = useMemo(() => {
+    if (!dateFrom && !dateTo) return leads;
+    return leads.filter((lead) => {
+      const d = new Date(lead.created_at);
+      if (dateFrom && d < new Date(dateFrom)) return false;
+      if (dateTo && d > new Date(dateTo + "T23:59:59")) return false;
+      return true;
+    });
+  }, [leads, dateFrom, dateTo]);
 
   const customers = useMemo<Customer[]>(() => {
     const groups = new Map<string, Lead[]>();
-    for (const lead of leads) {
+    for (const lead of dateFilteredLeads) {
       const norm = normalizePhone(lead.phone ?? "");
       const key = norm ?? `__nophone__${lead.id}`;
       if (!groups.has(key)) groups.set(key, []);
@@ -49,7 +102,7 @@ export function CustomersPanel({
           new Date(b.leads[0].last_activity_at).getTime() -
           new Date(a.leads[0].last_activity_at).getTime(),
       );
-  }, [leads]);
+  }, [dateFilteredLeads]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -72,13 +125,77 @@ export function CustomersPanel({
     return pipelines.find((p) => p.id === lead.pipeline_id)?.name ?? "-";
   }
 
+  function exportCSV() {
+    const header = ["ชื่อลูกค้า", "เบอร์โทร", "Email", "แหล่งที่มา", "Pipeline", "Stage", "มอบหมายให้", "วันที่สร้าง"];
+    const rows = dateFilteredLeads.map((lead) => [
+      lead.customer_name,
+      lead.phone ?? "",
+      lead.email ?? "",
+      sourceLabel(lead.source, lead.metadata),
+      pipelineName(lead),
+      stageName(lead),
+      actorName(lead.assigned_to, profiles),
+      new Date(lead.created_at).toLocaleDateString("th-TH"),
+    ]);
+    const csv = [header, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `customers_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const active = activePreset();
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-950">ทะเบียนลูกค้า</h2>
-          <p className="text-sm text-slate-500">{customers.length} ลูกค้า · {leads.length} ลีด</p>
+          <p className="text-sm text-slate-500">{customers.length} ลูกค้า · {dateFilteredLeads.length} ลีด</p>
         </div>
+        <button
+          onClick={exportCSV}
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <Download size={14} />
+          Export CSV
+        </button>
+      </div>
+
+      {/* Date range */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-500 shrink-0">ช่วงเวลา:</span>
+        {PRESETS.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setPreset(p.id)}
+            className={`h-7 rounded-md px-2.5 text-xs font-medium transition-colors ${
+              active === p.id
+                ? "bg-brand-700 text-white"
+                : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          className="h-7 rounded-md border border-slate-200 px-2 text-xs text-slate-600 outline-none focus:border-brand-600"
+        />
+        <span className="text-xs text-slate-400">–</span>
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          className="h-7 rounded-md border border-slate-200 px-2 text-xs text-slate-600 outline-none focus:border-brand-600"
+        />
       </div>
 
       <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
