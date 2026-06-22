@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Lead, Profile, Stage } from "@/types/crm";
+import { sourceLabel } from "@/lib/helpers";
 
 type DashTab = "pipeline" | "conversions";
 
@@ -357,6 +358,28 @@ function ConversionsView({
     return { matrix: rows, stageTotals: st };
   }, [filteredLeads, profileById]);
 
+  // ── By source matrix ──────────────────────────────────────────────────────
+  const { sourceMatrix, sourceStageTotals } = useMemo(() => {
+    const m = new Map<string, { total: number; stages: Map<string, number> }>();
+    filteredLeads.forEach((lead) => {
+      const key = sourceLabel(lead.source, lead.metadata);
+      if (!m.has(key)) m.set(key, { total: 0, stages: new Map() });
+      const row = m.get(key)!;
+      row.total++;
+      const sid = lead.stage_id ?? "__none__";
+      row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1);
+    });
+    const rows = [...m.entries()]
+      .map(([src, data]) => ({ src, total: data.total, stages: data.stages }))
+      .sort((a, b) => b.total - a.total);
+    const st: Record<string, number> = {};
+    filteredLeads.forEach((l) => {
+      const sid = l.stage_id ?? "__none__";
+      st[sid] = (st[sid] ?? 0) + 1;
+    });
+    return { sourceMatrix: rows, sourceStageTotals: st };
+  }, [filteredLeads]);
+
   return (
     <div className="space-y-4">
       {/* Quick presets + date range */}
@@ -491,6 +514,74 @@ function ConversionsView({
               </tr>
             )}
             {!matrix.length && (
+              <tr>
+                <td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">
+                  ไม่มีลีดในช่วงวันที่นี้
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* By source table */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+        <div className="border-b border-slate-200 px-4 py-3">
+          <h3 className="font-semibold text-slate-800">Lead Conversions แบ่งตามแหล่งที่มา</h3>
+          <p className="mt-0.5 text-xs text-slate-500">{dateFrom} — {dateTo}</p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-64">
+                แหล่งที่มา
+              </th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+                ลีดใหม่
+              </th>
+              {stages.map((s) => (
+                <th
+                  key={s.id}
+                  className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap"
+                >
+                  {s.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sourceMatrix.map((row, i) => (
+              <tr
+                key={row.src}
+                className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}
+              >
+                <td className="px-4 py-3 font-medium text-slate-800">{row.src}</td>
+                <td className="px-3 py-3 text-center font-bold tabular-nums text-brand-700">{row.total}</td>
+                {stages.map((s) => {
+                  const v = row.stages.get(s.id) ?? 0;
+                  return (
+                    <td key={s.id} className="px-3 py-3 text-center tabular-nums">
+                      {v > 0 ? <span className="font-medium text-slate-700">{v}</span> : <span className="text-slate-300">-</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            {sourceMatrix.length > 0 && (
+              <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+                <td className="px-4 py-3 text-slate-700">รวม</td>
+                <td className="px-3 py-3 text-center tabular-nums text-brand-700">{filteredLeads.length}</td>
+                {stages.map((s) => {
+                  const v = sourceStageTotals[s.id] ?? 0;
+                  return (
+                    <td key={s.id} className="px-3 py-3 text-center tabular-nums text-slate-700">
+                      {v > 0 ? v : <span className="font-normal text-slate-300">-</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+            )}
+            {!sourceMatrix.length && (
               <tr>
                 <td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">
                   ไม่มีลีดในช่วงวันที่นี้
