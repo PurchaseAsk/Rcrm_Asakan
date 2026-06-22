@@ -414,7 +414,7 @@ export function ChatInbox({
   }, [conversations, pages, userRole]);
 
   const [filterPageId, setFilterPageId] = useState<string | null>(null);
-  const [filterTagId, setFilterTagId] = useState<string | null>(null);
+  const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
 
   const usedConvTags = useMemo(() => {
     const seen = new Map<string, { id: string; name: string; color: string }>();
@@ -429,10 +429,18 @@ export function ChatInbox({
   const pageFilteredConvs = filterPageId
     ? conversations.filter((c) => c.page_id === filterPageId)
     : conversations;
-  const tagFilteredConvs = filterTagId
-    ? pageFilteredConvs.filter((c) => (c.conversation_tags ?? []).some((ct) => ct.tag_id === filterTagId))
+  const tagFilteredConvs = filterTagIds.size > 0
+    ? pageFilteredConvs.filter((c) => (c.conversation_tags ?? []).some((ct) => filterTagIds.has(ct.tag_id)))
     : pageFilteredConvs;
   const visibleConvs = filterUnread ? tagFilteredConvs.filter(isUnread) : tagFilteredConvs;
+
+  function toggleTagFilter(tagId: string) {
+    setFilterTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagId)) next.delete(tagId); else next.add(tagId);
+      return next;
+    });
+  }
   const unreadCount = conversations.filter(isUnread).length;
 
   useEffect(() => {
@@ -474,22 +482,41 @@ export function ChatInbox({
               <p className="text-xs text-slate-500">{visibleConvs.length} conversations</p>
             </div>
 
-            <div className="shrink-0 flex items-center gap-2 border-b border-slate-100 px-3 py-2">
+            <div className="shrink-0 border-b border-slate-100 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-1.5">
               {usedConvTags.length > 0 && (
-                <select
-                  className="min-w-0 h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-brand-600 focus:outline-none"
-                  value={filterTagId ?? ""}
-                  onChange={(e) => setFilterTagId(e.target.value || null)}
-                >
-                  <option value="">แท็กทั้งหมด</option>
-                  {usedConvTags.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                <>
+                  {filterTagIds.size > 0 && (
+                    <button
+                      onClick={() => setFilterTagIds(new Set())}
+                      className="h-6 rounded-full border border-slate-200 px-2 text-[10px] text-slate-500 hover:bg-slate-100"
+                    >
+                      ล้าง
+                    </button>
+                  )}
+                  {usedConvTags.map((t) => {
+                    const active = filterTagIds.has(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => toggleTagFilter(t.id)}
+                        className="h-6 rounded-full px-2.5 text-[10px] font-medium transition-opacity"
+                        style={{
+                          backgroundColor: active ? t.color : `${t.color}22`,
+                          color: active ? "#fff" : t.color,
+                          outline: active ? `2px solid ${t.color}` : "none",
+                          outlineOffset: "1px",
+                        }}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
+                </>
               )}
               <button
                 onClick={() => setFilterUnread((v) => !v)}
-                className={`shrink-0 h-8 rounded-lg border px-2.5 text-xs font-medium transition-colors ${
+                className={`shrink-0 h-6 rounded-full border px-2.5 text-[10px] font-medium transition-colors ${
                   filterUnread
                     ? "border-blue-400 bg-blue-500 text-white"
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -497,6 +524,7 @@ export function ChatInbox({
               >
                 ยังไม่อ่าน{!filterUnread && unreadCount > 0 ? ` (${unreadCount})` : ""}
               </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -645,7 +673,7 @@ export function ChatInbox({
                 </div>
                 {showTagPicker && (() => {
                   const appliedIds = new Set((selectedConv.conversation_tags ?? []).map((ct) => ct.tag_id));
-                  const available = tags.filter((t) => !appliedIds.has(t.id) && (t.type === "global" || t.created_by === userId));
+                  const available = tags.filter((t) => !appliedIds.has(t.id) && t.type === "global");
                   return (
                     <div className="flex flex-wrap gap-1.5 border-t border-slate-100 bg-slate-50 px-4 py-2">
                       {available.length === 0 ? (
