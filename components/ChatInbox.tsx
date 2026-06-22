@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Conversation, Message, Page, Pipeline, Profile, Stage } from "@/types/crm";
+import type { Conversation, Message, Page, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import html2canvas from "html2canvas";
 
 const supabase = createBrowserSupabase();
@@ -17,6 +17,7 @@ export function ChatInbox({
   profiles,
   pipelines,
   stages,
+  tags,
   userId,
   userRole,
   toast,
@@ -26,6 +27,7 @@ export function ChatInbox({
   profiles: Profile[];
   pipelines: Pipeline[];
   stages: Stage[];
+  tags: Tag[];
   userId: string;
   userRole: string;
   toast: (message: string) => void;
@@ -41,11 +43,14 @@ export function ChatInbox({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
+  const tagPickerRef = useRef<HTMLDivElement>(null);
 
   type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
   const [leadModal, setLeadModal] = useState<{ conv: Conversation; msgs: Message[] } | null>(null);
   const [leadDraft, setLeadDraft] = useState<LeadDraft>({ customer_name: "", phone: "", email: "", assigned_to: "", pipeline_id: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [filterUnread, setFilterUnread] = useState(false);
+  const [showTagPicker, setShowTagPicker] = useState(false);
 
   useEffect(() => {
     selectedConvIdRef.current = selectedConvId;
@@ -54,6 +59,17 @@ export function ChatInbox({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!showTagPicker) return;
+    function handleClick(e: MouseEvent) {
+      if (tagPickerRef.current && !tagPickerRef.current.contains(e.target as Node)) {
+        setShowTagPicker(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showTagPicker]);
 
   useEffect(() => {
     void refreshConversations();
@@ -99,7 +115,7 @@ export function ChatInbox({
 
     let query = supabase
       .from("conversations")
-      .select("*, facebook_pages(id, name, page_id), leads(id, customer_name)")
+      .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))")
       .order("last_message_at", { ascending: false })
       .limit(100);
 
@@ -136,8 +152,30 @@ export function ChatInbox({
     setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, last_read_at: null } : c));
   }
 
+  async function addConvTag(convId: string, tagId: string) {
+    const { error } = await supabase.from("conversation_tags").insert({ conversation_id: convId, tag_id: tagId });
+    if (error) return;
+    const tag = tags.find((t) => t.id === tagId);
+    if (!tag) return;
+    setConversations((prev) => prev.map((c) =>
+      c.id === convId
+        ? { ...c, conversation_tags: [...(c.conversation_tags ?? []), { tag_id: tagId, tags: { id: tag.id, name: tag.name, color: tag.color } }] }
+        : c
+    ));
+  }
+
+  async function removeConvTag(convId: string, tagId: string) {
+    await supabase.from("conversation_tags").delete().eq("conversation_id", convId).eq("tag_id", tagId);
+    setConversations((prev) => prev.map((c) =>
+      c.id === convId
+        ? { ...c, conversation_tags: (c.conversation_tags ?? []).filter((ct) => ct.tag_id !== tagId) }
+        : c
+    ));
+  }
+
   async function openConversation(conv: Conversation) {
     setSelectedConvId(conv.id);
+    setShowTagPicker(false);
     setMessages([]);
     await refreshMessages(conv.id);
     void markRead(conv.id);
@@ -326,11 +364,11 @@ export function ChatInbox({
 
   const [filterPageId, setFilterPageId] = useState<string | null>(null);
 
-  const visibleConvs = filterPageId
+  const pageFilteredConvs = filterPageId
     ? conversations.filter((c) => c.page_id === filterPageId)
     : conversations;
-
-  const unreadCount = visibleConvs.filter(isUnread).length;
+  const visibleConvs = filterUnread ? pageFilteredConvs.filter(isUnread) : pageFilteredConvs;
+  const unreadCount = conversations.filter(isUnread).length;
 
   return (
     <>
@@ -351,40 +389,32 @@ export function ChatInbox({
               <p className="text-xs text-slate-500">{visibleConvs.length} conversations</p>
             </div>
 
-            {accessiblePages.length > 1 && (
-              <div className="shrink-0 flex gap-1 overflow-x-auto border-b border-slate-100 px-2 py-1.5 scrollbar-none">
-                <button
-                  onClick={() => setFilterPageId(null)}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    filterPageId === null ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+            <div className="shrink-0 flex items-center gap-2 border-b border-slate-100 px-3 py-2">
+              {accessiblePages.length > 1 && (
+                <select
+                  className="min-w-0 h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-brand-600 focus:outline-none"
+                  value={filterPageId ?? ""}
+                  onChange={(e) => setFilterPageId(e.target.value || null)}
                 >
-                  ทั้งหมด
-                  <span className={`ml-1 ${filterPageId === null ? "text-blue-200" : "text-slate-400"}`}>
-                    {conversations.length}
-                  </span>
-                </button>
-                {accessiblePages.map((p) => {
-                  const count = conversations.filter((c) => c.page_id === p.id).length;
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => setFilterPageId(p.id)}
-                      className={`shrink-0 max-w-[160px] truncate rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        filterPageId === p.id
-                          ? "bg-brand-700 text-white"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {p.name}
-                      <span className={`ml-1 ${filterPageId === p.id ? "text-blue-200" : "text-slate-400"}`}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                  <option value="">ทั้งหมด ({conversations.length})</option>
+                  {accessiblePages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({conversations.filter((c) => c.page_id === p.id).length})
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={() => setFilterUnread((v) => !v)}
+                className={`shrink-0 h-8 rounded-lg border px-2.5 text-xs font-medium transition-colors ${
+                  filterUnread
+                    ? "border-blue-400 bg-blue-500 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                ยังไม่อ่าน{!filterUnread && unreadCount > 0 ? ` (${unreadCount})` : ""}
+              </button>
+            </div>
 
             <div className="flex-1 overflow-y-auto">
               {loading ? (
@@ -427,6 +457,17 @@ export function ChatInbox({
                             🎯 {conv.ad_name}
                           </div>
                         )}
+                        {(conv.conversation_tags ?? []).length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-0.5">
+                            {(conv.conversation_tags ?? []).map(({ tag_id, tags: tag }) =>
+                              tag ? (
+                                <span key={tag_id} className="rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: tag.color }}>
+                                  {tag.name}
+                                </span>
+                              ) : null
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="shrink-0 text-right">
                         {conv.lead_id ? (
@@ -434,8 +475,9 @@ export function ChatInbox({
                             Lead
                           </span>
                         ) : null}
-                        <div className={`mt-1 text-[10px] ${isUnread(conv) ? "font-medium text-blue-600" : "text-slate-400"}`}>
-                          {new Date(conv.last_message_at).toLocaleDateString("th-TH")}
+                        <div className={`mt-1 text-[10px] leading-tight ${isUnread(conv) ? "font-medium text-blue-600" : "text-slate-400"}`}>
+                          <div>{new Date(conv.last_message_at).toLocaleDateString("th-TH")}</div>
+                          <div>{new Date(conv.last_message_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</div>
                         </div>
                       </div>
                     </div>
@@ -491,6 +533,48 @@ export function ChatInbox({
                       + Create Lead
                     </button>
                   )}
+                </div>
+              </div>
+
+              {/* Tag bar */}
+              <div className="shrink-0 flex flex-wrap items-center gap-1.5 border-b border-slate-100 px-4 py-2 min-h-[40px]">
+                {(selectedConv.conversation_tags ?? []).map(({ tag_id, tags: tag }) =>
+                  tag ? (
+                    <span key={tag_id} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white" style={{ backgroundColor: tag.color }}>
+                      {tag.name}
+                      <button onClick={() => void removeConvTag(selectedConv.id, tag_id)} className="opacity-70 hover:opacity-100 leading-none">×</button>
+                    </span>
+                  ) : null
+                )}
+                <div className="relative" ref={tagPickerRef}>
+                  <button
+                    onClick={() => setShowTagPicker((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-500 hover:text-slate-600"
+                  >
+                    + แท็ก
+                  </button>
+                  {showTagPicker && (() => {
+                    const appliedIds = new Set((selectedConv.conversation_tags ?? []).map((ct) => ct.tag_id));
+                    const available = tags.filter((t) => !appliedIds.has(t.id));
+                    return (
+                      <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                        {available.length === 0 ? (
+                          <p className="px-3 py-2 text-xs text-slate-400">ไม่มีแท็กที่เพิ่มได้</p>
+                        ) : (
+                          available.map((tag) => (
+                            <button
+                              key={tag.id}
+                              onClick={() => { void addConvTag(selectedConv.id, tag.id); setShowTagPicker(false); }}
+                              className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-50"
+                            >
+                              <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: tag.color }} />
+                              {tag.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

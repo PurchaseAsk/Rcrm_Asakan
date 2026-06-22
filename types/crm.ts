@@ -136,6 +136,7 @@ export type Conversation = {
   created_at: string;
   facebook_pages?: { id: string; name: string; page_id: string; token: string } | null;
   leads?: { id: string; customer_name: string } | null;
+  conversation_tags?: { tag_id: string; tags?: { id: string; name: string; color: string } | null }[];
 };
 
 export type Message = {

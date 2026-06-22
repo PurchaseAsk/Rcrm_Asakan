@@ -629,6 +629,7 @@ export default function HomePage() {
               profiles={data.profiles}
               pipelines={data.pipelines}
               stages={data.stages}
+              tags={data.tags}
               userId={currentUserId}
               userRole={profile?.role ?? "staff"}
               toast={showToast}
