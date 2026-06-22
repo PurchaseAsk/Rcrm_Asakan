@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     // ── Facebook Lead Ads (leadgen form submission) ───────────────────────────
     // adsToken: User token with ads_read for reading ad/campaign names
-    const adsToken = process.env.FB_LEADGEN_TOKEN ?? leadgenToken;
+    const adsToken = (process.env.FB_ADS_TOKEN as string | undefined) ?? leadgenToken;
     for (const change of entry.changes ?? []) {
       if (change.field !== "leadgen") continue;
       if (leadgenToken) {
@@ -263,14 +263,20 @@ async function fetchAdDetails(
   try {
     const url = `https://graph.facebook.com/v20.0/${adId}?fields=name,adset{name},campaign{name}&access_token=${encodeURIComponent(token)}`;
     const res = await fetch(url);
-    if (!res.ok) return { ad_name: null, adset_name: null, campaign_name: null };
+    if (!res.ok) {
+      const err = (await res.json()) as unknown;
+      console.error("[fetchAdDetails] adId=%s status=%d err=%s", adId, res.status, JSON.stringify(err));
+      return { ad_name: null, adset_name: null, campaign_name: null };
+    }
     const data = (await res.json()) as AdApiResult;
+    console.log("[fetchAdDetails] adId=%s result=%s", adId, JSON.stringify(data));
     return {
       ad_name: data.name ?? null,
       adset_name: data.adset?.name ?? null,
       campaign_name: data.campaign?.name ?? null,
     };
-  } catch {
+  } catch (e) {
+    console.error("[fetchAdDetails] exception adId=%s", adId, e);
     return { ad_name: null, adset_name: null, campaign_name: null };
   }
 }
