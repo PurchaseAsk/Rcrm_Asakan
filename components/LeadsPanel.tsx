@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, RefreshCcw, X } from "lucide-react";
+import { Plus, RefreshCcw, Search, X } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Pipeline, Profile, Stage } from "@/types/crm";
 import { MANUAL_SOURCES, pillClass } from "@/lib/helpers";
@@ -40,6 +40,8 @@ export function LeadsPanel({
   reload,
   pipelines,
   stages,
+  search,
+  setSearch,
 }: {
   leads: Lead[];
   filter: "active" | "unfollowed";
@@ -52,6 +54,8 @@ export function LeadsPanel({
   reload: () => void;
   pipelines: Pipeline[];
   stages: Stage[];
+  search: string;
+  setSearch: (v: string) => void;
 }) {
   const canFilterByMember = !!filterableProfiles?.length && !!setAssigneeFilter;
 
@@ -142,9 +146,21 @@ export function LeadsPanel({
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-950">Leads</h1>
-          <p className="text-sm text-slate-500">Click a lead to edit details, notes, tags, and reminders.</p>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+            <Search size={15} className="shrink-0 text-slate-400" />
+            <input
+              className="min-w-0 flex-1 bg-transparent text-slate-800 outline-none placeholder:text-slate-400"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ค้นหาชื่อ เบอร์ เพจ stage..."
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="shrink-0 text-slate-400 hover:text-slate-700">
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canFilterByMember && (

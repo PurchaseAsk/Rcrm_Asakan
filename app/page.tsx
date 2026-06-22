@@ -498,6 +498,8 @@ export default function HomePage() {
               reload={reload}
               pipelines={data.pipelines}
               stages={data.stages}
+              search={search}
+              setSearch={setSearch}
             />
           )}
           {activeTab === "funnel" && (
