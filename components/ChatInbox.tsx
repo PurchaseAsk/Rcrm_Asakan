@@ -43,7 +43,6 @@ export function ChatInbox({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
-  const tagPickerRef = useRef<HTMLDivElement>(null);
 
   type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
   const [leadModal, setLeadModal] = useState<{ conv: Conversation; msgs: Message[] } | null>(null);
@@ -60,16 +59,6 @@ export function ChatInbox({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (!showTagPicker) return;
-    function handleClick(e: MouseEvent) {
-      if (tagPickerRef.current && !tagPickerRef.current.contains(e.target as Node)) {
-        setShowTagPicker(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showTagPicker]);
 
   useEffect(() => {
     void refreshConversations();
@@ -537,45 +526,51 @@ export function ChatInbox({
               </div>
 
               {/* Tag bar */}
-              <div className="shrink-0 flex flex-wrap items-center gap-1.5 border-b border-slate-100 px-4 py-2 min-h-[40px]">
-                {(selectedConv.conversation_tags ?? []).map(({ tag_id, tags: tag }) =>
-                  tag ? (
-                    <span key={tag_id} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white" style={{ backgroundColor: tag.color }}>
-                      {tag.name}
-                      <button onClick={() => void removeConvTag(selectedConv.id, tag_id)} className="opacity-70 hover:opacity-100 leading-none">×</button>
-                    </span>
-                  ) : null
-                )}
-                <div className="relative" ref={tagPickerRef}>
+              <div className="shrink-0 border-b border-slate-100">
+                <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 min-h-[38px]">
+                  {(selectedConv.conversation_tags ?? []).map(({ tag_id, tags: tag }) => {
+                    if (!tag) return null;
+                    const fullTag = tags.find((t) => t.id === tag.id);
+                    const ownerProfile =
+                      fullTag?.type === "personal" && fullTag.created_by && fullTag.created_by !== userId
+                        ? profiles.find((p) => p.id === fullTag.created_by)
+                        : null;
+                    return (
+                      <span key={tag_id} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white" style={{ backgroundColor: tag.color }}>
+                        {tag.name}{ownerProfile ? ` · ${ownerProfile.full_name ?? ownerProfile.email}` : ""}
+                        <button onClick={() => void removeConvTag(selectedConv.id, tag_id)} className="opacity-70 hover:opacity-100 leading-none">×</button>
+                      </span>
+                    );
+                  })}
                   <button
                     onClick={() => setShowTagPicker((v) => !v)}
                     className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-500 hover:text-slate-600"
                   >
-                    + แท็ก
+                    {showTagPicker ? "ปิด" : "+ แท็ก"}
                   </button>
-                  {showTagPicker && (() => {
-                    const appliedIds = new Set((selectedConv.conversation_tags ?? []).map((ct) => ct.tag_id));
-                    const available = tags.filter((t) => !appliedIds.has(t.id));
-                    return (
-                      <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                        {available.length === 0 ? (
-                          <p className="px-3 py-2 text-xs text-slate-400">ไม่มีแท็กที่เพิ่มได้</p>
-                        ) : (
-                          available.map((tag) => (
-                            <button
-                              key={tag.id}
-                              onClick={() => { void addConvTag(selectedConv.id, tag.id); setShowTagPicker(false); }}
-                              className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-50"
-                            >
-                              <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: tag.color }} />
-                              {tag.name}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    );
-                  })()}
                 </div>
+                {showTagPicker && (() => {
+                  const appliedIds = new Set((selectedConv.conversation_tags ?? []).map((ct) => ct.tag_id));
+                  const available = tags.filter((t) => !appliedIds.has(t.id) && (t.type === "global" || t.created_by === userId));
+                  return (
+                    <div className="flex flex-wrap gap-1.5 border-t border-slate-100 bg-slate-50 px-4 py-2">
+                      {available.length === 0 ? (
+                        <span className="text-xs text-slate-400">ไม่มีแท็กที่เพิ่มได้</span>
+                      ) : (
+                        available.map((tag) => (
+                          <button
+                            key={tag.id}
+                            onClick={() => void addConvTag(selectedConv.id, tag.id)}
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white hover:opacity-80"
+                            style={{ backgroundColor: tag.color }}
+                          >
+                            + {tag.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div ref={messagesAreaRef} className="flex-1 space-y-3 overflow-y-auto p-4">
