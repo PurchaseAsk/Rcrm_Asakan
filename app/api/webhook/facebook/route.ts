@@ -223,21 +223,53 @@ async function handleLeadgen(
   // Insert failed — check if it's a duplicate facebook_lead_id (re-submission)
   const { data: existingByFbId } = await supabase
     .from("leads")
-    .select("id")
+    .select("id, stage_id, funnel_stages(is_unfollow)")
     .eq("facebook_lead_id", leadgen_id)
     .single();
 
   if (existingByFbId) {
-    await supabase
-      .from("leads")
-      .update({ last_activity_at: new Date().toISOString() })
-      .eq("id", existingByFbId.id);
-    await supabase.from("lead_activities").insert({
-      lead_id: existingByFbId.id,
-      type: "note",
-      content: `ส่ง Lead Form ซ้ำอีกครั้ง${activitySuffix}`,
-      created_by: null,
-    });
+    type LeadWithStage = { id: string; stage_id: string | null; funnel_stages: { is_unfollow: boolean } | null };
+    const existingLead = existingByFbId as unknown as LeadWithStage;
+    const isUnfollowed = existingLead.funnel_stages?.is_unfollow === true;
+
+    if (isUnfollowed) {
+      // Lead was lost — treat re-submission as a brand new lead and redistribute
+      const { data: newLead } = await supabase
+        .from("leads")
+        .insert({
+          customer_name: name ?? "Facebook Lead",
+          phone: rawPhone ?? null,
+          email: email ?? null,
+          page_id: pageId,
+          source: "facebook",
+          status: "active",
+          metadata: Object.keys(metadata).length ? metadata : null,
+          last_activity_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (newLead) {
+        await supabase.from("lead_activities").insert({
+          lead_id: newLead.id,
+          type: "created",
+          content: `สร้างลีดใหม่จาก Facebook Lead Form (ส่งซ้ำหลังเลิกติดตาม)${activitySuffix}`,
+          created_by: null,
+        });
+        await supabase.rpc("distribute_lead", { p_lead_id: newLead.id });
+      }
+    } else {
+      // Lead still active — just bump to top
+      await supabase
+        .from("leads")
+        .update({ last_activity_at: new Date().toISOString() })
+        .eq("id", existingLead.id);
+      await supabase.from("lead_activities").insert({
+        lead_id: existingLead.id,
+        type: "note",
+        content: `ส่ง Lead Form ซ้ำอีกครั้ง${activitySuffix}`,
+        created_by: null,
+      });
+    }
     return;
   }
 
