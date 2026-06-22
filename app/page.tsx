@@ -11,7 +11,6 @@ import {
   BellRing,
   BookUser,
   Boxes,
-  Clock,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -50,7 +49,6 @@ import { PagesPanel } from "@/components/PagesPanel";
 import { PipelineBar } from "@/components/PipelineBar";
 import { PipelineManagementModal } from "@/components/PipelineManagementModal";
 import { PipelinePanel } from "@/components/PipelinePanel";
-import { RecallPanel } from "@/components/RecallPanel";
 import { RemindersTab } from "@/components/RemindersTab";
 import { RulesPanel } from "@/components/RulesPanel";
 import { StageChangeNoteModal } from "@/components/StageChangeNoteModal";
@@ -76,7 +74,6 @@ const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: 
   { id: "pipelines", label: "Pipelines", icon: Boxes },
   { id: "stages", label: "Stages", icon: Workflow, managerOnly: true },
   { id: "rules", label: "Rules", icon: Settings, managerOnly: true },
-  { id: "recall", label: "Recall", icon: Clock, managerOnly: true },
   { id: "tags", label: "Global Tags", icon: Tags, managerOnly: true },
   { id: "pages", label: "Pages", icon: Bell, managerOnly: true },
 ];
@@ -541,17 +538,6 @@ export default function HomePage() {
               teams={data.teams}
               pipelines={data.pipelines}
               profiles={data.profiles}
-              reload={reload}
-              toast={showToast}
-            />
-          )}
-          {activeTab === "recall" && canManage && (
-            <RecallPanel
-              rules={data.recallRules}
-              stages={data.stages}
-              leads={data.leads}
-              profiles={data.profiles}
-              userId={currentUserId}
               reload={reload}
               toast={showToast}
             />
