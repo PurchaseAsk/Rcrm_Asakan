@@ -352,11 +352,25 @@ export function ChatInbox({
   }, [conversations, pages, userRole]);
 
   const [filterPageId, setFilterPageId] = useState<string | null>(null);
+  const [filterTagId, setFilterTagId] = useState<string | null>(null);
+
+  const usedConvTags = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string; color: string }>();
+    for (const c of conversations) {
+      for (const ct of c.conversation_tags ?? []) {
+        if (ct.tags && !seen.has(ct.tag_id)) seen.set(ct.tag_id, ct.tags);
+      }
+    }
+    return [...seen.values()];
+  }, [conversations]);
 
   const pageFilteredConvs = filterPageId
     ? conversations.filter((c) => c.page_id === filterPageId)
     : conversations;
-  const visibleConvs = filterUnread ? pageFilteredConvs.filter(isUnread) : pageFilteredConvs;
+  const tagFilteredConvs = filterTagId
+    ? pageFilteredConvs.filter((c) => (c.conversation_tags ?? []).some((ct) => ct.tag_id === filterTagId))
+    : pageFilteredConvs;
+  const visibleConvs = filterUnread ? tagFilteredConvs.filter(isUnread) : tagFilteredConvs;
   const unreadCount = conversations.filter(isUnread).length;
 
   return (
@@ -390,6 +404,18 @@ export function ChatInbox({
                     <option key={p.id} value={p.id}>
                       {p.name} ({conversations.filter((c) => c.page_id === p.id).length})
                     </option>
+                  ))}
+                </select>
+              )}
+              {usedConvTags.length > 0 && (
+                <select
+                  className="min-w-0 h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-brand-600 focus:outline-none"
+                  value={filterTagId ?? ""}
+                  onChange={(e) => setFilterTagId(e.target.value || null)}
+                >
+                  <option value="">แท็กทั้งหมด</option>
+                  {usedConvTags.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
               )}
