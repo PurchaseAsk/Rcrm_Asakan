@@ -103,11 +103,30 @@ export async function POST(request: NextRequest) {
 
     // ── Facebook Messenger ────────────────────────────────────────────────────
     for (const event of entry.messaging ?? []) {
+      const senderPsid = event.message?.is_echo ? event.recipient.id : event.sender.id;
+
+      // ── Referral-only event (Click-to-Messenger ad click, before any message) ──
+      // Facebook sends this when user clicks the Message button on an ad.
+      // It has no message body — just the referral with ad attribution.
+      if (!event.message && event.referral?.ad_id) {
+        const refPayload: Record<string, unknown> = {
+          page_id: page.id,
+          sender_psid: senderPsid,
+          last_message_at: new Date().toISOString(),
+          ad_id: event.referral.ad_id,
+        };
+        if (event.referral.ads_context_data?.ad_title) {
+          refPayload.ad_name = event.referral.ads_context_data.ad_title;
+        }
+        await supabase
+          .from("conversations")
+          .upsert(refPayload, { onConflict: "page_id,sender_psid" });
+        continue;
+      }
+
       if (!event.message) continue;
 
       const isEcho = !!event.message.is_echo;
-      // echo = sent by page admin via FB Messenger; sender.id is the page, recipient.id is the user
-      const senderPsid = isEcho ? event.recipient.id : event.sender.id;
 
       const hasText = !!event.message.text;
       const hasAttachment = (event.message.attachments?.length ?? 0) > 0;
@@ -117,7 +136,7 @@ export async function POST(request: NextRequest) {
       const text = event.message.text ?? null;
       const attachment = event.message.attachments?.[0] ?? null;
 
-      // Capture ad referral (only present on first message from a Click-to-Messenger ad)
+      // Capture ad referral (present on first user message when no automated reply preceded it)
       const referral = event.referral;
       const refAdId = referral?.ad_id ?? null;
       const refAdName = referral?.ads_context_data?.ad_title ?? null;
