@@ -50,6 +50,10 @@ export function ChatInbox({
   const [submitting, setSubmitting] = useState(false);
   const [filterUnread, setFilterUnread] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
+  const [showAppImages, setShowAppImages] = useState(false);
+  const [appImagesProject, setAppImagesProject] = useState<"wela" | "elysium">("wela");
+  const [appImages, setAppImages] = useState<{ name: string; url: string }[]>([]);
+  const [loadingAppImages, setLoadingAppImages] = useState(false);
 
   useEffect(() => {
     selectedConvIdRef.current = selectedConvId;
@@ -220,6 +224,47 @@ export function ChatInbox({
       else await refreshMessages(selectedConvId);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function sendImageByUrl(imageUrl: string) {
+    if (!selectedConvId) return;
+    setBusy(true);
+    setShowAppImages(false);
+    try {
+      const res = await fetch("/api/facebook/send-image-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: selectedConvId, image_url: imageUrl, sent_by: userId }),
+      });
+      const result = (await res.json()) as { error?: string };
+      if (!res.ok) toast(result.error ?? "Send failed");
+      else {
+        await refreshMessages(selectedConvId);
+        await refreshConversations();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadAppImages(project: "wela" | "elysium") {
+    setLoadingAppImages(true);
+    setAppImages([]);
+    try {
+      const { data } = await supabase.storage
+        .from("project-images")
+        .list(project + "/", { sortBy: { column: "name", order: "asc" } });
+      const items = (data ?? []).filter((f) => f.id !== null && f.name !== ".emptyFolderPlaceholder");
+      const withUrls = items.map((item) => {
+        const { data: urlData } = supabase.storage
+          .from("project-images")
+          .getPublicUrl(project + "/" + item.name);
+        return { name: item.name, url: urlData.publicUrl };
+      });
+      setAppImages(withUrls);
+    } finally {
+      setLoadingAppImages(false);
     }
   }
 
@@ -669,24 +714,26 @@ export function ChatInbox({
                   }}
                 />
                 <button
-                  title="แนบรูป"
+                  title="อัปโหลดรูป"
                   disabled={busy}
                   onClick={() => fileInputRef.current?.click()}
                   className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v13.5A1.5 1.5 0 003.75 21zm8.25-7.5a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
-                    />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                </button>
+                <button
+                  title="รูปจากแอป"
+                  disabled={busy}
+                  onClick={() => {
+                    setShowAppImages(true);
+                    void loadAppImages(appImagesProject);
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v13.5A1.5 1.5 0 003.75 21zm8.25-7.5a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
                   </svg>
                 </button>
                 <input
@@ -718,6 +765,67 @@ export function ChatInbox({
           )}
         </div>
       </section>
+
+      {/* App Images Modal */}
+      {showAppImages && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h3 className="font-semibold text-slate-950">รูปจากแอป</h3>
+              <button
+                onClick={() => setShowAppImages(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex border-b border-slate-200 px-5">
+              {(["wela", "elysium"] as const).map((proj) => (
+                <button
+                  key={proj}
+                  onClick={() => {
+                    setAppImagesProject(proj);
+                    void loadAppImages(proj);
+                  }}
+                  className={`mr-5 border-b-2 py-2.5 text-sm font-medium capitalize transition-colors ${
+                    appImagesProject === proj
+                      ? "border-brand-700 text-brand-700"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  {proj === "wela" ? "Wela" : "Elysium"}
+                </button>
+              ))}
+            </div>
+            <div className="p-5">
+              {loadingAppImages ? (
+                <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
+              ) : appImages.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-400">ไม่มีรูปภาพ — อัปโหลดรูปไปยัง Storage bucket &apos;project-images/{appImagesProject}/&apos; ก่อน</div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {appImages.map((img) => (
+                    <button
+                      key={img.name}
+                      disabled={busy}
+                      onClick={() => void sendImageByUrl(img.url)}
+                      className="group aspect-square overflow-hidden rounded-lg border-2 border-transparent hover:border-brand-600 focus:border-brand-600 focus:outline-none disabled:opacity-50"
+                      title={img.name}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.url}
+                        alt={img.name}
+                        className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Lead Modal */}
       {leadModal && (
