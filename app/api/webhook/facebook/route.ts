@@ -169,6 +169,8 @@ async function handleLeadgen(
   const adName = leadData.ad?.name ?? null;
   const adsetName = leadData.adset?.name ?? null;
   const campaignName = leadData.campaign?.name ?? null;
+  const formId = webhookValue.form_id ?? leadData.form_id ?? null;
+  const formName = formId ? await fetchFormName(formId, pageToken) : null;
 
   const metadata = {
     ...(adId ? { ad_id: adId } : {}),
@@ -181,9 +183,8 @@ async function handleLeadgen(
       ? { campaign_id: webhookValue.campaign_id ?? leadData.campaign_id }
       : {}),
     ...(campaignName ? { campaign_name: campaignName } : {}),
-    ...(webhookValue.form_id ?? leadData.form_id
-      ? { form_id: webhookValue.form_id ?? leadData.form_id }
-      : {}),
+    ...(formId ? { form_id: formId } : {}),
+    ...(formName ? { form_name: formName } : {}),
   };
 
   const activitySuffix = campaignName ? ` · แคมเปญ: ${campaignName}` : "";
@@ -305,6 +306,19 @@ async function fetchLeadgenData(leadgenId: string, token: string): Promise<Leadg
   }
 }
 
+
+async function fetchFormName(formId: string, token: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v20.0/${formId}?fields=name&access_token=${encodeURIComponent(token)}`,
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { name?: string };
+    return data.name ?? null;
+  } catch {
+    return null;
+  }
+}
 
 async function enrichSenderName(
   supabase: SupabaseClient,

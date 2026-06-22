@@ -36,6 +36,29 @@ export function formatMoney(value: number) {
   return new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 0 }).format(value);
 }
 
+export const MANUAL_SOURCES: { value: string; label: string }[] = [
+  { value: "website", label: "Website" },
+  { value: "walk_in", label: "Walk-in (เดินเข้ามา)" },
+  { value: "cold_call", label: "Cold Call" },
+  { value: "referral", label: "แนะนำ (Referral)" },
+  { value: "event", label: "งานอีเวนต์ / บูธ" },
+  { value: "line", label: "Line" },
+  { value: "other", label: "อื่นๆ" },
+];
+
+export function sourceLabel(source: string | null, meta?: { form_name?: string | null; campaign_name?: string | null } | null): string {
+  if (source === "facebook") return meta?.form_name ?? meta?.campaign_name ?? "Facebook Lead Form";
+  if (source === "chat") return "Chat (Inbox)";
+  if (source === "website") return "Website";
+  if (source === "walk_in") return "Walk-in";
+  if (source === "cold_call") return "Cold Call";
+  if (source === "referral") return "แนะนำ (Referral)";
+  if (source === "event") return "งานอีเวนต์";
+  if (source === "line") return "Line";
+  if (source === "other") return "อื่นๆ";
+  return source ?? "ไม่ระบุ";
+}
+
 export function userIdsLabel(ids: string[] | undefined, profiles: Profile[]) {
   if (!ids?.length) return "-";
   return ids

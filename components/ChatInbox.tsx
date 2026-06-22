@@ -226,7 +226,7 @@ export function ChatInbox({
           facebook_id: conv.sender_psid,
           page_id: conv.page_id,
           status: "active",
-          source: "facebook",
+          source: "chat",
           last_activity_at: new Date().toISOString(),
         })
         .select()

@@ -496,6 +496,8 @@ export default function HomePage() {
               setAssigneeFilter={setAssigneeFilter}
               onOpenLead={openLead}
               reload={reload}
+              pipelines={data.pipelines}
+              stages={data.stages}
             />
           )}
           {activeTab === "funnel" && (

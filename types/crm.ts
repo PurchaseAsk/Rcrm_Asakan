@@ -42,6 +42,7 @@ export type LeadMeta = {
   campaign_id?: string | null;
   campaign_name?: string | null;
   form_id?: string | null;
+  form_name?: string | null;
 };
 
 export type Lead = {
