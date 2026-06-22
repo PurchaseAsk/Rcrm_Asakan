@@ -180,23 +180,30 @@ async function handleLeadgen(
   const name = get("full_name") ?? get("name") ?? get("first_name");
   const email = get("email");
 
-  const adId = webhookValue.ad_id ?? leadData.ad_id;
-  const adName = leadData.ad?.name ?? null;
-  const adsetName = leadData.adset?.name ?? null;
-  const campaignName = leadData.campaign?.name ?? null;
+  const adId = webhookValue.ad_id ?? leadData.ad_id ?? null;
+  const adsetId = webhookValue.adset_id ?? leadData.adset_id ?? null;
+  const campaignId = webhookValue.campaign_id ?? leadData.campaign_id ?? null;
   const formId = webhookValue.form_id ?? leadData.form_id ?? null;
   const formName = formId ? await fetchFormName(formId, pageToken) : null;
+
+  // Fetch ad/campaign names via User Access Token (ads_read) if configured
+  let adName: string | null = null;
+  let adsetName: string | null = null;
+  let campaignName: string | null = null;
+  const adsToken = process.env.FB_ADS_TOKEN ?? null;
+  if (adsToken && (adId || adsetId || campaignId)) {
+    const names = await fetchAdCampaignNames(adId, adsetId, campaignId, adsToken);
+    adName = names.adName;
+    adsetName = names.adsetName;
+    campaignName = names.campaignName;
+  }
 
   const metadata = {
     ...(adId ? { ad_id: adId } : {}),
     ...(adName ? { ad_name: adName } : {}),
-    ...(webhookValue.adset_id ?? leadData.adset_id
-      ? { adset_id: webhookValue.adset_id ?? leadData.adset_id }
-      : {}),
+    ...(adsetId ? { adset_id: adsetId } : {}),
     ...(adsetName ? { adset_name: adsetName } : {}),
-    ...(webhookValue.campaign_id ?? leadData.campaign_id
-      ? { campaign_id: webhookValue.campaign_id ?? leadData.campaign_id }
-      : {}),
+    ...(campaignId ? { campaign_id: campaignId } : {}),
     ...(campaignName ? { campaign_name: campaignName } : {}),
     ...(formId ? { form_id: formId } : {}),
     ...(formName ? { form_name: formName } : {}),
@@ -312,13 +319,45 @@ async function handleLeadgen(
 
 async function fetchLeadgenData(leadgenId: string, token: string): Promise<LeadgenApiResult | null> {
   try {
-    const url = `https://graph.facebook.com/v20.0/${leadgenId}?fields=field_data,ad_id,adset_id,campaign_id,form_id,ad{name},adset{name},campaign{name}&access_token=${encodeURIComponent(token)}`;
+    const url = `https://graph.facebook.com/v20.0/${leadgenId}?fields=field_data,ad_id,adset_id,campaign_id,form_id&access_token=${encodeURIComponent(token)}`;
     const res = await fetch(url);
     if (!res.ok) return null;
     return (await res.json()) as LeadgenApiResult;
   } catch {
     return null;
   }
+}
+
+async function fetchAdCampaignNames(
+  adId: string | null,
+  adsetId: string | null,
+  campaignId: string | null,
+  adsToken: string,
+): Promise<{ adName: string | null; adsetName: string | null; campaignName: string | null }> {
+  const result = { adName: null as string | null, adsetName: null as string | null, campaignName: null as string | null };
+  try {
+    await Promise.all([
+      adId
+        ? fetch(`https://graph.facebook.com/v20.0/${adId}?fields=name&access_token=${encodeURIComponent(adsToken)}`)
+            .then((r) => (r.ok ? (r.json() as Promise<{ name?: string }>) : null))
+            .then((d) => { if (d?.name) result.adName = d.name; })
+            .catch(() => {})
+        : Promise.resolve(),
+      adsetId
+        ? fetch(`https://graph.facebook.com/v20.0/${adsetId}?fields=name&access_token=${encodeURIComponent(adsToken)}`)
+            .then((r) => (r.ok ? (r.json() as Promise<{ name?: string }>) : null))
+            .then((d) => { if (d?.name) result.adsetName = d.name; })
+            .catch(() => {})
+        : Promise.resolve(),
+      campaignId
+        ? fetch(`https://graph.facebook.com/v20.0/${campaignId}?fields=name&access_token=${encodeURIComponent(adsToken)}`)
+            .then((r) => (r.ok ? (r.json() as Promise<{ name?: string }>) : null))
+            .then((d) => { if (d?.name) result.campaignName = d.name; })
+            .catch(() => {})
+        : Promise.resolve(),
+    ]);
+  } catch { /* non-critical */ }
+  return result;
 }
 
 
