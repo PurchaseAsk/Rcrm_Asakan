@@ -220,7 +220,28 @@ async function handleLeadgen(
     return;
   }
 
-  // Insert failed — find existing lead by phone and merge
+  // Insert failed — check if it's a duplicate facebook_lead_id (re-submission)
+  const { data: existingByFbId } = await supabase
+    .from("leads")
+    .select("id")
+    .eq("facebook_lead_id", leadgen_id)
+    .single();
+
+  if (existingByFbId) {
+    await supabase
+      .from("leads")
+      .update({ last_activity_at: new Date().toISOString() })
+      .eq("id", existingByFbId.id);
+    await supabase.from("lead_activities").insert({
+      lead_id: existingByFbId.id,
+      type: "note",
+      content: `ส่ง Lead Form ซ้ำอีกครั้ง${activitySuffix}`,
+      created_by: null,
+    });
+    return;
+  }
+
+  // Not duplicate — find existing lead by phone and merge
   if (!rawPhone) return;
   const { data: dups } = await supabase.rpc("find_lead_by_phone", { p_phone: rawPhone }) as {
     data: { id: string; customer_name: string }[] | null;
