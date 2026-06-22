@@ -381,32 +381,34 @@ export function ChatInbox({
             className={`flex min-h-0 flex-col overflow-hidden border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}
           >
             <div className="shrink-0 border-b border-slate-200 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <h2 className="font-semibold text-slate-950">Inbox</h2>
-                {unreadCount > 0 && (
-                  <span className="inline-flex items-center rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    {unreadCount}
-                  </span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="font-semibold text-slate-950">Inbox</h2>
+                  {unreadCount > 0 && (
+                    <span className="inline-flex items-center rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
+                {accessiblePages.length > 1 && (
+                  <select
+                    className="h-7 max-w-[140px] rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-brand-600 focus:outline-none"
+                    value={filterPageId ?? ""}
+                    onChange={(e) => setFilterPageId(e.target.value || null)}
+                  >
+                    <option value="">ทุกเพจ</option>
+                    {accessiblePages.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </div>
               <p className="text-xs text-slate-500">{visibleConvs.length} conversations</p>
             </div>
 
             <div className="shrink-0 flex items-center gap-2 border-b border-slate-100 px-3 py-2">
-              {accessiblePages.length > 1 && (
-                <select
-                  className="min-w-0 h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-brand-600 focus:outline-none"
-                  value={filterPageId ?? ""}
-                  onChange={(e) => setFilterPageId(e.target.value || null)}
-                >
-                  <option value="">ทั้งหมด ({conversations.length})</option>
-                  {accessiblePages.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({conversations.filter((c) => c.page_id === p.id).length})
-                    </option>
-                  ))}
-                </select>
-              )}
               {usedConvTags.length > 0 && (
                 <select
                   className="min-w-0 h-8 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-brand-600 focus:outline-none"
