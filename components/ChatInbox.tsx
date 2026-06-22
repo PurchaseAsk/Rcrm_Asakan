@@ -254,7 +254,7 @@ export function ChatInbox({
     try {
       const { data } = await supabase.storage
         .from("project-images")
-        .list(project + "/", { sortBy: { column: "name", order: "asc" } });
+        .list(project, { sortBy: { column: "name", order: "asc" } });
       const items = (data ?? []).filter((f) => f.id !== null && f.name !== ".emptyFolderPlaceholder");
       const withUrls = items.map((item) => {
         const { data: urlData } = supabase.storage
