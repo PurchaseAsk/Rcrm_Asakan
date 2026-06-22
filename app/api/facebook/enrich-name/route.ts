@@ -28,6 +28,13 @@ export async function POST(request: NextRequest) {
   const envToken = (process.env[`FB_MSG_TOKEN_${fbPageId}`] ?? process.env[`FB_PAGE_TOKEN_${fbPageId}`]) as string | undefined;
   const token = envToken ?? dbToken ?? process.env.FB_LEADGEN_TOKEN ?? null;
 
+  console.log("[enrich-name] psid=%s page=%s dbToken=%s envToken=%s finalToken=%s",
+    row.sender_psid, fbPageId,
+    dbToken ? "SET" : "NULL",
+    envToken ? "SET" : "NULL",
+    token ? token.slice(0, 20) + "..." : "NULL",
+  );
+
   if (!token) {
     console.error("[enrich-name] No token available for page", fbPageId);
     return NextResponse.json({ error: "No page token" }, { status: 400 });
