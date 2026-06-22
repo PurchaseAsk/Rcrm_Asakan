@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       );
 
       if (!isEcho && !conv.sender_name && msgToken) {
-        void enrichSenderName(supabase, conv.id, senderPsid, msgToken);
+        void enrichSenderName(supabase, conv.id, senderPsid, msgToken, fbPageId);
       }
     }
   }
@@ -277,21 +277,24 @@ async function enrichSenderName(
   convId: string,
   psid: string,
   token: string,
+  fbPageId: string,
 ) {
   try {
+    // Use Conversations API — direct /{psid}?fields=name is no longer supported
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${psid}?fields=name&access_token=${encodeURIComponent(token)}`,
+      `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${psid}&fields=participants&access_token=${encodeURIComponent(token)}`,
     );
     if (!res.ok) {
       const errBody = (await res.json().catch(() => ({}))) as unknown;
-      console.error("[enrichSenderName] Graph API error psid=%s status=%d body=%s", psid, res.status, JSON.stringify(errBody));
+      console.error("[enrichSenderName] Conversations API error psid=%s body=%s", psid, JSON.stringify(errBody));
       return;
     }
-    const data = (await res.json()) as { name?: string };
-    if (data.name) {
-      await supabase.from("conversations").update({ sender_name: data.name }).eq("id", convId);
-    } else {
-      console.warn("[enrichSenderName] No name returned for psid=%s", psid);
+    type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string }[] } }[] };
+    const data = (await res.json()) as ConvApiResult;
+    const participants = data.data?.[0]?.participants?.data ?? [];
+    const user = participants.find((p) => p.id !== fbPageId);
+    if (user?.name) {
+      await supabase.from("conversations").update({ sender_name: user.name }).eq("id", convId);
     }
   } catch (e) {
     console.error("[enrichSenderName] fetch error psid=%s", psid, e);
