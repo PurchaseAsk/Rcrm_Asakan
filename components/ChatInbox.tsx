@@ -7,6 +7,11 @@ import html2canvas from "html2canvas";
 
 const supabase = createBrowserSupabase();
 
+function isUnread(conv: Conversation): boolean {
+  if (!conv.last_read_at) return true;
+  return new Date(conv.last_message_at) > new Date(conv.last_read_at);
+}
+
 export function ChatInbox({
   pages,
   profiles,
@@ -57,7 +62,12 @@ export function ChatInbox({
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async () => {
         await refreshConversations();
         const id = selectedConvIdRef.current;
-        if (id) await refreshMessages(id);
+        if (id) {
+          await refreshMessages(id);
+          const now = new Date().toISOString();
+          void supabase.from("conversations").update({ last_read_at: now }).eq("id", id);
+          setConversations((prev) => prev.map((c) => c.id === id ? { ...c, last_read_at: now } : c));
+        }
       })
       .subscribe();
     return () => {
@@ -115,10 +125,22 @@ export function ChatInbox({
     setMessages((data || []) as Message[]);
   }
 
+  async function markRead(convId: string) {
+    const now = new Date().toISOString();
+    await supabase.from("conversations").update({ last_read_at: now }).eq("id", convId);
+    setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, last_read_at: now } : c));
+  }
+
+  async function markUnread(convId: string) {
+    await supabase.from("conversations").update({ last_read_at: null }).eq("id", convId);
+    setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, last_read_at: null } : c));
+  }
+
   async function openConversation(conv: Conversation) {
     setSelectedConvId(conv.id);
     setMessages([]);
     await refreshMessages(conv.id);
+    void markRead(conv.id);
 
     if (!conv.sender_name) {
       try {
@@ -308,6 +330,8 @@ export function ChatInbox({
     ? conversations.filter((c) => c.page_id === filterPageId)
     : conversations;
 
+  const unreadCount = visibleConvs.filter(isUnread).length;
+
   return (
     <>
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -316,7 +340,14 @@ export function ChatInbox({
             className={`flex min-h-0 flex-col overflow-hidden border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}
           >
             <div className="shrink-0 border-b border-slate-200 px-4 py-3">
-              <h2 className="font-semibold text-slate-950">Inbox</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-slate-950">Inbox</h2>
+                {unreadCount > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500">{visibleConvs.length} conversations</p>
             </div>
 
@@ -369,13 +400,24 @@ export function ChatInbox({
                 visibleConvs.map((conv) => (
                   <button
                     key={conv.id}
-                    className={`w-full border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${conv.id === selectedConvId ? "border-l-2 border-l-brand-700 bg-brand-50" : ""}`}
+                    className={`w-full border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${
+                      conv.id === selectedConvId
+                        ? "border-l-2 border-l-brand-700 bg-brand-50"
+                        : isUnread(conv)
+                          ? "bg-blue-50/40"
+                          : ""
+                    }`}
                     onClick={() => void openConversation(conv)}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-slate-900">
-                          {conv.sender_name || conv.sender_psid}
+                        <div className="flex items-center gap-1.5">
+                          {isUnread(conv) && (
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                          )}
+                          <div className={`truncate text-sm ${isUnread(conv) ? "font-semibold text-slate-950" : "font-medium text-slate-900"}`}>
+                            {conv.sender_name || conv.sender_psid}
+                          </div>
                         </div>
                         <div className="truncate text-xs text-slate-500">
                           {conv.facebook_pages?.name ?? "Unknown page"}
@@ -392,7 +434,7 @@ export function ChatInbox({
                             Lead
                           </span>
                         ) : null}
-                        <div className="mt-1 text-[10px] text-slate-400">
+                        <div className={`mt-1 text-[10px] ${isUnread(conv) ? "font-medium text-blue-600" : "text-slate-400"}`}>
                           {new Date(conv.last_message_at).toLocaleDateString("th-TH")}
                         </div>
                       </div>
@@ -427,18 +469,29 @@ export function ChatInbox({
                     </div>
                   </div>
                 </div>
-                {selectedConv.lead_id ? (
-                  <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700">
-                    Lead linked
-                  </span>
-                ) : (
+                <div className="flex items-center gap-2">
                   <button
-                    className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-900"
-                    onClick={() => openCreateLead(selectedConv)}
+                    title="Mark as unread"
+                    onClick={() => void markUnread(selectedConv.id)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
                   >
-                    + Create Lead
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
                   </button>
-                )}
+                  {selectedConv.lead_id ? (
+                    <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700">
+                      Lead linked
+                    </span>
+                  ) : (
+                    <button
+                      className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-900"
+                      onClick={() => openCreateLead(selectedConv)}
+                    >
+                      + Create Lead
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div ref={messagesAreaRef} className="flex-1 space-y-3 overflow-y-auto p-4">

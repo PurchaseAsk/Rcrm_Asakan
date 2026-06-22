@@ -132,6 +132,7 @@ export type Conversation = {
   lead_id: string | null;
   ad_id: string | null;
   ad_name: string | null;
+  last_read_at: string | null;
   created_at: string;
   facebook_pages?: { id: string; name: string; page_id: string; token: string } | null;
   leads?: { id: string; customer_name: string } | null;
