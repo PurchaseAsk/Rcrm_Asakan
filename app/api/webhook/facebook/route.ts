@@ -18,6 +18,13 @@ type LeadgenWebhookValue = {
   campaign_id?: string;
 };
 
+type FbReferral = {
+  source?: string;
+  type?: string;
+  ad_id?: string;
+  ads_context_data?: { ad_title?: string; photo_url?: string; post_id?: string };
+};
+
 type FbEntry = {
   id: string;
   messaging?: {
@@ -29,6 +36,7 @@ type FbEntry = {
       is_echo?: boolean;
       attachments?: { type: string; payload: { url?: string } }[];
     };
+    referral?: FbReferral;
   }[];
   changes?: { field: string; value: LeadgenWebhookValue }[];
 };
@@ -109,16 +117,23 @@ export async function POST(request: NextRequest) {
       const text = event.message.text ?? null;
       const attachment = event.message.attachments?.[0] ?? null;
 
+      // Capture ad referral (only present on first message from a Click-to-Messenger ad)
+      const referral = event.referral;
+      const refAdId = referral?.ad_id ?? null;
+      const refAdName = referral?.ads_context_data?.ad_title ?? null;
+
+      const convPayload: Record<string, unknown> = {
+        page_id: page.id,
+        sender_psid: senderPsid,
+        last_message_at: new Date().toISOString(),
+      };
+      // Only set ad fields when referral is present — avoids overwriting on later messages
+      if (refAdId) convPayload.ad_id = refAdId;
+      if (refAdName) convPayload.ad_name = refAdName;
+
       const { data: conv } = await supabase
         .from("conversations")
-        .upsert(
-          {
-            page_id: page.id,
-            sender_psid: senderPsid,
-            last_message_at: new Date().toISOString(),
-          },
-          { onConflict: "page_id,sender_psid" },
-        )
+        .upsert(convPayload, { onConflict: "page_id,sender_psid" })
         .select("id, sender_name")
         .single();
 

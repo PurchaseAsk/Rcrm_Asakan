@@ -380,6 +380,11 @@ export function ChatInbox({
                         <div className="truncate text-xs text-slate-500">
                           {conv.facebook_pages?.name ?? "Unknown page"}
                         </div>
+                        {conv.ad_name && (
+                          <div className="mt-0.5 truncate rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                            🎯 {conv.ad_name}
+                          </div>
+                        )}
                       </div>
                       <div className="shrink-0 text-right">
                         {conv.lead_id ? (
@@ -412,7 +417,14 @@ export function ChatInbox({
                     <div className="font-semibold text-slate-950">
                       {selectedConv.sender_name || selectedConv.sender_psid}
                     </div>
-                    <div className="text-xs text-slate-500">{selectedConv.facebook_pages?.name}</div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <span>{selectedConv.facebook_pages?.name}</span>
+                      {selectedConv.ad_name && (
+                        <span className="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">
+                          🎯 {selectedConv.ad_name}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {selectedConv.lead_id ? (
