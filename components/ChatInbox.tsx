@@ -252,17 +252,10 @@ export function ChatInbox({
     setLoadingAppImages(true);
     setAppImages([]);
     try {
-      const { data } = await supabase.storage
-        .from("project-images")
-        .list(project, { sortBy: { column: "name", order: "asc" } });
-      const items = (data ?? []).filter((f) => f.id !== null && f.name !== ".emptyFolderPlaceholder");
-      const withUrls = items.map((item) => {
-        const { data: urlData } = supabase.storage
-          .from("project-images")
-          .getPublicUrl(project + "/" + item.name);
-        return { name: item.name, url: urlData.publicUrl };
-      });
-      setAppImages(withUrls);
+      const res = await fetch(`/api/project-images?project=${project}`);
+      if (!res.ok) return;
+      const json = (await res.json()) as { images: { name: string; url: string }[] };
+      setAppImages(json.images ?? []);
     } finally {
       setLoadingAppImages(false);
     }
