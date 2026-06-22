@@ -97,6 +97,7 @@ export default function HomePage() {
   const [managingPipelineId, setManagingPipelineId] = useState<string | null>(null);
   const [stageNoteRequest, setStageNoteRequest] = useState<StageNoteRequest | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
 
   // Ref so Realtime and reminder callbacks always read the latest leadId
   // without causing channel teardown on every lead open (H-2)
@@ -401,7 +402,12 @@ export default function HomePage() {
                   }`}
                 >
                   <Icon size={17} />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.id === "inbox" && inboxUnreadCount > 0 && (
+                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-blue-500 text-white"}`}>
+                      {inboxUnreadCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -627,6 +633,7 @@ export default function HomePage() {
                   setSelectedLeadId(leadId);
                 });
               }}
+              onUnreadCountChange={setInboxUnreadCount}
             />
           )}
         </section>

@@ -22,6 +22,7 @@ export function ChatInbox({
   userRole,
   toast,
   onLeadCreated,
+  onUnreadCountChange,
 }: {
   pages: Page[];
   profiles: Profile[];
@@ -32,6 +33,7 @@ export function ChatInbox({
   userRole: string;
   toast: (message: string) => void;
   onLeadCreated?: (leadId: string, pipelineId: string) => void;
+  onUnreadCountChange?: (count: number) => void;
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export function ChatInbox({
   const messagesAreaRef = useRef<HTMLDivElement>(null);
 
   type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
+  type QuickReply = { id: string; title: string; content: string };
   const [leadModal, setLeadModal] = useState<{ conv: Conversation; msgs: Message[] } | null>(null);
   const [leadDraft, setLeadDraft] = useState<LeadDraft>({ customer_name: "", phone: "", email: "", assigned_to: "", pipeline_id: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -54,10 +57,20 @@ export function ChatInbox({
   const [appImagesProject, setAppImagesProject] = useState<"wela" | "elysium">("wela");
   const [appImages, setAppImages] = useState<{ name: string; url: string }[]>([]);
   const [loadingAppImages, setLoadingAppImages] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [qrDraft, setQrDraft] = useState<{ title: string; content: string } | null>(null);
 
   useEffect(() => {
     selectedConvIdRef.current = selectedConvId;
   }, [selectedConvId]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`qr_${userId}`);
+      if (raw) setQuickReplies(JSON.parse(raw) as QuickReply[]);
+    } catch { /* ignore */ }
+  }, [userId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -261,6 +274,17 @@ export function ChatInbox({
     }
   }
 
+  function saveQr(list: QuickReply[]) {
+    setQuickReplies(list);
+    try { localStorage.setItem(`qr_${userId}`, JSON.stringify(list)); } catch { /* ignore */ }
+  }
+
+  function addQuickReply() {
+    if (!qrDraft?.title.trim() || !qrDraft?.content.trim()) return;
+    saveQr([...quickReplies, { id: crypto.randomUUID(), title: qrDraft.title.trim(), content: qrDraft.content.trim() }]);
+    setQrDraft(null);
+  }
+
   // stages for the currently selected pipeline in the draft
   const draftStages = useMemo(() => {
     if (!leadDraft.pipeline_id) return [];
@@ -410,6 +434,10 @@ export function ChatInbox({
     : pageFilteredConvs;
   const visibleConvs = filterUnread ? tagFilteredConvs.filter(isUnread) : tagFilteredConvs;
   const unreadCount = conversations.filter(isUnread).length;
+
+  useEffect(() => {
+    onUnreadCountChange?.(unreadCount);
+  }, [unreadCount, onUnreadCountChange]);
 
   return (
     <>
@@ -742,6 +770,84 @@ export function ChatInbox({
                   placeholder="Type a message… (Enter to send)"
                   disabled={busy}
                 />
+                <div className="relative">
+                  <button
+                    title="Quick Reply"
+                    onClick={() => { setShowQR((v) => !v); setQrDraft(null); }}
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg border text-slate-500 hover:bg-slate-50 ${showQR ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200"}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                    </svg>
+                  </button>
+                  {showQR && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowQR(false)} />
+                      <div className="absolute bottom-full right-0 z-20 mb-2 w-80 rounded-xl border border-slate-200 bg-white shadow-xl">
+                        <div className="border-b border-slate-100 px-4 py-2.5">
+                          <p className="text-sm font-semibold text-slate-800">Quick Replies</p>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto">
+                          {quickReplies.length === 0 && (
+                            <p className="px-4 py-6 text-center text-xs text-slate-400">ยังไม่มี — กด &quot;+ เพิ่ม&quot; เพื่อบันทึกข้อความ</p>
+                          )}
+                          {quickReplies.map((qr) => (
+                            <div key={qr.id} className="group flex items-start gap-2 border-b border-slate-50 px-4 py-2.5 hover:bg-slate-50">
+                              <button
+                                className="flex-1 text-left"
+                                onClick={() => { setReplyText(qr.content); setShowQR(false); }}
+                              >
+                                <div className="text-xs font-semibold text-slate-800">{qr.title}</div>
+                                <div className="mt-0.5 line-clamp-2 text-xs text-slate-500">{qr.content}</div>
+                              </button>
+                              <button
+                                onClick={() => saveQr(quickReplies.filter((r) => r.id !== qr.id))}
+                                className="mt-0.5 shrink-0 text-slate-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        {qrDraft ? (
+                          <div className="space-y-2 border-t border-slate-100 p-3">
+                            <input
+                              autoFocus
+                              className="h-8 w-full rounded-lg border border-slate-200 px-2.5 text-xs outline-none focus:border-brand-600"
+                              placeholder="ชื่อ shortcut (เช่น ทักทาย)"
+                              value={qrDraft.title}
+                              onChange={(e) => setQrDraft({ ...qrDraft, title: e.target.value })}
+                            />
+                            <textarea
+                              className="w-full resize-none rounded-lg border border-slate-200 px-2.5 py-2 text-xs outline-none focus:border-brand-600"
+                              rows={3}
+                              placeholder="ข้อความที่จะส่ง"
+                              value={qrDraft.content}
+                              onChange={(e) => setQrDraft({ ...qrDraft, content: e.target.value })}
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => setQrDraft(null)} className="px-3 py-1 text-xs text-slate-500 hover:text-slate-700">ยกเลิก</button>
+                              <button
+                                onClick={addQuickReply}
+                                disabled={!qrDraft.title.trim() || !qrDraft.content.trim()}
+                                className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                              >
+                                บันทึก
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setQrDraft({ title: "", content: "" })}
+                            className="flex w-full items-center gap-1.5 border-t border-slate-100 px-4 py-2.5 text-xs font-medium text-brand-700 hover:bg-slate-50"
+                          >
+                            + เพิ่ม Quick Reply
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button
                   className="rounded-lg bg-brand-700 px-4 text-sm font-medium text-white disabled:opacity-50"
                   disabled={busy || !replyText.trim()}
@@ -809,6 +915,7 @@ export function ChatInbox({
                       <img
                         src={img.url}
                         alt={img.name}
+                        loading="lazy"
                         className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
                       />
                     </button>
