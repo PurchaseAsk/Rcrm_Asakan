@@ -14,7 +14,6 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
-  Plus,
   Search,
   Settings,
   Split,
@@ -34,7 +33,6 @@ import {
   loadCrmData,
   loadLeadDetail,
   roleLabel,
-  simulateLead,
   updateLeadStage,
 } from "@/lib/helpers";
 
@@ -211,6 +209,11 @@ export default function HomePage() {
   const visibleSettingsTabs = settingsTabs.filter((tab) => !tab.managerOnly || canManage);
   const isSettingsTab = visibleSettingsTabs.some((t) => t.id === activeTab);
 
+  // Auto-open settings when navigating to a settings tab, but allow manual collapse
+  useEffect(() => {
+    if (isSettingsTab) setSettingsOpen(true);
+  }, [isSettingsTab]);
+
   const myTeamMemberIds = useMemo(() => {
     if (!currentUserId) return [];
     const ids = new Set<string>();
@@ -370,13 +373,6 @@ export default function HomePage() {
 
           <div className="flex items-center gap-2">
             <button
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-              onClick={() => simulateLead(data, activePipelineId, currentUserId, setData, showToast)}
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">Simulate</span>
-            </button>
-            <button
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
               aria-label="Sign out"
               onClick={() => supabase.auth.signOut()}
@@ -430,7 +426,7 @@ export default function HomePage() {
                 </svg>
               </button>
 
-              {(settingsOpen || isSettingsTab) && (
+              {settingsOpen && (
                 <div className="mt-0.5 ml-2 grid grid-cols-1 gap-0.5 border-l-2 border-slate-100 pl-2">
                   {visibleSettingsTabs.map((item) => {
                     const Icon = item.icon;
