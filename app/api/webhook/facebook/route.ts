@@ -88,10 +88,12 @@ export async function POST(request: NextRequest) {
     const msgToken = (process.env[`FB_MSG_TOKEN_${fbPageId}`] as string | undefined) ?? pageToken ?? null;
 
     // ── Facebook Lead Ads (leadgen form submission) ───────────────────────────
+    // adsToken: User token with ads_read for reading ad/campaign names
+    const adsToken = process.env.FB_LEADGEN_TOKEN ?? leadgenToken;
     for (const change of entry.changes ?? []) {
       if (change.field !== "leadgen") continue;
       if (leadgenToken) {
-        await handleLeadgen(supabase, page.id, change.value, leadgenToken);
+        await handleLeadgen(supabase, page.id, change.value, leadgenToken, adsToken ?? leadgenToken);
       }
     }
 
@@ -152,6 +154,7 @@ async function handleLeadgen(
   pageId: string,
   webhookValue: LeadgenWebhookValue,
   pageToken: string,
+  adsToken: string,
 ) {
   const { leadgen_id } = webhookValue;
   if (!leadgen_id) return;
@@ -167,9 +170,9 @@ async function handleLeadgen(
   const name = get("full_name") ?? get("name") ?? get("first_name");
   const email = get("email");
 
-  // Fetch ad/campaign names if we have an ad_id
+  // Fetch ad/campaign names — requires User token with ads_read (not page token)
   const adId = webhookValue.ad_id ?? leadData.ad_id;
-  const adDetails = adId ? await fetchAdDetails(adId, pageToken) : null;
+  const adDetails = adId ? await fetchAdDetails(adId, adsToken) : null;
 
   const metadata = {
     ...(adId ? { ad_id: adId } : {}),
