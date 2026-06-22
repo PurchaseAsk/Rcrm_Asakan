@@ -63,11 +63,11 @@ import { Panel } from "@/components/ui/Panel";
 
 const mainTabs: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "leads", label: "Leads", icon: UserRound },
   { id: "funnel", label: "Funnel", icon: Split },
   { id: "inbox", label: "Inbox", icon: Inbox },
   { id: "reminders", label: "Reminders", icon: BellRing },
   { id: "my-tags", label: "แท็กของฉัน", icon: Tags },
+  { id: "leads", label: "ลีดทั้งหมด", icon: UserRound },
 ];
 
 const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean }[] = [
@@ -87,7 +87,7 @@ export default function HomePage() {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [data, setData] = useState<AppData>(emptyData);
-  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
+  const [activeTab, setActiveTab] = useState<TabId>("reminders");
   const [activePipelineId, setActivePipelineId] = useState("");
   const [leadFilter, setLeadFilter] = useState<"active" | "unfollowed">("active");
   const [assigneeFilter, setAssigneeFilter] = useState("");
