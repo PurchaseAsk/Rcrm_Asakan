@@ -479,7 +479,11 @@ export default function HomePage() {
           )}
 
           {activeTab === "dashboard" && (
-            <Dashboard leads={visibleLeads} pipelines={data.pipelines} rules={data.rules} />
+            <Dashboard
+              leads={visibleLeads}
+              pipelineStages={pipelineStages}
+              profiles={data.profiles}
+            />
           )}
           {activeTab === "leads" && (
             <LeadsPanel
