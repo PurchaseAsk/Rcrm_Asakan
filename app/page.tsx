@@ -496,7 +496,7 @@ export default function HomePage() {
           )}
           {activeTab === "funnel" && (
             <FunnelBoard
-              stages={pipelineStages}
+              stages={pipelineStages.filter((s) => !s.is_unfollow)}
               leads={filteredLeads}
               draggedLeadId={draggedLeadId}
               setDraggedLeadId={setDraggedLeadId}

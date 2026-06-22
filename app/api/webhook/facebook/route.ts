@@ -40,13 +40,11 @@ type LeadgenApiResult = {
   adset_id?: string;
   campaign_id?: string;
   form_id?: string;
-};
-
-type AdApiResult = {
-  name?: string;
+  ad?: { name?: string };
   adset?: { name?: string };
   campaign?: { name?: string };
 };
+
 
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
@@ -88,12 +86,10 @@ export async function POST(request: NextRequest) {
     const msgToken = (process.env[`FB_MSG_TOKEN_${fbPageId}`] as string | undefined) ?? pageToken ?? null;
 
     // ── Facebook Lead Ads (leadgen form submission) ───────────────────────────
-    // adsToken: User token with ads_read for reading ad/campaign names
-    const adsToken = (process.env.FB_ADS_TOKEN as string | undefined) ?? leadgenToken;
     for (const change of entry.changes ?? []) {
       if (change.field !== "leadgen") continue;
       if (leadgenToken) {
-        await handleLeadgen(supabase, page.id, change.value, leadgenToken, adsToken ?? leadgenToken);
+        await handleLeadgen(supabase, page.id, change.value, leadgenToken);
       }
     }
 
@@ -154,7 +150,6 @@ async function handleLeadgen(
   pageId: string,
   webhookValue: LeadgenWebhookValue,
   pageToken: string,
-  adsToken: string,
 ) {
   const { leadgen_id } = webhookValue;
   if (!leadgen_id) return;
@@ -170,27 +165,28 @@ async function handleLeadgen(
   const name = get("full_name") ?? get("name") ?? get("first_name");
   const email = get("email");
 
-  // Fetch ad/campaign names — requires User token with ads_read (not page token)
   const adId = webhookValue.ad_id ?? leadData.ad_id;
-  const adDetails = adId ? await fetchAdDetails(adId, adsToken) : null;
+  const adName = leadData.ad?.name ?? null;
+  const adsetName = leadData.adset?.name ?? null;
+  const campaignName = leadData.campaign?.name ?? null;
 
   const metadata = {
     ...(adId ? { ad_id: adId } : {}),
-    ...(adDetails?.ad_name ? { ad_name: adDetails.ad_name } : {}),
+    ...(adName ? { ad_name: adName } : {}),
     ...(webhookValue.adset_id ?? leadData.adset_id
       ? { adset_id: webhookValue.adset_id ?? leadData.adset_id }
       : {}),
-    ...(adDetails?.adset_name ? { adset_name: adDetails.adset_name } : {}),
+    ...(adsetName ? { adset_name: adsetName } : {}),
     ...(webhookValue.campaign_id ?? leadData.campaign_id
       ? { campaign_id: webhookValue.campaign_id ?? leadData.campaign_id }
       : {}),
-    ...(adDetails?.campaign_name ? { campaign_name: adDetails.campaign_name } : {}),
+    ...(campaignName ? { campaign_name: campaignName } : {}),
     ...(webhookValue.form_id ?? leadData.form_id
       ? { form_id: webhookValue.form_id ?? leadData.form_id }
       : {}),
   };
 
-  const activitySuffix = adDetails?.campaign_name ? ` · แคมเปญ: ${adDetails.campaign_name}` : "";
+  const activitySuffix = campaignName ? ` · แคมเปญ: ${campaignName}` : "";
 
   // Insert-first: facebook_lead_id UNIQUE index prevents duplicates at DB level
   const { data: lead } = await supabase
@@ -300,7 +296,7 @@ async function handleLeadgen(
 
 async function fetchLeadgenData(leadgenId: string, token: string): Promise<LeadgenApiResult | null> {
   try {
-    const url = `https://graph.facebook.com/v20.0/${leadgenId}?fields=field_data,ad_id,adset_id,campaign_id,form_id&access_token=${encodeURIComponent(token)}`;
+    const url = `https://graph.facebook.com/v20.0/${leadgenId}?fields=field_data,ad_id,adset_id,campaign_id,form_id,ad{name},adset{name},campaign{name}&access_token=${encodeURIComponent(token)}`;
     const res = await fetch(url);
     if (!res.ok) return null;
     return (await res.json()) as LeadgenApiResult;
@@ -309,30 +305,6 @@ async function fetchLeadgenData(leadgenId: string, token: string): Promise<Leadg
   }
 }
 
-async function fetchAdDetails(
-  adId: string,
-  token: string,
-): Promise<{ ad_name: string | null; adset_name: string | null; campaign_name: string | null }> {
-  try {
-    const url = `https://graph.facebook.com/v20.0/${adId}?fields=name,adset{name},campaign{name}&access_token=${encodeURIComponent(token)}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      const err = (await res.json()) as unknown;
-      console.error("[fetchAdDetails] adId=%s status=%d err=%s", adId, res.status, JSON.stringify(err));
-      return { ad_name: null, adset_name: null, campaign_name: null };
-    }
-    const data = (await res.json()) as AdApiResult;
-    console.log("[fetchAdDetails] adId=%s result=%s", adId, JSON.stringify(data));
-    return {
-      ad_name: data.name ?? null,
-      adset_name: data.adset?.name ?? null,
-      campaign_name: data.campaign?.name ?? null,
-    };
-  } catch (e) {
-    console.error("[fetchAdDetails] exception adId=%s", adId, e);
-    return { ad_name: null, adset_name: null, campaign_name: null };
-  }
-}
 
 async function enrichSenderName(
   supabase: SupabaseClient,
