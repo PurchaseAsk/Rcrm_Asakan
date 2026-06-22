@@ -353,7 +353,7 @@ export default function HomePage() {
               RP
             </div>
             <div>
-              <div className="text-sm font-semibold leading-tight text-slate-950">ReadyPlanet CRM</div>
+              <div className="text-sm font-semibold leading-tight text-slate-950">AsakanLeadFlow</div>
               <div className="text-xs text-slate-500">{roleLabel(profile?.role)} · Supabase Edition</div>
             </div>
           </div>

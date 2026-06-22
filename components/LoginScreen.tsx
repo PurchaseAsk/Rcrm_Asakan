@@ -45,7 +45,7 @@ export function LoginScreen() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-brand-700 font-bold text-white">
             RP
           </div>
-          <h1 className="mt-4 text-2xl font-semibold text-slate-950">ReadyPlanet CRM</h1>
+          <h1 className="mt-4 text-2xl font-semibold text-slate-950">AsakanLeadFlow</h1>
           <p className="text-sm text-slate-500">Sign in to manage leads, teams, and pipelines.</p>
         </div>
 

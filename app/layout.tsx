@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ReadyPlanet CRM",
+  title: "AsakanLeadFlow",
   description: "CRM for Facebook leads, pipelines, teams, and recall workflows.",
 };
 
