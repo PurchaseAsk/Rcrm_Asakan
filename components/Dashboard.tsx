@@ -239,6 +239,41 @@ function PipelineTable({
   );
 }
 
+// ─── Quick date range presets ─────────────────────────────────────────────────
+type Preset = { label: string; from: string; to: string };
+
+function buildPresets(): Preset[] {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+
+  const fmt = (d: Date) => isoDay(d.toISOString());
+  const today = fmt(now);
+
+  // this week (Mon–Sun)
+  const dow = (now.getDay() + 6) % 7; // 0=Mon
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - dow);
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+
+  // last week
+  const lastWeekStart = new Date(weekStart); lastWeekStart.setDate(weekStart.getDate() - 7);
+  const lastWeekEnd = new Date(weekStart); lastWeekEnd.setDate(weekStart.getDate() - 1);
+
+  // last 3 months
+  const m3 = new Date(y, m - 2, 1);
+  // last 6 months
+  const m6 = new Date(y, m - 5, 1);
+
+  return [
+    { label: "สัปดาห์นี้",       from: fmt(weekStart),    to: today },
+    { label: "สัปดาห์ที่แล้ว",   from: fmt(lastWeekStart), to: fmt(lastWeekEnd) },
+    { label: "เดือนนี้",          from: `${y}-${String(m + 1).padStart(2, "0")}-01`, to: today },
+    { label: "เดือนที่แล้ว",      from: `${y}-${String(m).padStart(2, "0")}-01`,   to: fmt(new Date(y, m, 0)) },
+    { label: "3 เดือนที่ผ่านมา", from: fmt(m3), to: today },
+    { label: "6 เดือนที่ผ่านมา", from: fmt(m6), to: today },
+  ];
+}
+
 // ─── Dashboard 2: Lead Conversions ───────────────────────────────────────────
 function ConversionsView({
   leads,
@@ -257,6 +292,7 @@ function ConversionsView({
   setDateFrom: (v: string) => void;
   setDateTo: (v: string) => void;
 }) {
+  const presets = useMemo(() => buildPresets(), []);
   const filteredLeads = useMemo(
     () => leads.filter((l) => isoDay(l.created_at) >= dateFrom && isoDay(l.created_at) <= dateTo),
     [leads, dateFrom, dateTo],
@@ -323,30 +359,52 @@ function ConversionsView({
 
   return (
     <div className="space-y-4">
-      {/* Date range filter */}
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          จาก
-          <input
-            type="date"
-            value={dateFrom}
-            max={dateTo}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-brand-600"
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          ถึง
-          <input
-            type="date"
-            value={dateTo}
-            min={dateFrom}
-            max={todayStr()}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-brand-600"
-          />
-        </label>
-        <span className="text-sm text-slate-500">· ลีดใหม่ {filteredLeads.length} ราย</span>
+      {/* Quick presets + date range */}
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm space-y-3">
+        {/* Preset buttons */}
+        <div className="flex flex-wrap gap-2">
+          {presets.map((p) => {
+            const active = p.from === dateFrom && p.to === dateTo;
+            return (
+              <button
+                key={p.label}
+                onClick={() => { setDateFrom(p.from); setDateTo(p.to); }}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  active
+                    ? "bg-brand-700 text-white"
+                    : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+        {/* Custom range inputs */}
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            จาก
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-brand-600"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            ถึง
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom}
+              max={todayStr()}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none focus:border-brand-600"
+            />
+          </label>
+          <span className="text-sm text-slate-500">· ลีดใหม่ {filteredLeads.length} ราย</span>
+        </div>
       </div>
 
       {/* Line chart */}
