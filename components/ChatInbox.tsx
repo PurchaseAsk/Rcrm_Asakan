@@ -430,9 +430,23 @@ export function ChatInbox({
               </div>
 
               <div ref={messagesAreaRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-                {messages.map((msg) => (
+                {messages.map((msg, idx) => {
+                  const msgDate = new Date(msg.created_at).toDateString();
+                  const prevDate = idx > 0 ? new Date(messages[idx - 1].created_at).toDateString() : null;
+                  const showDateSep = msgDate !== prevDate;
+                  const dateLabel = new Date(msg.created_at).toLocaleDateString("th-TH", {
+                    day: "numeric", month: "long", year: "numeric",
+                  });
+                  return (
+                  <div key={msg.id}>
+                    {showDateSep && (
+                      <div className="my-2 flex items-center gap-3">
+                        <div className="flex-1 border-t border-slate-200" />
+                        <span className="shrink-0 rounded-full bg-slate-100 px-3 py-0.5 text-[11px] text-slate-500">{dateLabel}</span>
+                        <div className="flex-1 border-t border-slate-200" />
+                      </div>
+                    )}
                   <div
-                    key={msg.id}
                     className={`flex ${msg.direction === "outbound" ? "justify-end" : "justify-start"}`}
                   >
                     <div
@@ -461,7 +475,9 @@ export function ChatInbox({
                       </p>
                     </div>
                   </div>
-                ))}
+                  </div>
+                  );
+                })}
                 {messages.length === 0 ? (
                   <div className="py-8 text-center text-sm text-slate-400">No messages yet</div>
                 ) : null}
