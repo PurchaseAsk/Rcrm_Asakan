@@ -286,12 +286,11 @@ export async function checkReminders(
   // Notify but do NOT auto-mark done — user must confirm completion
   due.forEach((r) => toast(`🔔 Reminder: ${r.leads?.customer_name || "Lead"}${r.note ? ` · ${r.note}` : ""}`));
 
-  // Rollover overdue reminders (from a previous day) to tomorrow 09:00
+  // Rollover overdue reminders (from a previous day) to today 09:00
   const overdue = due.filter((r) => new Date(r.remind_at) < todayStart);
   if (overdue.length) {
-    const tomorrow = new Date(todayStart);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(9, 0, 0, 0);
+    const rolloverTime = new Date(todayStart);
+    rolloverTime.setHours(9, 0, 0, 0);
 
     await Promise.all(
       overdue.map(async (r) => {
@@ -301,7 +300,7 @@ export async function checkReminders(
         await Promise.all([
           supabase.from("lead_reminders").insert({
             lead_id: r.lead_id,
-            remind_at: tomorrow.toISOString(),
+            remind_at: rolloverTime.toISOString(),
             note: rolloverNote,
             created_by: userId,
           }),
