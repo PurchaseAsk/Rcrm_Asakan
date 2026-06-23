@@ -6,6 +6,7 @@ import type { Conversation, Message, Page, Pipeline, Profile, Stage, Tag } from 
 import html2canvas from "html2canvas";
 
 const supabase = createBrowserSupabase();
+const CONVERSATION_PAGE_SIZE = 30;
 
 function isUnread(conv: Conversation): boolean {
   if (!conv.last_read_at) return true;
@@ -41,6 +42,8 @@ export function ChatInbox({
   const [replyText, setReplyText] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMoreConvs, setLoadingMoreConvs] = useState(false);
+  const [conversationTotal, setConversationTotal] = useState<number | null>(null);
   const selectedConvIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,7 +111,7 @@ export function ChatInbox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function refreshConversations() {
+  async function getAllowedPageIds() {
     let allowedPageIds: string[] | null = null;
     if (userRole !== "admin") {
       const [{ data: memberRows }, { data: pageTeamRows }, { data: allPageRows }] = await Promise.all([
@@ -128,12 +131,18 @@ export function ChatInbox({
         .map((p: { id: string }) => p.id);
       allowedPageIds = [...openPages, ...Array.from(myPages)];
     }
+    return allowedPageIds;
+  }
 
+  async function fetchConversationPage(page: number, append = false) {
+    const allowedPageIds = await getAllowedPageIds();
+    const from = page * CONVERSATION_PAGE_SIZE;
+    const to = from + CONVERSATION_PAGE_SIZE - 1;
     let query = supabase
       .from("conversations")
-      .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))")
+      .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))", { count: "exact" })
       .order("last_message_at", { ascending: false })
-      .limit(100);
+      .range(from, to);
 
     if (allowedPageIds !== null) {
       query =
@@ -142,9 +151,38 @@ export function ChatInbox({
           : query.eq("page_id", "00000000-0000-0000-0000-000000000000");
     }
 
-    const { data } = await query;
-    setConversations((data || []) as Conversation[]);
+    const { data, count } = await query;
+    const rows = (data || []) as Conversation[];
+    if (count !== null) setConversationTotal(count);
+    setConversations((prev) => {
+      if (!append) return rows;
+      const seen = new Set(prev.map((conv) => conv.id));
+      return [...prev, ...rows.filter((conv) => !seen.has(conv.id))];
+    });
+  }
+
+  async function refreshConversations() {
+    await fetchConversationPage(0);
     setLoading(false);
+  }
+
+  async function loadMoreConversations() {
+    if (loadingMoreConvs) return;
+    if (conversationTotal !== null && conversations.length >= conversationTotal) return;
+    setLoadingMoreConvs(true);
+    try {
+      const nextPage = Math.floor(conversations.length / CONVERSATION_PAGE_SIZE);
+      await fetchConversationPage(nextPage, true);
+    } finally {
+      setLoadingMoreConvs(false);
+    }
+  }
+
+  function handleConversationScroll(event: React.UIEvent<HTMLDivElement>) {
+    const el = event.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 160) {
+      void loadMoreConversations();
+    }
   }
 
   async function refreshMessages(convId: string) {
@@ -443,6 +481,11 @@ export function ChatInbox({
     ? pageFilteredConvs.filter((c) => (c.conversation_tags ?? []).some((ct) => filterTagIds.has(ct.tag_id)))
     : pageFilteredConvs;
   const visibleConvs = filterUnread ? tagFilteredConvs.filter(isUnread) : tagFilteredConvs;
+  const hasMoreConversations = conversationTotal === null || conversations.length < conversationTotal;
+  const hasActiveConversationFilters = Boolean(filterPageId || filterUnread || filterTagIds.size > 0);
+  const conversationCountLabel = hasActiveConversationFilters
+    ? `${visibleConvs.length} shown (${conversations.length}${conversationTotal !== null ? ` of ${conversationTotal}` : ""} loaded)`
+    : `${conversations.length}${conversationTotal !== null && hasMoreConversations ? ` of ${conversationTotal}` : ""} conversations`;
 
   function toggleTagFilter(tagId: string) {
     setFilterTagIds((prev) => {
@@ -489,7 +532,7 @@ export function ChatInbox({
                   </select>
                 )}
               </div>
-              <p className="text-xs text-slate-500">{visibleConvs.length} conversations</p>
+              <p className="text-xs text-slate-500">{conversationCountLabel}</p>
             </div>
 
             <div className="shrink-0 border-b border-slate-100 px-3 py-2">
@@ -537,7 +580,7 @@ export function ChatInbox({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" onScroll={handleConversationScroll}>
               {loading ? (
                 <div className="p-4 text-center text-sm text-slate-400">Loading…</div>
               ) : visibleConvs.length === 0 ? (
@@ -548,7 +591,8 @@ export function ChatInbox({
                   </p>
                 </div>
               ) : (
-                visibleConvs.map((conv) => (
+                <>
+                {visibleConvs.map((conv) => (
                   <button
                     key={conv.id}
                     className={`w-full border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${
@@ -608,7 +652,13 @@ export function ChatInbox({
                       </div>
                     </div>
                   </button>
-                ))
+                ))}
+                {hasMoreConversations && (
+                  <div className="border-b border-slate-100 p-3 text-center text-xs text-slate-400">
+                    {loadingMoreConvs ? "Loading more..." : "Scroll for older conversations"}
+                  </div>
+                )}
+                </>
               )}
             </div>
           </div>
