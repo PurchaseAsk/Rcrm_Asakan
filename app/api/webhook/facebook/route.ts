@@ -109,11 +109,14 @@ export async function POST(request: NextRequest) {
       // ── Read receipt (customer read our messages) ─────────────────────────────
       if (event.read) {
         const readAt = new Date(event.read.watermark).toISOString();
-        await supabase
+        const { error: readErr } = await supabase
           .from("conversations")
           .update({ customer_read_at: readAt })
           .eq("page_id", page.id)
           .eq("sender_psid", senderPsid);
+        if (readErr) {
+          console.error("[webhook] customer_read_at update failed:", readErr.message, { senderPsid, pageId: page.id });
+        }
         continue;
       }
 
@@ -166,6 +169,7 @@ export async function POST(request: NextRequest) {
         sender_psid: senderPsid,
         last_message_at: new Date().toISOString(),
         last_message_text: text ?? (attachment ? `[${attachment.type === "image" ? "รูปภาพ" : attachment.type}]` : null),
+        last_message_direction: isEcho ? "outbound" : "inbound",
       };
       // Only set ad fields when referral is present — avoids overwriting on later messages
       if (refAdId) {

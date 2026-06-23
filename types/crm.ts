@@ -141,6 +141,7 @@ export type Conversation = {
   last_read_at: string | null;
   customer_read_at: string | null;
   last_message_text: string | null;
+  last_message_direction: "inbound" | "outbound" | null;
   created_at: string;
   facebook_pages?: { id: string; name: string; page_id: string; token: string } | null;
   leads?: { id: string; customer_name: string } | null;

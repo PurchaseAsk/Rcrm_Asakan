@@ -92,11 +92,11 @@ export function ChatInbox({
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, (payload) => {
-        const updated = payload.new as { id: string; customer_read_at: string | null; last_message_text: string | null };
+        const updated = payload.new as { id: string; customer_read_at: string | null; last_message_text: string | null; last_message_direction: "inbound" | "outbound" | null };
         setConversations((prev) =>
           prev.map((c) =>
             c.id === updated.id
-              ? { ...c, customer_read_at: updated.customer_read_at, last_message_text: updated.last_message_text }
+              ? { ...c, customer_read_at: updated.customer_read_at, last_message_text: updated.last_message_text, last_message_direction: updated.last_message_direction }
               : c,
           ),
         );
@@ -599,9 +599,11 @@ export function ChatInbox({
                           {conv.lead_id && (
                             <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">Lead</span>
                           )}
-                          {isUnread(conv) && (
+                          {conv.last_message_direction === "outbound" ? (
+                            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">ตอบแล้ว ✓</span>
+                          ) : isUnread(conv) ? (
                             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[9px] font-bold text-white">●</span>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </div>
