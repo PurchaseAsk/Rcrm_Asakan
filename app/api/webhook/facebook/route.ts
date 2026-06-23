@@ -109,14 +109,22 @@ export async function POST(request: NextRequest) {
       // Facebook sends this when user clicks the Message button on an ad.
       // It has no message body — just the referral with ad attribution.
       if (!event.message && event.referral?.ad_id) {
+        const adId = event.referral.ad_id;
         const refPayload: Record<string, unknown> = {
           page_id: page.id,
           sender_psid: senderPsid,
           last_message_at: new Date().toISOString(),
-          ad_id: event.referral.ad_id,
+          ad_id: adId,
         };
         if (event.referral.ads_context_data?.ad_title) {
           refPayload.ad_name = event.referral.ads_context_data.ad_title;
+        } else {
+          // Webhook didn't include ad_title — fetch via User Access Token (ads_read)
+          const adsToken = process.env.FB_ADS_TOKEN ?? null;
+          if (adsToken) {
+            const names = await fetchAdCampaignNames(adId, null, null, adsToken);
+            if (names.adName) refPayload.ad_name = names.adName;
+          }
         }
         await supabase
           .from("conversations")
@@ -139,7 +147,7 @@ export async function POST(request: NextRequest) {
       // Capture ad referral (present on first user message when no automated reply preceded it)
       const referral = event.referral;
       const refAdId = referral?.ad_id ?? null;
-      const refAdName = referral?.ads_context_data?.ad_title ?? null;
+      const refAdNameFromWebhook = referral?.ads_context_data?.ad_title ?? null;
 
       const convPayload: Record<string, unknown> = {
         page_id: page.id,
@@ -147,8 +155,19 @@ export async function POST(request: NextRequest) {
         last_message_at: new Date().toISOString(),
       };
       // Only set ad fields when referral is present — avoids overwriting on later messages
-      if (refAdId) convPayload.ad_id = refAdId;
-      if (refAdName) convPayload.ad_name = refAdName;
+      if (refAdId) {
+        convPayload.ad_id = refAdId;
+        if (refAdNameFromWebhook) {
+          convPayload.ad_name = refAdNameFromWebhook;
+        } else {
+          // Fetch ad name via User Access Token (ads_read) as fallback
+          const adsToken = process.env.FB_ADS_TOKEN ?? null;
+          if (adsToken) {
+            const names = await fetchAdCampaignNames(refAdId, null, null, adsToken);
+            if (names.adName) convPayload.ad_name = names.adName;
+          }
+        }
+      }
 
       const { data: conv } = await supabase
         .from("conversations")
