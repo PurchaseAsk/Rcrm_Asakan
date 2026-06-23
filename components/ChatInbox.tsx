@@ -84,15 +84,18 @@ export function ChatInbox({
     void refreshConversations();
     const channel = supabase
       .channel("chat-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async () => {
-        await refreshConversations();
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
+        const convId = (payload.new as { conversation_id: string }).conversation_id;
         const id = selectedConvIdRef.current;
-        if (id) {
+        if (id && convId === id) {
           await refreshMessages(id);
           const now = new Date().toISOString();
           void supabase.from("conversations").update({ last_read_at: now }).eq("id", id);
           setConversations((prev) => prev.map((c) => c.id === id ? { ...c, last_read_at: now } : c));
         }
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "conversations" }, async () => {
+        await refreshConversations();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, (payload) => {
         const updated = payload.new as {
