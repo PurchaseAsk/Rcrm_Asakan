@@ -769,8 +769,9 @@ export function ChatInbox({
                     return -1;
                   })();
                   return messages.map((msg, idx) => {
+                  const isLastOutbound = idx === lastOutboundIdx;
                   const showReadReceipt =
-                    idx === lastOutboundIdx &&
+                    isLastOutbound &&
                     !!selectedConv?.customer_read_at &&
                     new Date(selectedConv.customer_read_at) >= new Date(msg.created_at);
                   const msgDate = new Date(msg.created_at).toDateString();
@@ -817,10 +818,12 @@ export function ChatInbox({
                       </p>
                     </div>
                   </div>
-                  {showReadReceipt && (
+                  {isLastOutbound && (
                     <div className="flex justify-end pr-1">
                       <span className="text-[10px] text-slate-400">
-                        อ่านแล้ว {new Date(selectedConv!.customer_read_at!).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
+                        {showReadReceipt
+                          ? `อ่านแล้ว ${new Date(selectedConv!.customer_read_at!).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}`
+                          : "ยังไม่อ่าน"}
                       </span>
                     </div>
                   )}
