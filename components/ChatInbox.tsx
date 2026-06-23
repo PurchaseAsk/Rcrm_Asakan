@@ -792,9 +792,10 @@ export function ChatInbox({
                   })();
                   return messages.map((msg, idx) => {
                   const isLastOutbound = idx === lastOutboundIdx;
+                  const hasReplyAfter = lastOutboundIdx >= 0 && messages.slice(lastOutboundIdx + 1).some((m) => m.direction === "inbound");
                   const showReadReceipt =
                     isLastOutbound &&
-                    !!selectedConv?.customer_read_at;
+                    (!!selectedConv?.customer_read_at || hasReplyAfter);
                   const msgDate = new Date(msg.created_at).toDateString();
                   const prevDate = idx > 0 ? new Date(messages[idx - 1].created_at).toDateString() : null;
                   const showDateSep = msgDate !== prevDate;
