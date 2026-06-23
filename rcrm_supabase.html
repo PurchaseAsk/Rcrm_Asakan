@@ -14,6 +14,63 @@
     [x-cloak] { display: none !important; }
     .scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
     .scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    @media (max-width: 640px) {
+      .funnel-board {
+        flex-direction: column;
+        gap: 14px;
+        overflow-x: visible;
+        padding-bottom: 0;
+      }
+      .funnel-stage {
+        width: 100%;
+      }
+      .funnel-stage-header {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        padding-inline: 2px;
+      }
+      .funnel-dropzone {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 8px;
+        min-height: 92px;
+        padding: 8px;
+        border-radius: 14px;
+        overflow: visible;
+      }
+      .funnel-dropzone > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 0;
+      }
+      .funnel-lead-card {
+        width: calc((100% - 16px) / 3);
+        min-width: 0;
+        padding: 8px;
+        border-radius: 10px;
+      }
+      .funnel-lead-card .funnel-card-name {
+        font-size: 12px;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .funnel-lead-card .funnel-card-page {
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .funnel-lead-card .funnel-card-meta {
+        display: none;
+      }
+    }
+    @media (max-width: 360px) {
+      .funnel-lead-card {
+        width: calc((100% - 8px) / 2);
+      }
+    }
   </style>
 </head>
 <body class="bg-[#f7f8fb] text-slate-800" x-data="crmApp()" x-cloak>
@@ -262,10 +319,10 @@
           <h3 class="font-semibold">Funnel View <span x-show="activePipeline" class="text-sm font-normal text-slate-500">— <span x-text="activePipeline?.name"></span></span></h3>
           <button @click="activeTab='stages'" class="text-sm text-violet-600 hover:underline">จัดการขั้นตอน →</button>
         </div>
-        <div class="flex gap-3 overflow-x-auto scrollbar pb-4">
+        <div class="funnel-board flex gap-3 overflow-x-auto scrollbar pb-4">
           <template x-for="stage in pipelineStages" :key="stage.id">
-            <div class="w-[280px] shrink-0">
-              <div class="flex items-center justify-between mb-2 px-1">
+            <div class="funnel-stage w-[280px] shrink-0">
+              <div class="funnel-stage-header flex items-center justify-between mb-2 px-1">
                 <div class="flex items-center gap-2">
                   <span class="w-2.5 h-2.5 rounded-full" :style="`background:${stage.color}`"></span>
                   <span class="font-medium text-sm" x-text="stage.name"></span>
@@ -274,15 +331,15 @@
                 <span x-show="stage.is_unfollow" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">เลิกติดตาม</span>
               </div>
               <div @dragover.prevent @drop="dropLead(stage)"
-                class="bg-slate-100/70 rounded-2xl p-2 min-h-[200px] space-y-2 border-2 border-dashed border-transparent"
+                class="funnel-dropzone bg-slate-100/70 rounded-2xl p-2 min-h-[200px] space-y-2 border-2 border-dashed border-transparent"
                 :class="dragOverStage===stage.id?'border-violet-300 bg-violet-50/30':''"
                 @dragenter="dragOverStage=stage.id" @dragleave="dragOverStage=null">
                 <template x-for="l in leadsByStage(stage.id)" :key="l.id">
                   <div draggable="true" @dragstart="draggedLead=l" @click="openLead(l)"
-                    class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:shadow-md transition">
-                    <div class="font-medium text-sm" x-text="l.customer_name"></div>
-                    <div class="text-[11px] text-slate-500 mt-0.5" x-text="l.page?.name||'-'"></div>
-                    <div class="mt-2 flex items-center justify-between">
+                    class="funnel-lead-card bg-white rounded-xl p-3 shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:shadow-md transition">
+                    <div class="funnel-card-name font-medium text-sm" x-text="l.customer_name"></div>
+                    <div class="funnel-card-page text-[11px] text-slate-500 mt-0.5" x-text="l.page?.name||'-'"></div>
+                    <div class="funnel-card-meta mt-2 flex items-center justify-between">
                       <div class="flex gap-1">
                         <template x-for="lt in (l.lead_tags||[]).slice(0,2)" :key="lt.tag_id">
                           <span class="px-1.5 py-0.5 text-[10px] rounded-full" :style="`background:${lt.tags?.color||'#e2e8f0'}22;color:${lt.tags?.color||'#475569'}`" x-text="lt.tags?.name"></span>

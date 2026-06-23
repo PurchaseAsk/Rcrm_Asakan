@@ -69,4 +69,5 @@ export type TabId =
   | "tags"
   | "my-tags"
   | "pages"
-  | "customers";
+  | "customers"
+  | "website";

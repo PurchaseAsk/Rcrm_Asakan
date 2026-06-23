@@ -11,6 +11,7 @@ import {
   BellRing,
   BookUser,
   Boxes,
+  Globe,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -47,6 +48,7 @@ import { PipelineBar } from "@/components/PipelineBar";
 import { PipelineManagementModal } from "@/components/PipelineManagementModal";
 import { PipelinePanel } from "@/components/PipelinePanel";
 import { RemindersTab } from "@/components/RemindersTab";
+import { WebsiteSettingsTab } from "@/components/WebsiteSettingsTab";
 import { RulesPanel } from "@/components/RulesPanel";
 import { StageChangeNoteModal } from "@/components/StageChangeNoteModal";
 import { StagesPanel } from "@/components/StagesPanel";
@@ -73,6 +75,7 @@ const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: 
   { id: "rules", label: "Rules", icon: Settings, managerOnly: true },
   { id: "tags", label: "Global Tags", icon: Tags, managerOnly: true },
   { id: "pages", label: "Pages", icon: Bell, managerOnly: true },
+  { id: "website", label: "Website Leads", icon: Globe, managerOnly: true },
 ];
 
 const supabase = createBrowserSupabase();
@@ -583,6 +586,13 @@ export default function HomePage() {
           )}
           {activeTab === "reminders" && (
             <RemindersTab userId={currentUserId} onOpenLead={openLead} />
+          )}
+          {activeTab === "website" && canManage && (
+            <WebsiteSettingsTab
+              pipelines={data.pipelines}
+              stages={data.stages}
+              profiles={data.profiles}
+            />
           )}
           {activeTab === "inbox" && (
             <ChatInbox
