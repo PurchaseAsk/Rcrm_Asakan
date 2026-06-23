@@ -101,7 +101,7 @@ export function StagesPanel({
         {orderedStages.map((stage, index) => (
           <div
             key={stage.id}
-            className="grid gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-[40px_1fr_96px_112px_132px]"
+            className="grid gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-[40px_1fr_96px_112px_160px_132px]"
           >
             <div className="text-sm text-slate-500">#{index + 1}</div>
             <input
@@ -121,6 +121,16 @@ export function StagesPanel({
             >
               {stage.is_unfollow ? "Unfollow" : "Active"}
             </button>
+            <select
+              className="h-10 rounded-lg border border-slate-200 px-2 text-xs text-slate-700"
+              defaultValue={stage.capi_event ?? ""}
+              onChange={(e) => updateStage(stage.id, { capi_event: e.target.value || null }, reload, toast)}
+            >
+              <option value="">ไม่ส่ง CAPI</option>
+              <option value="Lead">Lead</option>
+              <option value="QualifiedLead">Qualified Lead</option>
+              <option value="Schedule">Schedule</option>
+            </select>
             <div className="flex items-center justify-end gap-1">
               <button
                 className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"

@@ -14,7 +14,10 @@ export type Stage = {
   color: string;
   is_unfollow: boolean;
   pipeline_id: string | null;
+  capi_event: string | null;
 };
+
+export type CapiEvent = "Lead" | "QualifiedLead" | "Schedule";
 
 export type Pipeline = {
   id: string;
@@ -32,6 +35,8 @@ export type Page = {
   page_id: string;
   name: string;
   is_active: boolean;
+  pixel_id: string | null;
+  capi_token: string | null;
 };
 
 export type LeadMeta = {

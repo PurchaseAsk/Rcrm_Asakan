@@ -387,6 +387,16 @@ export async function updateLeadStage(
     content: `${actorLabel} moved lead to ${stage.name}: ${note}`,
     created_by: userId,
   });
+
+  // Fire CAPI event if stage has one configured (fire-and-forget)
+  if (stage.capi_event) {
+    void fetch("/api/facebook/capi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lead_id: leadId, stage_id: stage.id }),
+    });
+  }
+
   return true;
 }
 
