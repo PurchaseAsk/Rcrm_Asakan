@@ -98,7 +98,8 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles }: {
     : "/api/leads/from-website";
 
   function stagesForPipeline(pipelineId: string) {
-    return stages.filter((s) => s.pipeline_id === pipelineId || s.pipeline_id === null);
+    const scoped = stages.filter((s) => s.pipeline_id === pipelineId);
+    return scoped.length ? scoped : stages.filter((s) => s.pipeline_id === null);
   }
 
   if (loading) return <p className="text-sm text-slate-400">กำลังโหลด…</p>;
