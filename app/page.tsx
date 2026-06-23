@@ -208,10 +208,10 @@ export default function HomePage() {
   const visibleSettingsTabs = settingsTabs.filter((tab) => !tab.managerOnly || canManage);
   const isSettingsTab = visibleSettingsTabs.some((t) => t.id === activeTab);
 
-  // Auto-open settings when navigating to a settings tab, but allow manual collapse
+  // Close settings dropdown when navigating to a settings tab via direct click
   useEffect(() => {
-    if (isSettingsTab) setSettingsOpen(true);
-  }, [isSettingsTab]);
+    if (isSettingsTab) setSettingsOpen(false);
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const myTeamMemberIds = useMemo(() => {
     if (!currentUserId) return [];
@@ -347,34 +347,20 @@ export default function HomePage() {
   return (
     <main className="min-h-dvh bg-slate-100">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="flex h-16 w-full items-center justify-between gap-4 px-4 xl:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-700 text-sm font-bold text-white shadow-sm">
+        <div className="flex h-14 w-full items-center gap-1 px-3 xl:px-5">
+          {/* Logo */}
+          <div className="flex shrink-0 items-center gap-2 pr-3 mr-1 border-r border-slate-200">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-700 text-xs font-bold text-white shadow-sm">
               RP
             </div>
-            <div>
+            <div className="hidden lg:block">
               <div className="text-sm font-semibold leading-tight text-slate-950">AsakanLeadFlow</div>
-              <div className="text-xs text-slate-500">{roleLabel(profile?.role)} · Supabase Edition</div>
+              <div className="text-[11px] text-slate-500">{roleLabel(profile?.role)}</div>
             </div>
           </div>
 
-          <div className="min-w-0 flex-1" />
-
-<div className="flex items-center gap-2">
-            <button
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
-              aria-label="Sign out"
-              onClick={() => supabase.auth.signOut()}
-            >
-              <LogOut size={17} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="grid w-full gap-4 px-3 py-4 sm:px-4 xl:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm lg:sticky lg:top-20 lg:h-[calc(100dvh-96px)]">
-          <nav className="grid grid-cols-2 gap-1 lg:grid-cols-1">
+          {/* Main nav */}
+          <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
             {mainTabs.map((item) => {
               const Icon = item.icon;
               const active = activeTab === item.id;
@@ -382,12 +368,12 @@ export default function HomePage() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex h-11 items-center gap-3 rounded-md px-3 text-left text-sm font-medium transition ${
+                  className={`relative flex h-9 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition ${
                     active ? "bg-brand-700 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
                   }`}
                 >
-                  <Icon size={17} />
-                  <span className="flex-1">{item.label}</span>
+                  <Icon size={15} />
+                  <span className="hidden sm:inline">{item.label}</span>
                   {item.id === "inbox" && inboxUnreadCount > 0 && (
                     <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-blue-500 text-white"}`}>
                       {inboxUnreadCount}
@@ -396,36 +382,32 @@ export default function HomePage() {
                 </button>
               );
             })}
+          </nav>
 
-            {/* Settings collapsible group */}
-            <div className="col-span-2 lg:col-span-1">
-              <button
-                onClick={() => setSettingsOpen((o) => !o)}
-                className={`flex h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-medium transition ${
-                  isSettingsTab ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                }`}
-              >
-                <Settings size={17} />
-                <span className="flex-1">ตั้งค่า</span>
-                <svg
-                  className={`h-4 w-4 transition-transform ${settingsOpen ? "rotate-180" : ""}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {settingsOpen && (
-                <div className="mt-0.5 ml-2 grid grid-cols-1 gap-0.5 border-l-2 border-slate-100 pl-2">
+          {/* Gear dropdown */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setSettingsOpen((o) => !o)}
+              title="ตั้งค่า"
+              className={`flex h-9 w-9 items-center justify-center rounded-lg border transition ${
+                isSettingsTab ? "border-brand-300 bg-brand-50 text-brand-700" : settingsOpen ? "border-slate-300 bg-slate-100 text-slate-800" : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+              }`}
+            >
+              <Settings size={16} />
+            </button>
+            {settingsOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setSettingsOpen(false)} />
+                <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
                   {visibleSettingsTabs.map((item) => {
                     const Icon = item.icon;
                     const active = activeTab === item.id;
                     return (
                       <button
                         key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`flex h-9 items-center gap-2.5 rounded-md px-2.5 text-left text-sm font-medium transition ${
-                          active ? "bg-brand-700 text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+                        onClick={() => { setActiveTab(item.id); setSettingsOpen(false); }}
+                        className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition ${
+                          active ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
                         }`}
                       >
                         <Icon size={15} />
@@ -434,11 +416,22 @@ export default function HomePage() {
                     );
                   })}
                 </div>
-              )}
-            </div>
-          </nav>
-        </aside>
+              </>
+            )}
+          </div>
 
+          {/* Logout */}
+          <button
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+            aria-label="Sign out"
+            onClick={() => supabase.auth.signOut()}
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
+      </header>
+
+      <div className="w-full px-3 py-4 sm:px-4 xl:px-6">
         <section className={`min-w-0 ${activeTab === "inbox" ? "" : "space-y-4"}`}>
           {activeTab !== "inbox" && data.leads.length >= 500 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
