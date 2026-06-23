@@ -1,7 +1,7 @@
 "use client";
 
 import { GripVertical } from "lucide-react";
-import type { Lead, Profile, Stage } from "@/types/crm";
+import type { Lead, Profile, RecallRule, Stage } from "@/types/crm";
 import { EmptyLine } from "@/components/ui/EmptyLine";
 
 export function FunnelBoard({
@@ -12,6 +12,7 @@ export function FunnelBoard({
   filterableProfiles,
   assigneeFilter,
   setAssigneeFilter,
+  recallRules,
   onMoveLead,
   onOpenLead,
 }: {
@@ -22,10 +23,21 @@ export function FunnelBoard({
   filterableProfiles?: Profile[];
   assigneeFilter?: string;
   setAssigneeFilter?: (id: string) => void;
+  recallRules?: RecallRule[];
   onMoveLead: (leadId: string, stage: Stage) => Promise<void>;
   onOpenLead: (lead: Lead) => void;
 }) {
   const canFilterByMember = !!filterableProfiles?.length && !!setAssigneeFilter;
+  const activeRules = (recallRules ?? []).filter((r) => r.is_active);
+  const now = Date.now();
+
+  function isNearRecall(lead: Lead): boolean {
+    const rule = activeRules.find((r) => r.stage_id === lead.stage_id);
+    if (!rule) return false;
+    const lastActivity = new Date(lead.last_activity_at).getTime();
+    const recallAt = lastActivity + rule.inactive_days * 86400 * 1000;
+    return recallAt - now < 86400 * 1000 && recallAt > now;
+  }
 
   return (
     <section className="space-y-2">
@@ -77,7 +89,7 @@ export function FunnelBoard({
                     draggable
                     onDragStart={() => setDraggedLeadId(lead.id)}
                     onClick={() => onOpenLead(lead)}
-                    className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-left shadow-sm hover:border-brand-600"
+                    className={`w-full rounded-md border px-2 py-1.5 text-left shadow-sm hover:border-brand-600 ${isNearRecall(lead) ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}
                   >
                     <div className="flex min-w-0 items-center gap-1.5">
                       <GripVertical size={13} className="shrink-0 text-slate-300" />

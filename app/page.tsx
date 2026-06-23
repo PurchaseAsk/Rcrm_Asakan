@@ -510,6 +510,7 @@ export default function HomePage() {
               filterableProfiles={filterableProfiles}
               assigneeFilter={assigneeFilter}
               setAssigneeFilter={setAssigneeFilter}
+              recallRules={data.recallRules}
               onMoveLead={async (leadId, stage) => {
                 const moved = await updateLeadStage(
                   leadId,
