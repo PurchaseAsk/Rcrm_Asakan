@@ -659,11 +659,6 @@ export function ChatInbox({
                             {conv.last_message_text}
                           </div>
                         )}
-                        {conv.ad_name && (
-                          <div className="mt-0.5 truncate rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                            🎯 {conv.ad_name}
-                          </div>
-                        )}
                         {(conv.conversation_tags ?? []).length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-0.5">
                             {(conv.conversation_tags ?? []).map(({ tag_id, tags: tag }) =>

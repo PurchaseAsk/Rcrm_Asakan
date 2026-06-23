@@ -545,6 +545,8 @@ type ChatConv = {
   created_at: string;
   ad_name: string | null;
   lead_id: string | null;
+  sender_psid: string;
+  isRepeat?: boolean;
 };
 
 type ChatMetricRow = {
@@ -581,10 +583,41 @@ function ChatMetricsView({
   useEffect(() => {
     setLoading(true);
     void (async () => {
-      // Step 1: Find all conversations that had an inbound message in the date range
+      // Step 1: conversations CREATED within the date range only (exclude old ongoing threads)
+      const { data: newConvs } = await supabase
+        .from("conversations")
+        .select("id, created_at, ad_name, lead_id, sender_psid")
+        .gte("created_at", dateFrom + "T00:00:00+00:00")
+        .lte("created_at", dateTo + "T23:59:59+00:00")
+        .limit(5000);
+
+      const convList = (newConvs ?? []) as ChatConv[];
+      const convIds = convList.map((c) => c.id);
+
+      if (!convIds.length) {
+        setConversations([]);
+        setFirstInMap(new Map());
+        setFirstOutMap(new Map());
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Check which sender_psids have an older conversation (= returning visitor)
+      const psids = [...new Set(convList.map((c) => c.sender_psid))];
+      const { data: olderConvs } = await supabase
+        .from("conversations")
+        .select("sender_psid")
+        .in("sender_psid", psids)
+        .lt("created_at", dateFrom + "T00:00:00+00:00")
+        .limit(5000);
+
+      const returningPsids = new Set((olderConvs ?? []).map((c: { sender_psid: string }) => c.sender_psid));
+
+      // Step 3: First inbound message in range per conversation (baseline for 5-min response)
       const { data: inboundMsgs } = await supabase
         .from("messages")
         .select("conversation_id, created_at")
+        .in("conversation_id", convIds)
         .eq("direction", "inbound")
         .gte("created_at", dateFrom + "T00:00:00+00:00")
         .lte("created_at", dateTo + "T23:59:59+00:00")
@@ -596,22 +629,7 @@ function ChatMetricsView({
         if (!firstInBatch.has(msg.conversation_id)) firstInBatch.set(msg.conversation_id, msg.created_at);
       }
 
-      const convIds = [...firstInBatch.keys()];
-      if (!convIds.length) {
-        setConversations([]);
-        setFirstInMap(new Map());
-        setFirstOutMap(new Map());
-        setLoading(false);
-        return;
-      }
-
-      // Step 2: Fetch conversation records (to know created_at for new vs repeat)
-      const { data: convs } = await supabase
-        .from("conversations")
-        .select("id, created_at, ad_name, lead_id")
-        .in("id", convIds);
-
-      // Step 3: First outbound message in range per conversation
+      // Step 4: First outbound message in range per conversation
       const { data: outboundMsgs } = await supabase
         .from("messages")
         .select("conversation_id, created_at")
@@ -627,7 +645,8 @@ function ChatMetricsView({
         if (!firstOutBatch.has(msg.conversation_id)) firstOutBatch.set(msg.conversation_id, msg.created_at);
       }
 
-      setConversations((convs ?? []) as ChatConv[]);
+      const tagged = convList.map((c) => ({ ...c, isRepeat: returningPsids.has(c.sender_psid) }));
+      setConversations(tagged);
       setFirstInMap(firstInBatch);
       setFirstOutMap(firstOutBatch);
       setLoading(false);
@@ -638,12 +657,10 @@ function ChatMetricsView({
     const groups = new Map<string, { isRepeat: boolean; total: number; fast5: number; converted: number }>();
 
     for (const conv of conversations) {
-      // "new" = conversation was created within the selected date range
-      const isNew = isoDay(conv.created_at) >= dateFrom;
-      const source = isNew
-        ? (conv.ad_name ?? "Organic / Direct")
-        : "ทักซ้ำ (เคยทักมาก่อน)";
-      const isRepeat = !isNew;
+      const isRepeat = !!conv.isRepeat;
+      const source = isRepeat
+        ? "ทักซ้ำ (เคยทักมาก่อน)"
+        : (conv.ad_name ?? "Organic / Direct");
 
       if (!groups.has(source)) groups.set(source, { isRepeat, total: 0, fast5: 0, converted: 0 });
       const g = groups.get(source)!;
