@@ -177,6 +177,7 @@ export function LeadDrawer({
           stage_id: stage.id,
           status: stage.is_unfollow ? "unfollowed" : "active",
           last_activity_at: new Date().toISOString(),
+          stage_entered_at: new Date().toISOString(),
         })
         .eq("id", lead.id);
       if (error) {
