@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = body as { object?: string; entry?: FbEntry[] };
+  console.log("[webhook] POST received object=%s entries=%d", payload.object, payload.entry?.length ?? 0);
   if (payload.object !== "page") return NextResponse.json({ status: "ignored" });
 
   const supabase = adminSupabase();
@@ -109,13 +110,16 @@ export async function POST(request: NextRequest) {
       // ── Read receipt (customer read our messages) ─────────────────────────────
       if (event.read) {
         const readAt = new Date(event.read.watermark).toISOString();
+        console.log("[webhook] message_reads received", { senderPsid, pageId: page.id, watermark: event.read.watermark, readAt });
         const { error: readErr } = await supabase
           .from("conversations")
           .update({ customer_read_at: readAt })
           .eq("page_id", page.id)
           .eq("sender_psid", senderPsid);
         if (readErr) {
-          console.error("[webhook] customer_read_at update failed:", readErr.message, { senderPsid, pageId: page.id });
+          console.error("[webhook] customer_read_at update failed:", readErr.message);
+        } else {
+          console.log("[webhook] customer_read_at updated ok");
         }
         continue;
       }
