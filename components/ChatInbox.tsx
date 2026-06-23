@@ -643,7 +643,9 @@ export function ChatInbox({
                           {conv.lead_id && (
                             <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">Lead</span>
                           )}
-                          {conv.last_message_direction === "outbound" ? (
+                          {conv.customer_read_at && conv.last_message_direction === "outbound" ? (
+                            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">อ่านแล้ว ✓</span>
+                          ) : conv.last_message_direction === "outbound" ? (
                             <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">ตอบแล้ว ✓</span>
                           ) : isUnread(conv) ? (
                             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[9px] font-bold text-white">●</span>
@@ -823,7 +825,7 @@ export function ChatInbox({
                       <span className="text-[10px] text-slate-400">
                         {showReadReceipt
                           ? `อ่านแล้ว ${new Date(selectedConv!.customer_read_at!).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}`
-                          : "ยังไม่อ่าน"}
+                          : "ส่งแล้ว ✓"}
                       </span>
                     </div>
                   )}

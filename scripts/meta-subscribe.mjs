@@ -8,7 +8,7 @@ loadDotEnvLocal(envPath);
 
 const graphVersion = process.env.META_GRAPH_VERSION || "v25.0";
 const graphBase = `https://graph.facebook.com/${graphVersion}`;
-const defaultFields = ["messages", "messaging_postbacks", "leadgen"];
+const defaultFields = ["messages", "messaging_postbacks", "leadgen", "message_reads", "message_echoes", "messaging_referrals"];
 const fields = (process.env.META_SUBSCRIBED_FIELDS || defaultFields.join(","))
   .split(",")
   .map((field) => field.trim())

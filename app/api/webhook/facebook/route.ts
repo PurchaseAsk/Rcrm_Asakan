@@ -75,7 +75,6 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = body as { object?: string; entry?: FbEntry[] };
-  console.log("[webhook] POST received object=%s entries=%d", payload.object, payload.entry?.length ?? 0);
   if (payload.object !== "page") return NextResponse.json({ status: "ignored" });
 
   const supabase = adminSupabase();
