@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Page, Team } from "@/types/crm";
 import { deleteRow, toggleBoolean } from "@/lib/helpers";
@@ -34,6 +34,61 @@ export function PagesPanel({
   const [savingToken, setSavingToken] = useState(false);
   const [pixelModal, setPixelModal] = useState<{ pageId: string; pixelId: string; capiToken: string } | null>(null);
   const [savingPixel, setSavingPixel] = useState(false);
+
+  // PIN gate
+  const [pinModal, setPinModal] = useState<{ type: "token" | "pixel"; page: Page } | null>(null);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+
+  // Token / pixel status per page id
+  type StatusVal = "checking" | "valid" | "invalid" | "none";
+  const [status, setStatus] = useState<Record<string, { token: StatusVal; pixel: StatusVal }>>({});
+
+  useEffect(() => {
+    pages.forEach((page) => {
+      setStatus((prev) => ({ ...prev, [page.id]: { token: "checking", pixel: "checking" } }));
+      void fetch(`/api/facebook/token-status?page_id=${page.id}`)
+        .then((r) => r.json())
+        .then((data: { token: StatusVal; pixel: StatusVal }) => {
+          setStatus((prev) => ({ ...prev, [page.id]: { token: data.token ?? "none", pixel: data.pixel ?? "none" } }));
+        })
+        .catch(() => {
+          setStatus((prev) => ({ ...prev, [page.id]: { token: "invalid", pixel: "invalid" } }));
+        });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages.length]);
+
+  function StatusDot({ val }: { val: StatusVal }) {
+    if (val === "checking") return <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-slate-300" />;
+    if (val === "valid") return <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" title="ใช้งานได้" />;
+    if (val === "invalid") return <span className="inline-block h-2 w-2 rounded-full bg-red-500" title="หมดอายุ / ไม่ถูกต้อง" />;
+    return <span className="inline-block h-2 w-2 rounded-full bg-slate-200" title="ยังไม่ได้ตั้งค่า" />;
+  }
+
+  function openPin(type: "token" | "pixel", page: Page) {
+    setPinModal({ type, page });
+    setPinInput("");
+    setPinError(false);
+  }
+
+  function submitPin() {
+    if (pinInput.trim().toLowerCase() !== "asakan") {
+      setPinError(true);
+      setPinInput("");
+      return;
+    }
+    if (!pinModal) return;
+    if (pinModal.type === "token") {
+      setEditingTokenPageId(pinModal.page.id);
+      setEditingToken("");
+    } else {
+      setPixelModal({ pageId: pinModal.page.id, pixelId: pinModal.page.pixel_id ?? "", capiToken: pinModal.page.capi_token ?? "" });
+    }
+    setPinModal(null);
+    setPinInput("");
+    setPinError(false);
+  }
 
   async function createPage() {
     if (!form.name.trim() || !form.page_id.trim()) return toast("Page name and Page ID are required");
@@ -146,20 +201,24 @@ export function PagesPanel({
           >
             กำหนดทีม
           </button>,
-          <button
-            key={`tk-${page.id}`}
-            onClick={() => { setEditingTokenPageId(page.id); setEditingToken(""); }}
-            className="rounded px-2 py-1 text-xs text-emerald-700 underline hover:text-emerald-900"
-          >
-            {(page as Page & { token?: string }).token ? "เปลี่ยน Token" : "ตั้ง Token"}
-          </button>,
-          <button
-            key={`px-${page.id}`}
-            onClick={() => setPixelModal({ pageId: page.id, pixelId: page.pixel_id ?? "", capiToken: page.capi_token ?? "" })}
-            className="rounded px-2 py-1 text-xs text-violet-700 underline hover:text-violet-900"
-          >
-            {page.pixel_id ? `Pixel: ${page.pixel_id.slice(0, 8)}…` : "ตั้ง Pixel"}
-          </button>,
+          <div key={`tk-${page.id}`} className="flex items-center gap-1.5">
+            <StatusDot val={status[page.id]?.token ?? "none"} />
+            <button
+              onClick={() => openPin("token", page)}
+              className="rounded px-2 py-1 text-xs text-emerald-700 underline hover:text-emerald-900"
+            >
+              {(page as Page & { token?: string }).token ? "แก้ไข Token" : "ตั้ง Token"}
+            </button>
+          </div>,
+          <div key={`px-${page.id}`} className="flex items-center gap-1.5">
+            <StatusDot val={status[page.id]?.pixel ?? "none"} />
+            <button
+              onClick={() => openPin("pixel", page)}
+              className="rounded px-2 py-1 text-xs text-violet-700 underline hover:text-violet-900"
+            >
+              {page.pixel_id ? `Pixel: ${page.pixel_id.slice(0, 8)}…` : "ตั้ง Pixel"}
+            </button>
+          </div>,
           <RowActions
             key={page.id}
             isActive={page.is_active}
@@ -196,6 +255,38 @@ export function PagesPanel({
                 className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {savingToken ? "กำลังบันทึก…" : "บันทึก"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 font-semibold text-slate-950">ยืนยันตัวตน</h3>
+            <p className="mb-4 text-sm text-slate-500">
+              กรอกรหัสเพื่อแก้ไข <span className="font-medium">{pinModal.type === "token" ? "Page Token" : "Pixel / CAPI"}</span>{" "}
+              ของเพจ <span className="font-medium">{pinModal.page.name}</span>
+            </p>
+            <input
+              autoFocus
+              type="password"
+              className={`h-10 w-full rounded-lg border px-3 text-sm outline-none focus:border-brand-600 ${pinError ? "border-red-400 bg-red-50" : "border-slate-200"}`}
+              placeholder="กรอกรหัส"
+              value={pinInput}
+              onChange={(e) => { setPinInput(e.target.value); setPinError(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") submitPin(); }}
+            />
+            {pinError && <p className="mt-1 text-xs text-red-500">รหัสไม่ถูกต้อง</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => { setPinModal(null); setPinInput(""); setPinError(false); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm">ยกเลิก</button>
+              <button
+                onClick={submitPin}
+                disabled={!pinInput.trim()}
+                className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                ยืนยัน
               </button>
             </div>
           </div>
