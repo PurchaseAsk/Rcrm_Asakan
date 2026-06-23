@@ -14,7 +14,6 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
-  Search,
   Settings,
   Split,
   Tags,
@@ -359,19 +358,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          <label className="hidden min-w-0 flex-1 items-center justify-center md:flex">
-            <div className="flex w-full max-w-3xl items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-              <Search size={16} />
-              <input
-                className="w-full bg-transparent text-slate-800 outline-none placeholder:text-slate-400"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search leads, phone, page, stage, assignee"
-              />
-            </div>
-          </label>
+          <div className="min-w-0 flex-1" />
 
-          <div className="flex items-center gap-2">
+<div className="flex items-center gap-2">
             <button
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50"
               aria-label="Sign out"
@@ -451,22 +440,10 @@ export default function HomePage() {
         </aside>
 
         <section className={`min-w-0 ${activeTab === "inbox" ? "" : "space-y-4"}`}>
-          {activeTab !== "inbox" && (
-            <>
-              <div className="md:hidden">
-                <input
-                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-600"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search leads"
-                />
-              </div>
-              {data.leads.length >= 500 ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  แสดง 500 ลีดล่าสุด — ลีดที่เก่ากว่าอาจไม่แสดงในหน้านี้
-                </div>
-              ) : null}
-            </>
+          {activeTab !== "inbox" && data.leads.length >= 500 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              แสดง 500 ลีดล่าสุด — ลีดที่เก่ากว่าอาจไม่แสดงในหน้านี้
+            </div>
           )}
 
           {activeTab !== "inbox" && (
@@ -474,6 +451,8 @@ export default function HomePage() {
               pipelines={data.pipelines}
               activePipelineId={activePipelineId}
               onChange={setActivePipelineId}
+              search={search}
+              onSearchChange={setSearch}
             />
           )}
 
