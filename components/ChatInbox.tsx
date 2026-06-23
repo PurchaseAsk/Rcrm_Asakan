@@ -95,14 +95,29 @@ export function ChatInbox({
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, (payload) => {
-        const updated = payload.new as { id: string; customer_read_at: string | null; last_message_text: string | null; last_message_direction: "inbound" | "outbound" | null };
-        setConversations((prev) =>
-          prev.map((c) =>
+        const updated = payload.new as {
+          id: string;
+          customer_read_at: string | null;
+          last_message_text: string | null;
+          last_message_direction: "inbound" | "outbound" | null;
+          last_message_at: string;
+          last_read_at: string | null;
+        };
+        setConversations((prev) => {
+          const next = prev.map((c) =>
             c.id === updated.id
-              ? { ...c, customer_read_at: updated.customer_read_at, last_message_text: updated.last_message_text, last_message_direction: updated.last_message_direction }
+              ? {
+                  ...c,
+                  customer_read_at: updated.customer_read_at,
+                  last_message_text: updated.last_message_text,
+                  last_message_direction: updated.last_message_direction,
+                  last_message_at: updated.last_message_at,
+                  last_read_at: updated.last_read_at,
+                }
               : c,
-          ),
-        );
+          );
+          return next.sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+        });
       })
       .subscribe();
     return () => {
