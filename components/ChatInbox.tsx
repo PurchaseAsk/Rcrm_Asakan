@@ -264,6 +264,7 @@ export function ChatInbox({
         return;
       }
       setReplyText("");
+      setConversations((prev) => prev.map((c) => c.id === selectedConvId ? { ...c, customer_read_at: null } : c));
       await refreshMessages(selectedConvId);
       await refreshConversations();
     } finally {
@@ -301,6 +302,7 @@ export function ChatInbox({
       const result = (await res.json()) as { error?: string };
       if (!res.ok) toast(result.error ?? "Send failed");
       else {
+        setConversations((prev) => prev.map((c) => c.id === selectedConvId ? { ...c, customer_read_at: null } : c));
         await refreshMessages(selectedConvId);
         await refreshConversations();
       }
@@ -774,8 +776,7 @@ export function ChatInbox({
                   const isLastOutbound = idx === lastOutboundIdx;
                   const showReadReceipt =
                     isLastOutbound &&
-                    !!selectedConv?.customer_read_at &&
-                    new Date(selectedConv.customer_read_at) >= new Date(msg.created_at);
+                    !!selectedConv?.customer_read_at;
                   const msgDate = new Date(msg.created_at).toDateString();
                   const prevDate = idx > 0 ? new Date(messages[idx - 1].created_at).toDateString() : null;
                   const showDateSep = msgDate !== prevDate;

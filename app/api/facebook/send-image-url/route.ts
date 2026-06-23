@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     }),
     supabase
       .from("conversations")
-      .update({ last_message_at: new Date().toISOString(), last_message_text: "[รูปภาพ]", last_message_direction: "outbound" })
+      .update({ last_message_at: new Date().toISOString(), last_message_text: "[รูปภาพ]", last_message_direction: "outbound", customer_read_at: null })
       .eq("id", conversation_id),
   ]);
 
