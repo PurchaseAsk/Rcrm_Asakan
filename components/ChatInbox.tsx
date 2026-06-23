@@ -91,6 +91,16 @@ export function ChatInbox({
           setConversations((prev) => prev.map((c) => c.id === id ? { ...c, last_read_at: now } : c));
         }
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, (payload) => {
+        const updated = payload.new as { id: string; customer_read_at: string | null; last_message_text: string | null };
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === updated.id
+              ? { ...c, customer_read_at: updated.customer_read_at, last_message_text: updated.last_message_text }
+              : c,
+          ),
+        );
+      })
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
@@ -552,17 +562,17 @@ export function ChatInbox({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          {isUnread(conv) && (
-                            <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
-                          )}
-                          <div className={`truncate text-sm ${isUnread(conv) ? "font-semibold text-slate-950" : "font-medium text-slate-900"}`}>
-                            {conv.sender_name || conv.sender_psid}
+                        <div className={`truncate text-sm ${isUnread(conv) ? "font-semibold text-slate-950" : "font-medium text-slate-900"}`}>
+                          {conv.sender_name || conv.sender_psid}
+                        </div>
+                        <div className="flex items-center gap-1 truncate">
+                          <span className="truncate text-xs text-slate-400">{conv.facebook_pages?.name ?? "Unknown page"}</span>
+                        </div>
+                        {conv.last_message_text && (
+                          <div className={`mt-0.5 truncate text-xs ${isUnread(conv) ? "font-medium text-slate-700" : "text-slate-400"}`}>
+                            {conv.last_message_text}
                           </div>
-                        </div>
-                        <div className="truncate text-xs text-slate-500">
-                          {conv.facebook_pages?.name ?? "Unknown page"}
-                        </div>
+                        )}
                         {conv.ad_name && (
                           <div className="mt-0.5 truncate rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
                             🎯 {conv.ad_name}
@@ -580,15 +590,18 @@ export function ChatInbox({
                           </div>
                         )}
                       </div>
-                      <div className="shrink-0 text-right">
-                        {conv.lead_id ? (
-                          <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">
-                            Lead
-                          </span>
-                        ) : null}
-                        <div className={`mt-1 text-[10px] leading-tight ${isUnread(conv) ? "font-medium text-blue-600" : "text-slate-400"}`}>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <div className={`text-[10px] leading-tight ${isUnread(conv) ? "font-medium text-blue-600" : "text-slate-400"}`}>
                           <div>{new Date(conv.last_message_at).toLocaleDateString("th-TH")}</div>
                           <div>{new Date(conv.last_message_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {conv.lead_id && (
+                            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">Lead</span>
+                          )}
+                          {isUnread(conv) && (
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[9px] font-bold text-white">●</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -696,7 +709,18 @@ export function ChatInbox({
               </div>
 
               <div ref={messagesAreaRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-                {messages.map((msg, idx) => {
+                {(() => {
+                  const lastOutboundIdx = (() => {
+                    for (let i = messages.length - 1; i >= 0; i--) {
+                      if (messages[i].direction === "outbound") return i;
+                    }
+                    return -1;
+                  })();
+                  return messages.map((msg, idx) => {
+                  const showReadReceipt =
+                    idx === lastOutboundIdx &&
+                    !!selectedConv?.customer_read_at &&
+                    new Date(selectedConv.customer_read_at) >= new Date(msg.created_at);
                   const msgDate = new Date(msg.created_at).toDateString();
                   const prevDate = idx > 0 ? new Date(messages[idx - 1].created_at).toDateString() : null;
                   const showDateSep = msgDate !== prevDate;
@@ -741,9 +765,17 @@ export function ChatInbox({
                       </p>
                     </div>
                   </div>
+                  {showReadReceipt && (
+                    <div className="flex justify-end pr-1">
+                      <span className="text-[10px] text-slate-400">
+                        อ่านแล้ว {new Date(selectedConv!.customer_read_at!).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  )}
                   </div>
                   );
-                })}
+                  });
+                })()}
                 {messages.length === 0 ? (
                   <div className="py-8 text-center text-sm text-slate-400">No messages yet</div>
                 ) : null}

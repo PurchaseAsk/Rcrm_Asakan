@@ -37,6 +37,7 @@ type FbEntry = {
       attachments?: { type: string; payload: { url?: string } }[];
     };
     referral?: FbReferral;
+    read?: { watermark: number };
   }[];
   changes?: { field: string; value: LeadgenWebhookValue }[];
 };
@@ -105,6 +106,17 @@ export async function POST(request: NextRequest) {
     for (const event of entry.messaging ?? []) {
       const senderPsid = event.message?.is_echo ? event.recipient.id : event.sender.id;
 
+      // ── Read receipt (customer read our messages) ─────────────────────────────
+      if (event.read) {
+        const readAt = new Date(event.read.watermark).toISOString();
+        await supabase
+          .from("conversations")
+          .update({ customer_read_at: readAt })
+          .eq("page_id", page.id)
+          .eq("sender_psid", senderPsid);
+        continue;
+      }
+
       // ── Referral-only event (Click-to-Messenger ad click, before any message) ──
       // Facebook sends this when user clicks the Message button on an ad.
       // It has no message body — just the referral with ad attribution.
@@ -153,6 +165,7 @@ export async function POST(request: NextRequest) {
         page_id: page.id,
         sender_psid: senderPsid,
         last_message_at: new Date().toISOString(),
+        last_message_text: text ?? (attachment ? `[${attachment.type === "image" ? "รูปภาพ" : attachment.type}]` : null),
       };
       // Only set ad fields when referral is present — avoids overwriting on later messages
       if (refAdId) {
