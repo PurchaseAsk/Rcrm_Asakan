@@ -544,8 +544,8 @@ export function ChatInbox({
 
   return (
     <>
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="grid h-[calc(100dvh-160px)] min-h-[500px] md:grid-cols-[280px_1fr]">
+      <section className="overflow-hidden border-t border-slate-200 bg-white">
+        <div className="grid h-[calc(100dvh-56px)] min-h-[500px] md:grid-cols-[340px_1fr]">
           <div
             className={`flex min-h-0 flex-col overflow-hidden border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}
           >

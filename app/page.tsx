@@ -431,7 +431,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className="w-full px-3 py-4 sm:px-4 xl:px-6">
+      <div className={activeTab === "inbox" ? "w-full" : "w-full px-3 py-4 sm:px-4 xl:px-6"}>
         <section className={`min-w-0 ${activeTab === "inbox" ? "" : "space-y-4"}`}>
           {activeTab !== "inbox" && data.leads.length >= 500 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
