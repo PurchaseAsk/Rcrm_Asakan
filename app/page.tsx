@@ -631,6 +631,10 @@ export default function HomePage() {
                 });
               }}
               onUnreadCountChange={setInboxUnreadCount}
+              onLeadOpen={(leadId) => {
+                setActiveTab("leads");
+                setSelectedLeadId(leadId);
+              }}
             />
           )}
         </section>

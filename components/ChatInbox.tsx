@@ -23,6 +23,7 @@ export function ChatInbox({
   userRole,
   toast,
   onLeadCreated,
+  onLeadOpen,
   onUnreadCountChange,
 }: {
   pages: Page[];
@@ -34,6 +35,7 @@ export function ChatInbox({
   userRole: string;
   toast: (message: string) => void;
   onLeadCreated?: (leadId: string, pipelineId: string) => void;
+  onLeadOpen?: (leadId: string) => void;
   onUnreadCountChange?: (count: number) => void;
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -105,6 +107,7 @@ export function ChatInbox({
           last_message_direction: "inbound" | "outbound" | null;
           last_message_at: string;
           last_read_at: string | null;
+          is_pinned: boolean;
         };
         setConversations((prev) => {
           const next = prev.map((c) =>
@@ -116,10 +119,15 @@ export function ChatInbox({
                   last_message_direction: updated.last_message_direction,
                   last_message_at: updated.last_message_at,
                   last_read_at: updated.last_read_at,
+                  is_pinned: updated.is_pinned,
                 }
               : c,
           );
-          return next.sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+          return next.sort((a, b) => {
+            if (a.is_pinned && !b.is_pinned) return -1;
+            if (!a.is_pinned && b.is_pinned) return 1;
+            return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
+          });
         });
       })
       .subscribe();
@@ -159,6 +167,7 @@ export function ChatInbox({
     let query = supabase
       .from("conversations")
       .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))", { count: "exact" })
+      .order("is_pinned", { ascending: false })
       .order("last_message_at", { ascending: false })
       .range(from, to);
 
@@ -217,6 +226,19 @@ export function ChatInbox({
     const now = new Date().toISOString();
     await supabase.from("conversations").update({ last_read_at: now }).eq("id", convId);
     setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, last_read_at: now } : c));
+  }
+
+  async function togglePin(convId: string, currentlyPinned: boolean) {
+    const next = !currentlyPinned;
+    await supabase.from("conversations").update({ is_pinned: next }).eq("id", convId);
+    setConversations((prev) => {
+      const updated = prev.map((c) => c.id === convId ? { ...c, is_pinned: next } : c);
+      return updated.sort((a, b) => {
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+        return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
+      });
+    });
   }
 
   async function markUnread(convId: string) {
@@ -655,9 +677,16 @@ export function ChatInbox({
                         )}
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        <div className={`text-[10px] leading-tight ${isUnread(conv) ? "font-medium text-blue-600" : "text-slate-400"}`}>
-                          <div>{new Date(conv.last_message_at).toLocaleDateString("th-TH")}</div>
-                          <div>{new Date(conv.last_message_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</div>
+                        <div className="flex items-center gap-1">
+                          {conv.is_pinned && (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M16 12V4h1a1 1 0 000-2H7a1 1 0 000 2h1v8l-2 2v2h5v5l1 1 1-1v-5h5v-2l-2-2z"/>
+                            </svg>
+                          )}
+                          <div className={`text-[10px] leading-tight text-right ${isUnread(conv) ? "font-medium text-blue-600" : "text-slate-400"}`}>
+                            <div>{new Date(conv.last_message_at).toLocaleDateString("th-TH")}</div>
+                            <div>{new Date(conv.last_message_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</div>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1">
                           {conv.lead_id && (
@@ -719,10 +748,22 @@ export function ChatInbox({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </button>
+                  <button
+                    title={selectedConv.is_pinned ? "ยกเลิก pin" : "Pin การสนทนา"}
+                    onClick={() => void togglePin(selectedConv.id, selectedConv.is_pinned)}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg border text-slate-400 hover:bg-slate-50 hover:text-amber-500 ${selectedConv.is_pinned ? "border-amber-300 bg-amber-50 text-amber-500" : "border-slate-200"}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill={selectedConv.is_pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth={selectedConv.is_pinned ? 0 : 2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 12V4h1a1 1 0 000-2H7a1 1 0 000 2h1v8l-2 2v2h5v5l1 1 1-1v-5h5v-2l-2-2z"/>
+                    </svg>
+                  </button>
                   {selectedConv.lead_id ? (
-                    <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700">
-                      Lead linked
-                    </span>
+                    <button
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700 hover:bg-emerald-100"
+                      onClick={() => onLeadOpen?.(selectedConv.lead_id!)}
+                    >
+                      Lead linked ↗
+                    </button>
                   ) : (
                     <button
                       className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-900"
