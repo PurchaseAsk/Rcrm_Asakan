@@ -65,6 +65,8 @@ export function ChatInbox({
   const [showQR, setShowQR] = useState(false);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [qrDraft, setQrDraft] = useState<{ title: string; content: string } | null>(null);
+  const [filterOverdue, setFilterOverdue] = useState(false);
+  const [, setMinuteTick] = useState(0);
 
   useEffect(() => {
     selectedConvIdRef.current = selectedConvId;
@@ -76,6 +78,11 @@ export function ChatInbox({
       if (raw) setQuickReplies(JSON.parse(raw) as QuickReply[]);
     } catch { /* ignore */ }
   }, [userId]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => setMinuteTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -522,9 +529,15 @@ export function ChatInbox({
   const tagFilteredConvs = filterTagIds.size > 0
     ? pageFilteredConvs.filter((c) => (c.conversation_tags ?? []).some((ct) => filterTagIds.has(ct.tag_id)))
     : pageFilteredConvs;
-  const visibleConvs = filterUnread ? tagFilteredConvs.filter(isUnread) : tagFilteredConvs;
+  const oneHourAgo = Date.now() - 3_600_000;
+  const overdueConvs = conversations.filter(
+    (c) => c.last_message_direction === "inbound" && new Date(c.last_message_at).getTime() < oneHourAgo,
+  );
+  const overdueIds = new Set(overdueConvs.map((c) => c.id));
+  const baseVisibleConvs = filterUnread ? tagFilteredConvs.filter(isUnread) : tagFilteredConvs;
+  const visibleConvs = filterOverdue ? conversations.filter((c) => overdueIds.has(c.id)) : baseVisibleConvs;
   const hasMoreConversations = conversationTotal === null || conversations.length < conversationTotal;
-  const hasActiveConversationFilters = Boolean(filterPageId || filterUnread || filterTagIds.size > 0);
+  const hasActiveConversationFilters = Boolean(filterPageId || filterUnread || filterTagIds.size > 0 || filterOverdue);
   const conversationCountLabel = hasActiveConversationFilters
     ? `${visibleConvs.length} shown (${conversations.length}${conversationTotal !== null ? ` of ${conversationTotal}` : ""} loaded)`
     : `${conversations.length}${conversationTotal !== null && hasMoreConversations ? ` of ${conversationTotal}` : ""} conversations`;
@@ -621,6 +634,25 @@ export function ChatInbox({
               </button>
               </div>
             </div>
+
+            {overdueConvs.length > 0 && (
+              <button
+                onClick={() => setFilterOverdue((v) => !v)}
+                className={`flex w-full shrink-0 items-center gap-2 border-b px-3 py-2 text-xs font-medium transition-colors ${
+                  filterOverdue
+                    ? "border-rose-600 bg-rose-500 text-white"
+                    : "border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                }`}
+              >
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white ring-1 ring-white">
+                  {overdueConvs.length > 9 ? "9+" : overdueConvs.length}
+                </span>
+                <span className="flex-1 text-left">
+                  {overdueConvs.length} แชทรอตอบเกิน 1 ชม.
+                </span>
+                {filterOverdue && <span className="opacity-70">✕</span>}
+              </button>
+            )}
 
             <div className="flex-1 overflow-y-auto" onScroll={handleConversationScroll}>
               {loading ? (
