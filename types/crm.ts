@@ -161,3 +161,39 @@ export type Message = {
   attachment_type: string | null;
   profiles?: { id: string; full_name: string | null; email: string } | null;
 };
+
+export type LineOaAccount = {
+  id: string;
+  name: string;
+  channel_id: string;
+  is_active: boolean;
+  bot_user_id: string | null;
+};
+
+export type LineConversation = {
+  id: string;
+  line_oa_id: string;
+  sender_line_id: string;
+  display_name: string | null;
+  picture_url: string | null;
+  last_message_text: string | null;
+  last_message_at: string;
+  last_message_direction: "inbound" | "outbound" | null;
+  last_read_at: string | null;
+  is_pinned: boolean;
+  lead_id: string | null;
+  created_at: string;
+  line_oa_accounts?: { name: string } | null;
+};
+
+export type LineMessage = {
+  id: string;
+  conversation_id: string;
+  direction: "inbound" | "outbound";
+  content: string | null;
+  attachment_type: string | null;
+  line_message_id: string | null;
+  sent_by: string | null;
+  created_at: string;
+  profiles?: { id: string; full_name: string | null; email: string } | null;
+};

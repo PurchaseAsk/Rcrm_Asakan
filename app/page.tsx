@@ -15,6 +15,7 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
   Settings,
   Split,
   Tags,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/helpers";
 
 import { ChatInbox } from "@/components/ChatInbox";
+import { LineInbox } from "@/components/LineInbox";
 import { CustomersPanel } from "@/components/CustomersPanel";
 import { Dashboard } from "@/components/Dashboard";
 import { FunnelBoard } from "@/components/FunnelBoard";
@@ -62,6 +64,7 @@ const mainTabs: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "funnel", label: "Funnel", icon: Split },
   { id: "inbox", label: "Inbox", icon: Inbox },
+  { id: "line", label: "Line", icon: MessageCircle },
   { id: "reminders", label: "Reminders", icon: BellRing },
   { id: "my-tags", label: "แท็กของฉัน", icon: Tags },
   { id: "leads", label: "ลีดทั้งหมด", icon: UserRound },
@@ -98,6 +101,7 @@ export default function HomePage() {
   const [stageNoteRequest, setStageNoteRequest] = useState<StageNoteRequest | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
+  const [lineUnreadCount, setLineUnreadCount] = useState(0);
 
   // Ref so Realtime and reminder callbacks always read the latest leadId
   // without causing channel teardown on every lead open (H-2)
@@ -382,6 +386,11 @@ export default function HomePage() {
                       {inboxUnreadCount}
                     </span>
                   )}
+                  {item.id === "line" && lineUnreadCount > 0 && (
+                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-[#06C755] text-white"}`}>
+                      {lineUnreadCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -434,15 +443,15 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className={activeTab === "inbox" ? "w-full" : "w-full px-3 py-4 sm:px-4 xl:px-6"}>
-        <section className={`min-w-0 ${activeTab === "inbox" ? "" : "space-y-4"}`}>
-          {activeTab !== "inbox" && data.leads.length >= 500 && (
+      <div className={activeTab === "inbox" || activeTab === "line" ? "w-full" : "w-full px-3 py-4 sm:px-4 xl:px-6"}>
+        <section className={`min-w-0 ${activeTab === "inbox" || activeTab === "line" ? "" : "space-y-4"}`}>
+          {activeTab !== "inbox" && activeTab !== "line" && data.leads.length >= 500 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               แสดง 500 ลีดล่าสุด — ลีดที่เก่ากว่าอาจไม่แสดงในหน้านี้
             </div>
           )}
 
-          {activeTab !== "inbox" && (
+          {activeTab !== "inbox" && activeTab !== "line" && (
             <PipelineBar
               pipelines={data.pipelines}
               activePipelineId={activePipelineId}
@@ -617,6 +626,13 @@ export default function HomePage() {
                 setActiveTab("leads");
                 setSelectedLeadId(leadId);
               }}
+            />
+          )}
+          {activeTab === "line" && (
+            <LineInbox
+              userId={currentUserId}
+              toast={showToast}
+              onUnreadCountChange={setLineUnreadCount}
             />
           )}
         </section>

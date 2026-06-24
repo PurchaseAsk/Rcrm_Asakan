@@ -70,4 +70,5 @@ export type TabId =
   | "my-tags"
   | "pages"
   | "customers"
-  | "website";
+  | "website"
+  | "line";
