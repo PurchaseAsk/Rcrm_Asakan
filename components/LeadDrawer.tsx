@@ -283,13 +283,30 @@ export function LeadDrawer({
               onChange={(value) => setForm({ ...form, customer_name: value })}
               disabled={!editingInfo}
             />
-            <Field
-              label="Phone"
-              value={form.phone}
-              onChange={(value) => setForm({ ...form, phone: value })}
-              maxLength={10}
-              disabled={!editingInfo}
-            />
+            <div className="block">
+              <span className="text-xs font-medium text-slate-600">Phone</span>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
+                  type="tel"
+                  value={form.phone}
+                  maxLength={10}
+                  disabled={!editingInfo}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                />
+                {!editingInfo && form.phone && (
+                  <a
+                    href={`tel:${form.phone}`}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                    title="โทรออก"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                  </a>
+                )}
+              </div>
+            </div>
             <Field
               label="Email"
               value={form.email}
