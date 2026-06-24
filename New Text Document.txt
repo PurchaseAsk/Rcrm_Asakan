@@ -30,3 +30,42 @@ Lead drawer form reset กลาง session เมื่อ Realtime push มา
 ปุ่ม write ทุกปุ่มไม่มี loading/disabled state → double-submit ได้
 my_role() คืน NULL ถ้าไม่มี profile row → ควร COALESCE(..., 'staff')
 Hard limit 500 leads ไม่มีแจ้งเตือน
+
+
+ขั้นตอนที่เหลือมีแค่นี้:
+
+1. เอา secret key จาก database
+
+รัน SQL นี้ใน Supabase SQL editor:
+
+
+SELECT webhook_secret FROM website_settings LIMIT 1;
+เอาค่าที่ได้ไปใส่ข้อ 2
+
+2. อัปเดต .env.local บน Website
+
+ไปที่ asakan-website/.env.local แล้วแก้ 2 บรรทัดสุดท้าย:
+
+
+CRM_WEBHOOK_URL=http://localhost:3000/api/leads/from-website
+CRM_WEBHOOK_SECRET=<ค่า webhook_secret จากข้อ 1>
+(ถ้า CRM deploy อยู่บน domain จริง ให้ใส่ URL นั้นแทน)
+
+3. Restart dev server ทั้งสองฝั่ง (ถ้ารัน local)
+
+4. ตั้งกฎ mapping ใน CRM
+
+ไปที่ CRM → คลิก gear ⚙️ → Website Leads → เพิ่มกฎ:
+
+Project Slug	Pipeline	ขั้นตอน	ผู้รับ
+asakan-korat	...	...	...
+slug ต้องตรงกับค่า project ที่ form ส่งมา — ดูได้จาก form บน website ว่า field project ส่งค่าอะไร
+
+5. ทดสอบ
+
+กรอก form บน website แล้วดูว่าลีดขึ้นใน CRM หรือไม่ หรือจะทดสอบตรงๆ ด้วย:
+
+
+curl -X POST http://localhost:3000/api/leads/from-website \
+  -H "Content-Type: application/json" \
+  -d '{"secret":"<your-secret>","project_slug":"asakan-korat","name":"ทดสอบ","phone":"0812345678"}'

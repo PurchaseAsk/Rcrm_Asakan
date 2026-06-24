@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
   metadata.source = "website";
   metadata.project_slug = project_slug;
 
+  const activityContent = `📥 ลงทะเบียนจากเว็บไซต์ โปรเจกต์: ${project_slug}${message ? `\nข้อความ: ${message}` : ""}${appointment_date ? `\nนัดหมาย: ${appointment_date}` : ""}`;
+
   const { data: lead, error } = await supabase
     .from("leads")
     .insert({
@@ -66,16 +68,32 @@ export async function POST(request: NextRequest) {
     .select("id")
     .single();
 
+  // Duplicate phone — find existing lead and log activity instead
+  if (error?.code === "23505" && phone) {
+    const { data: dups } = await supabase
+      .rpc("find_lead_by_phone", { p_phone: phone }) as { data: { id: string }[] | null };
+    const existingId = dups?.[0]?.id;
+    if (existingId) {
+      await supabase.from("lead_activities").insert({
+        lead_id: existingId,
+        type: "note",
+        content: activityContent,
+        created_by: null,
+      });
+      return NextResponse.json({ ok: true, lead_id: existingId, duplicate: true });
+    }
+    return NextResponse.json({ ok: true, duplicate: true });
+  }
+
   if (error || !lead) {
     console.error("[from-website] insert error:", error);
     return NextResponse.json({ error: "Failed to create lead" }, { status: 500 });
   }
 
-  // Log initial activity
   await supabase.from("lead_activities").insert({
     lead_id: lead.id,
     type: "note",
-    content: `📥 ลีดจากเว็บไซต์ โปรเจกต์: ${project_slug}${message ? `\nข้อความ: ${message}` : ""}${appointment_date ? `\nนัดหมาย: ${appointment_date}` : ""}`,
+    content: activityContent,
     created_by: null,
   });
 
