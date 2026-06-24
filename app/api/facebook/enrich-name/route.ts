@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       );
       if (picRes.ok) {
         const picData = (await picRes.json()) as { data?: { url?: string; is_silhouette?: boolean } };
-        if (picData.data?.url && !picData.data.is_silhouette) pictureUrl = picData.data.url;
+        if (picData.data?.url) pictureUrl = picData.data.url;
       }
     } catch { /* non-critical */ }
 
