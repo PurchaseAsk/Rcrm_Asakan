@@ -43,10 +43,14 @@ export async function POST(request: NextRequest) {
 
   if (!oaList?.length) return NextResponse.json({ status: "no_oa" });
 
-  const oa = oaList.find((a) => a.bot_user_id === body.destination) ?? oaList[0];
+  let oa = oaList.find((a) => a.bot_user_id === body.destination);
 
-  if (signature && !verifySignature(rawBody, signature, oa.channel_secret)) {
-    console.error("[line-webhook] invalid signature");
+  if (!oa) {
+    oa = oaList.find((a) => verifySignature(rawBody, signature, a.channel_secret));
+  }
+
+  if (!oa) {
+    console.error("[line-webhook] no matching OA for destination", body.destination);
     return new NextResponse("Forbidden", { status: 403 });
   }
 
