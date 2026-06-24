@@ -253,6 +253,13 @@ export function ChatInbox({
     setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, last_read_at: null } : c));
   }
 
+  async function markHandled(convId: string) {
+    await supabase.from("conversations").update({ last_message_direction: "outbound" }).eq("id", convId);
+    setConversations((prev) =>
+      prev.map((c) => c.id === convId ? { ...c, last_message_direction: "outbound" } : c),
+    );
+  }
+
   async function addConvTag(convId: string, tagId: string) {
     const { error } = await supabase.from("conversation_tags").insert({ conversation_id: convId, tag_id: tagId });
     if (error) return;
@@ -766,6 +773,15 @@ export function ChatInbox({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {selectedConv.last_message_direction === "inbound" && (
+                    <button
+                      title="Mark as handled — ไม่นับเป็น overdue"
+                      onClick={() => void markHandled(selectedConv.id)}
+                      className="flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                    >
+                      ✓ จบแชท
+                    </button>
+                  )}
                   <button
                     title="Mark as unread"
                     onClick={() => void markUnread(selectedConv.id)}
