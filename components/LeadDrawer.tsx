@@ -248,14 +248,15 @@ export function LeadDrawer({
       <aside className="ml-auto flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 p-4">
           <div>
-            {lead.facebook_id && onViewChat ? (
-              <button
-                onClick={onViewChat}
-                className="text-lg font-semibold text-slate-950 hover:underline text-left"
-                title="ดูแชท"
+            {lead.facebook_id ? (
+              <a
+                href={`https://www.facebook.com/profile.php?id=${lead.facebook_id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-lg font-semibold text-slate-950 hover:underline"
               >
                 {lead.customer_name}
-              </button>
+              </a>
             ) : (
               <h2 className="text-lg font-semibold text-slate-950">{lead.customer_name}</h2>
             )}
