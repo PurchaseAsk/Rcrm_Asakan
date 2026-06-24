@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!oa.bot_user_id && body.destination) {
-    void supabase.from("line_oa_accounts").update({ bot_user_id: body.destination }).eq("id", oa.id);
+    await supabase.from("line_oa_accounts").update({ bot_user_id: body.destination }).eq("id", oa.id);
   }
 
   for (const event of body.events) {
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!conv.display_name) {
-      void enrichLineProfile(supabase, conv.id, senderLineId, oa.channel_access_token);
+      await enrichLineProfile(supabase, conv.id, senderLineId, oa.channel_access_token);
     }
   }
 
