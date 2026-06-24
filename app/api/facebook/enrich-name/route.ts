@@ -53,11 +53,11 @@ export async function POST(request: NextRequest) {
     let pictureUrl: string | null = null;
     try {
       const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}/picture?type=square&redirect=false&access_token=${encodeURIComponent(token)}`,
+        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=profile_pic&access_token=${encodeURIComponent(token)}`,
       );
       if (picRes.ok) {
-        const picData = (await picRes.json()) as { data?: { url?: string; is_silhouette?: boolean } };
-        if (picData.data?.url) pictureUrl = picData.data.url;
+        const picData = (await picRes.json()) as { profile_pic?: string };
+        if (picData.profile_pic) pictureUrl = picData.profile_pic;
       }
     } catch { /* non-critical */ }
 
