@@ -535,7 +535,10 @@ export function ChatInbox({
     ? conversations.filter((c) => c.page_id === filterPageId)
     : conversations;
   const tagFilteredConvs = filterTagIds.size > 0
-    ? pageFilteredConvs.filter((c) => (c.conversation_tags ?? []).some((ct) => filterTagIds.has(ct.tag_id)))
+    ? pageFilteredConvs.filter((c) => {
+        const convTagIds = new Set((c.conversation_tags ?? []).map((ct) => ct.tag_id));
+        return [...filterTagIds].every((id) => convTagIds.has(id));
+      })
     : pageFilteredConvs;
   const oneHourAgo = Date.now() - 3_600_000;
   const overdueConvs = conversations.filter(
