@@ -12,16 +12,16 @@ export async function POST(request: NextRequest) {
 
   const { data: conv } = await supabase
     .from("conversations")
-    .select("sender_psid, sender_name, facebook_pages!inner(page_id, token)")
+    .select("sender_psid, sender_name, picture_url, facebook_pages!inner(page_id, token)")
     .eq("id", conv_id)
     .single();
 
   if (!conv) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  type ConvRow = { sender_psid: string; sender_name: string | null; facebook_pages: { page_id: string; token: string | null } };
+  type ConvRow = { sender_psid: string; sender_name: string | null; picture_url: string | null; facebook_pages: { page_id: string; token: string | null } };
   const row = conv as unknown as ConvRow;
 
-  if (row.sender_name) return NextResponse.json({ name: row.sender_name });
+  if (row.sender_name && row.picture_url) return NextResponse.json({ name: row.sender_name });
 
   const fbPageId = row.facebook_pages?.page_id;
   const dbToken = row.facebook_pages?.token ?? null;
