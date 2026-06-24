@@ -9,6 +9,7 @@ const supabase = createBrowserSupabase();
 const CONVERSATION_PAGE_SIZE = 30;
 
 function isUnread(conv: Conversation): boolean {
+  if (conv.last_message_direction === "outbound") return false;
   if (!conv.last_read_at) return true;
   return new Date(conv.last_message_at) > new Date(conv.last_read_at);
 }
