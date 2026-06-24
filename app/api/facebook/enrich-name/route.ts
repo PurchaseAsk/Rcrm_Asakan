@@ -47,12 +47,18 @@ export async function POST(request: NextRequest) {
   type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; pic?: string; pic_small?: string; pic_square?: string }[] } }[] };
   const data = (await res.json()) as ConvApiResult;
   const participants = data.data?.[0]?.participants?.data ?? [];
-  console.log("[enrich-name] all participants:", JSON.stringify(participants));
   const user = participants.find((p) => p.id !== fbPageId);
 
   if (user?.name) {
-    console.log("[enrich-name] full user object:", JSON.stringify(user));
-    const pictureUrl = user.pic_square ?? user.pic_small ?? user.pic ?? null;
+    let pictureUrl: string | null = null;
+    try {
+      const picRes = await fetch(
+        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(token)}`,
+      );
+      const picData = (await picRes.json()) as { profile_pic?: string; first_name?: string; error?: { message?: string; code?: number } };
+      console.log("[enrich-name] profile API:", JSON.stringify(picData));
+      if (picData.profile_pic) pictureUrl = picData.profile_pic;
+    } catch (e) { console.error("[enrich-name] profile API error:", e); }
     await supabase.from("conversations").update({ sender_name: user.name, picture_url: pictureUrl }).eq("id", conv_id);
     return NextResponse.json({ name: user.name });
   }
