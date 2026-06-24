@@ -100,6 +100,7 @@ export default function HomePage() {
   const [managingPipelineId, setManagingPipelineId] = useState<string | null>(null);
   const [stageNoteRequest, setStageNoteRequest] = useState<StageNoteRequest | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [lineUnreadCount, setLineUnreadCount] = useState(0);
 
@@ -357,9 +358,12 @@ export default function HomePage() {
         <div className="flex h-14 w-full items-center gap-1 px-3 xl:px-5">
           {/* Logo */}
           <div className="flex shrink-0 items-center gap-2 pr-3 mr-1 border-r border-slate-200">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-700 text-xs font-bold text-white shadow-sm">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-700 text-xs font-bold text-white shadow-sm hover:bg-brand-800 transition"
+            >
               RP
-            </div>
+            </button>
             <div className="hidden lg:block">
               <div className="text-sm font-semibold leading-tight text-slate-950">AsakanLeadFlow</div>
               <div className="text-[11px] text-slate-500">{roleLabel(profile?.role)}</div>
@@ -668,6 +672,77 @@ export default function HomePage() {
           onClose={() => setManagingPipelineId(null)}
         />
       ) : null}
+
+      {/* Mobile sidebar */}
+      {sidebarOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <div className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-white shadow-xl">
+            <div className="flex h-14 items-center gap-2 border-b border-slate-200 px-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-700 text-xs font-bold text-white shadow-sm">RP</div>
+              <div>
+                <div className="text-sm font-semibold text-slate-950">AsakanLeadFlow</div>
+                <div className="text-[11px] text-slate-500">{roleLabel(profile?.role)}</div>
+              </div>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-2 py-2">
+              {mainTabs.map((item) => {
+                const Icon = item.icon;
+                const active = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+                    className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                      active ? "bg-brand-700 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {item.label}
+                    {item.id === "inbox" && inboxUnreadCount > 0 && (
+                      <span className={`ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-blue-500 text-white"}`}>
+                        {inboxUnreadCount}
+                      </span>
+                    )}
+                    {item.id === "line" && lineUnreadCount > 0 && (
+                      <span className={`ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-[#06C755] text-white"}`}>
+                        {lineUnreadCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              <div className="mt-2 border-t border-slate-100 pt-2">
+                {visibleSettingsTabs.map((item) => {
+                  const Icon = item.icon;
+                  const active = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                        active ? "bg-brand-700 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                      }`}
+                    >
+                      <Icon size={16} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+            <div className="border-t border-slate-200 p-2">
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+              >
+                <LogOut size={16} />
+                ออกจากระบบ
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {toast ? (
         <div className="fixed bottom-5 right-5 z-50 rounded-lg bg-slate-950 px-4 py-3 text-sm text-white shadow-xl">
