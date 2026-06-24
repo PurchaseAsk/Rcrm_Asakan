@@ -134,6 +134,7 @@ export type Conversation = {
   page_id: string;
   sender_psid: string;
   sender_name: string | null;
+  picture_url: string | null;
   last_message_at: string;
   lead_id: string | null;
   ad_id: string | null;

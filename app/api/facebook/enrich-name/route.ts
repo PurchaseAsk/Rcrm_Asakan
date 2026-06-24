@@ -50,7 +50,18 @@ export async function POST(request: NextRequest) {
   const user = participants.find((p) => p.id !== fbPageId);
 
   if (user?.name) {
-    await supabase.from("conversations").update({ sender_name: user.name }).eq("id", conv_id);
+    let pictureUrl: string | null = null;
+    try {
+      const picRes = await fetch(
+        `https://graph.facebook.com/v20.0/${row.sender_psid}/picture?type=square&redirect=false&access_token=${encodeURIComponent(token)}`,
+      );
+      if (picRes.ok) {
+        const picData = (await picRes.json()) as { data?: { url?: string; is_silhouette?: boolean } };
+        if (picData.data?.url && !picData.data.is_silhouette) pictureUrl = picData.data.url;
+      }
+    } catch { /* non-critical */ }
+
+    await supabase.from("conversations").update({ sender_name: user.name, picture_url: pictureUrl }).eq("id", conv_id);
     return NextResponse.json({ name: user.name });
   }
 

@@ -29,21 +29,7 @@ export function LeadTable({
         <tbody className="divide-y divide-slate-200 bg-white">
           {leads.map((lead) => (
             <tr key={lead.id} className="cursor-pointer hover:bg-slate-50" onClick={() => onOpenLead(lead)}>
-              <td className="px-3 py-3 font-medium text-slate-950">
-                {lead.facebook_id ? (
-                  <a
-                    href={`https://www.facebook.com/profile.php?id=${lead.facebook_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {lead.customer_name}
-                  </a>
-                ) : (
-                  lead.customer_name
-                )}
-              </td>
+              <td className="px-3 py-3 font-medium text-slate-950">{lead.customer_name}</td>
               <td className="px-3 py-3 text-slate-600">{lead.phone || lead.email || "-"}</td>
               <td className="px-3 py-3">
                 <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">

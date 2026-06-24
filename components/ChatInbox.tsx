@@ -586,7 +586,7 @@ export function ChatInbox({
   return (
     <>
       <section className="overflow-hidden border-t border-slate-200 bg-white">
-        <div className="grid h-[calc(100dvh-56px)] min-h-[500px] md:grid-cols-[340px_1fr]">
+        <div className="grid h-[calc(100dvh-56px)] min-h-[500px] md:grid-cols-[380px_1fr]">
           <div
             className={`flex min-h-0 flex-col overflow-hidden border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}
           >
@@ -706,7 +706,15 @@ export function ChatInbox({
                     }`}
                     onClick={() => void openConversation(conv)}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2.5">
+                      {conv.picture_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={conv.picture_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-600">
+                          {(conv.sender_name || conv.sender_psid).charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className={`truncate text-sm ${isUnread(conv) ? "font-semibold text-slate-950" : "font-medium text-slate-900"}`}>
                           {conv.sender_name || conv.sender_psid}
@@ -780,14 +788,9 @@ export function ChatInbox({
                     ← Back
                   </button>
                   <div>
-                    <a
-                      href={`https://www.facebook.com/profile.php?id=${selectedConv.sender_psid}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold text-slate-950 hover:underline"
-                    >
+                    <div className="font-semibold text-slate-950">
                       {selectedConv.sender_name || selectedConv.sender_psid}
-                    </a>
+                    </div>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <span>{selectedConv.facebook_pages?.name}</span>
                       {selectedConv.ad_name && (
