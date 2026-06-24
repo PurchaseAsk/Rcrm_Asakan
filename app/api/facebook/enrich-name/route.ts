@@ -52,8 +52,9 @@ export async function POST(request: NextRequest) {
   if (user?.name) {
     let pictureUrl: string | null = null;
     try {
+      const highToken = process.env.FB_ADS_TOKEN ?? token;
       const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(token)}`,
+        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(highToken)}`,
       );
       const picData = (await picRes.json()) as { profile_pic?: string; first_name?: string; error?: { message?: string; code?: number } };
       console.log("[enrich-name] profile API:", JSON.stringify(picData));
