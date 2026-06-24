@@ -36,6 +36,7 @@ export function LeadDrawer({
   onClose,
   reload,
   toast,
+  onViewChat,
 }: {
   lead: Lead;
   detail: LeadDetail;
@@ -48,6 +49,7 @@ export function LeadDrawer({
   onClose: () => void;
   reload: () => Promise<void>;
   toast: (message: string) => void;
+  onViewChat?: () => void;
 }) {
   const [form, setForm] = useState({
     customer_name: lead.customer_name || "",
@@ -246,15 +248,14 @@ export function LeadDrawer({
       <aside className="ml-auto flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 p-4">
           <div>
-            {lead.facebook_id ? (
-              <a
-                href={`https://www.facebook.com/profile.php?id=${lead.facebook_id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-lg font-semibold text-slate-950 hover:underline"
+            {lead.facebook_id && onViewChat ? (
+              <button
+                onClick={onViewChat}
+                className="text-lg font-semibold text-slate-950 hover:underline text-left"
+                title="ดูแชท"
               >
                 {lead.customer_name}
-              </a>
+              </button>
             ) : (
               <h2 className="text-lg font-semibold text-slate-950">{lead.customer_name}</h2>
             )}

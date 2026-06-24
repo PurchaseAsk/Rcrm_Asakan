@@ -101,6 +101,7 @@ export default function HomePage() {
   const [stageNoteRequest, setStageNoteRequest] = useState<StageNoteRequest | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatOpenLeadId, setChatOpenLeadId] = useState<string | null>(null);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [lineUnreadCount, setLineUnreadCount] = useState(0);
 
@@ -617,6 +618,7 @@ export default function HomePage() {
               userId={currentUserId}
               userRole={profile?.role ?? "staff"}
               toast={showToast}
+              openByLeadId={chatOpenLeadId}
               onLeadCreated={(leadId, pipelineId) => {
                 void loadCrmData(supabase).then((fresh) => {
                   setData(fresh);
@@ -655,6 +657,11 @@ export default function HomePage() {
           onClose={() => setSelectedLeadId(null)}
           reload={reloadSelectedLead}
           toast={showToast}
+          onViewChat={() => {
+            setChatOpenLeadId(selectedLead!.id);
+            setActiveTab("inbox");
+            setSelectedLeadId(null);
+          }}
         />
       ) : null}
 
