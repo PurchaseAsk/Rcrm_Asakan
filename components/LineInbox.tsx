@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { LineConversation, LineMessage } from "@/types/crm";
+import type { LineConversation, LineMessage, LineOaAccount } from "@/types/crm";
 
 const supabase = createBrowserSupabase();
 const PAGE_SIZE = 30;
@@ -22,6 +22,8 @@ export function LineInbox({
   toast: (msg: string) => void;
   onUnreadCountChange?: (count: number) => void;
 }) {
+  const [oaAccounts, setOaAccounts] = useState<LineOaAccount[]>([]);
+  const [filterOaId, setFilterOaId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<LineConversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<LineMessage[]>([]);
@@ -32,9 +34,20 @@ export function LineInbox({
   const [loadingMore, setLoadingMore] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedConvIdRef = useRef<string | null>(null);
+  const filterOaIdRef = useRef<string | null>(null);
+
+  useEffect(() => { filterOaIdRef.current = filterOaId; }, [filterOaId]);
 
   useEffect(() => { selectedConvIdRef.current = selectedConvId; }, [selectedConvId]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  useEffect(() => {
+    void supabase
+      .from("line_oa_accounts")
+      .select("id, name, channel_id, is_active, bot_user_id")
+      .eq("is_active", true)
+      .then(({ data }) => setOaAccounts((data ?? []) as LineOaAccount[]));
+  }, []);
 
   useEffect(() => {
     void loadPage(0);
@@ -70,15 +83,18 @@ export function LineInbox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadPage(page: number, append = false) {
+  async function loadPage(page: number, append = false, oaId?: string | null) {
     const from = page * PAGE_SIZE;
-    const { data, count } = await supabase
+    const oaFilter = oaId !== undefined ? oaId : filterOaIdRef.current;
+    let query = supabase
       .from("line_conversations")
       .select("*, line_oa_accounts(name)", { count: "exact" })
       .order("is_pinned", { ascending: false })
       .order("last_message_at", { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
+    if (oaFilter) query = query.eq("line_oa_id", oaFilter);
 
+    const { data, count } = await query;
     if (count !== null) setTotal(count);
     const rows = (data || []) as LineConversation[];
     setConversations((prev) => {
@@ -88,6 +104,13 @@ export function LineInbox({
     });
     setLoading(false);
   }
+
+  useEffect(() => {
+    setLoading(true);
+    setTotal(null);
+    void loadPage(0, false, filterOaId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterOaId]);
 
   async function loadMore() {
     if (loadingMore || (total !== null && conversations.length >= total)) return;
@@ -167,13 +190,27 @@ export function LineInbox({
         {/* Left: conversation list */}
         <div className={`flex min-h-0 flex-col overflow-hidden border-r border-slate-200 ${selectedConvId ? "hidden md:flex" : "flex"}`}>
           <div className="shrink-0 border-b border-slate-200 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-[#06C755]">LINE</span>
-              <h2 className="font-semibold text-slate-950">Inbox</h2>
-              {unreadCount > 0 && (
-                <span className="inline-flex items-center rounded-full bg-[#06C755] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {unreadCount}
-                </span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-[#06C755]">LINE</span>
+                <h2 className="font-semibold text-slate-950">Inbox</h2>
+                {unreadCount > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-[#06C755] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+              {oaAccounts.length > 1 && (
+                <select
+                  className="h-7 max-w-[140px] rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-[#06C755] focus:outline-none"
+                  value={filterOaId ?? ""}
+                  onChange={(e) => setFilterOaId(e.target.value || null)}
+                >
+                  <option value="">ทุก OA</option>
+                  {oaAccounts.map((oa) => (
+                    <option key={oa.id} value={oa.id}>{oa.name}</option>
+                  ))}
+                </select>
               )}
             </div>
             <p className="text-xs text-slate-500">
