@@ -55,11 +55,11 @@ export async function POST(request: NextRequest) {
     let pictureUrl: string | null = null;
     try {
       const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=picture.type(large)&access_token=${encodeURIComponent(token)}`,
+        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=profile_pic&access_token=${encodeURIComponent(token)}`,
       );
-      const picData = (await picRes.json()) as { picture?: { data?: { url?: string } }; error?: unknown };
+      const picData = (await picRes.json()) as { profile_pic?: string; error?: unknown };
       console.log("[enrich-name] picture response:", JSON.stringify(picData));
-      if (picData.picture?.data?.url) pictureUrl = picData.picture.data.url;
+      if (picData.profile_pic) pictureUrl = picData.profile_pic;
     } catch (e) { console.error("[enrich-name] picture fetch error:", e); }
 
     await supabase.from("conversations").update({ sender_name: user.name, picture_url: pictureUrl }).eq("id", conv_id);
