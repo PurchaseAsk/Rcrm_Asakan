@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   // Use Conversations API — more reliable than direct /{psid}?fields=name
   const res = await fetch(
-    `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,pic_large}&access_token=${encodeURIComponent(token)}`,
+    `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,pic,pic_small,pic_square}&access_token=${encodeURIComponent(token)}`,
   );
 
   if (!res.ok) {
@@ -44,16 +44,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Graph API error" }, { status: 500 });
   }
 
-  type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; pic_large?: string }[] } }[] };
+  type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; pic?: string; pic_small?: string; pic_square?: string }[] } }[] };
   const data = (await res.json()) as ConvApiResult;
   const participants = data.data?.[0]?.participants?.data ?? [];
   const user = participants.find((p) => p.id !== fbPageId);
 
-  console.log("[enrich-name] user found:", user?.name ?? "null", "psid:", row.sender_psid);
-
   if (user?.name) {
-    const pictureUrl = user.pic_large ?? null;
-    console.log("[enrich-name] pic_large:", pictureUrl);
+    const pictureUrl = user.pic_square ?? user.pic_small ?? user.pic ?? null;
+    console.log("[enrich-name] pic fields:", { pic: user.pic, pic_small: user.pic_small, pic_square: user.pic_square });
     await supabase.from("conversations").update({ sender_name: user.name, picture_url: pictureUrl }).eq("id", conv_id);
     return NextResponse.json({ name: user.name });
   }

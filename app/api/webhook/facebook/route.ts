@@ -107,7 +107,6 @@ export async function POST(request: NextRequest) {
 
     // ── Facebook Messenger ────────────────────────────────────────────────────
     for (const event of entry.messaging ?? []) {
-      console.log("[webhook] raw event:", JSON.stringify(event).slice(0, 500));
       const senderPsid = event.message?.is_echo ? event.recipient.id : event.sender.id;
 
       // ── Read receipt (customer read our messages) ─────────────────────────────
