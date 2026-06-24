@@ -47,11 +47,12 @@ export async function POST(request: NextRequest) {
   type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; pic?: string; pic_small?: string; pic_square?: string }[] } }[] };
   const data = (await res.json()) as ConvApiResult;
   const participants = data.data?.[0]?.participants?.data ?? [];
+  console.log("[enrich-name] all participants:", JSON.stringify(participants));
   const user = participants.find((p) => p.id !== fbPageId);
 
   if (user?.name) {
+    console.log("[enrich-name] full user object:", JSON.stringify(user));
     const pictureUrl = user.pic_square ?? user.pic_small ?? user.pic ?? null;
-    console.log("[enrich-name] pic fields:", { pic: user.pic, pic_small: user.pic_small, pic_square: user.pic_square });
     await supabase.from("conversations").update({ sender_name: user.name, picture_url: pictureUrl }).eq("id", conv_id);
     return NextResponse.json({ name: user.name });
   }
