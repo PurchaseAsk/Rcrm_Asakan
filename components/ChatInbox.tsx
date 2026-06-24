@@ -8,6 +8,13 @@ import html2canvas from "html2canvas";
 const supabase = createBrowserSupabase();
 const CONVERSATION_PAGE_SIZE = 30;
 
+const AVATAR_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f59e0b"];
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 function isUnread(conv: Conversation): boolean {
   if (conv.last_message_direction === "outbound") return false;
   if (!conv.last_read_at) return true;
@@ -711,7 +718,10 @@ export function ChatInbox({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={conv.picture_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
                       ) : (
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-600">
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                          style={{ backgroundColor: avatarColor(conv.sender_name || conv.sender_psid) }}
+                        >
                           {(conv.sender_name || conv.sender_psid).charAt(0).toUpperCase()}
                         </div>
                       )}

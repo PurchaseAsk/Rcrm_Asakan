@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   // Use Conversations API — more reliable than direct /{psid}?fields=name
   const res = await fetch(
-    `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants&access_token=${encodeURIComponent(token)}`,
+    `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,pic_large}&access_token=${encodeURIComponent(token)}`,
   );
 
   if (!res.ok) {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Graph API error" }, { status: 500 });
   }
 
-  type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string }[] } }[] };
+  type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; pic_large?: string }[] } }[] };
   const data = (await res.json()) as ConvApiResult;
   const participants = data.data?.[0]?.participants?.data ?? [];
   const user = participants.find((p) => p.id !== fbPageId);
@@ -52,16 +52,8 @@ export async function POST(request: NextRequest) {
   console.log("[enrich-name] user found:", user?.name ?? "null", "psid:", row.sender_psid);
 
   if (user?.name) {
-    let pictureUrl: string | null = null;
-    try {
-      const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=profile_pic&access_token=${encodeURIComponent(token)}`,
-      );
-      const picData = (await picRes.json()) as { profile_pic?: string; error?: unknown };
-      console.log("[enrich-name] picture response:", JSON.stringify(picData));
-      if (picData.profile_pic) pictureUrl = picData.profile_pic;
-    } catch (e) { console.error("[enrich-name] picture fetch error:", e); }
-
+    const pictureUrl = user.pic_large ?? null;
+    console.log("[enrich-name] pic_large:", pictureUrl);
     await supabase.from("conversations").update({ sender_name: user.name, picture_url: pictureUrl }).eq("id", conv_id);
     return NextResponse.json({ name: user.name });
   }
