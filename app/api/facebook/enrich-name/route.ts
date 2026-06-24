@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
   const participants = data.data?.[0]?.participants?.data ?? [];
   const user = participants.find((p) => p.id !== fbPageId);
 
+  console.log("[enrich-name] user found:", user?.name ?? "null", "psid:", row.sender_psid);
+
   if (user?.name) {
     let pictureUrl: string | null = null;
     try {
