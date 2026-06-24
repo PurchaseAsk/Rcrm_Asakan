@@ -763,9 +763,18 @@ export function ChatInbox({
                     ← Back
                   </button>
                   <div>
-                    <div className="font-semibold text-slate-950">
-                      {selectedConv.sender_name || selectedConv.sender_psid}
-                    </div>
+                    {selectedConv.lead_id ? (
+                      <button
+                        onClick={() => onLeadOpen?.(selectedConv.lead_id!)}
+                        className="font-semibold text-slate-950 hover:underline text-left"
+                      >
+                        {selectedConv.sender_name || selectedConv.sender_psid}
+                      </button>
+                    ) : (
+                      <div className="font-semibold text-slate-950">
+                        {selectedConv.sender_name || selectedConv.sender_psid}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <span>{selectedConv.facebook_pages?.name}</span>
                       {selectedConv.ad_name && (
