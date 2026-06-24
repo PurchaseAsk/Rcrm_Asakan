@@ -97,8 +97,11 @@ export async function POST(request: NextRequest) {
     // ── Facebook Lead Ads (leadgen form submission) ───────────────────────────
     for (const change of entry.changes ?? []) {
       if (change.field !== "leadgen") continue;
+      console.log("[webhook] leadgen event received", { fbPageId, leadgen_id: change.value.leadgen_id, hasToken: !!leadgenToken });
       if (leadgenToken) {
         await handleLeadgen(supabase, page.id, change.value, leadgenToken);
+      } else {
+        console.error("[webhook] leadgen skipped — no token for page", fbPageId);
       }
     }
 
@@ -379,9 +382,14 @@ async function fetchLeadgenData(leadgenId: string, token: string): Promise<Leadg
   try {
     const url = `https://graph.facebook.com/v20.0/${leadgenId}?fields=field_data,ad_id,adset_id,campaign_id,form_id&access_token=${encodeURIComponent(token)}`;
     const res = await fetch(url);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      console.error("[fetchLeadgenData] Graph API error", { leadgenId, status: res.status, body: errBody });
+      return null;
+    }
     return (await res.json()) as LeadgenApiResult;
-  } catch {
+  } catch (e) {
+    console.error("[fetchLeadgenData] fetch exception", { leadgenId, error: e });
     return null;
   }
 }
