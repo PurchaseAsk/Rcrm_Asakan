@@ -71,6 +71,9 @@ export function ChatInbox({
   const [showAppImages, setShowAppImages] = useState(false);
   const [appImagesProject, setAppImagesProject] = useState<"wela" | "elysium">("wela");
   const [appImages, setAppImages] = useState<{ name: string; url: string }[]>([]);
+  const [appFolders, setAppFolders] = useState<string[]>([]);
+  const [appImagesFolder, setAppImagesFolder] = useState<string | null>(null);
+  const [selectedImgUrls, setSelectedImgUrls] = useState<string[]>([]);
   const [loadingAppImages, setLoadingAppImages] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
@@ -469,17 +472,39 @@ export function ChatInbox({
     }
   }
 
-  async function loadAppImages(project: "wela" | "elysium") {
+  async function loadAppImages(project: "wela" | "elysium", folder?: string | null) {
     setLoadingAppImages(true);
     setAppImages([]);
+    setAppFolders([]);
+    setSelectedImgUrls([]);
     try {
-      const res = await fetch(`/api/project-images?project=${project}`);
+      const params = new URLSearchParams({ project });
+      if (folder) params.set("folder", folder);
+      const res = await fetch(`/api/project-images?${params.toString()}`);
       if (!res.ok) return;
-      const json = (await res.json()) as { images: { name: string; url: string }[] };
+      const json = (await res.json()) as { folders: string[]; images: { name: string; url: string }[] };
+      setAppFolders(json.folders ?? []);
       setAppImages(json.images ?? []);
     } finally {
       setLoadingAppImages(false);
     }
+  }
+
+  async function sendSelectedImages() {
+    const urls = [...selectedImgUrls];
+    setSelectedImgUrls([]);
+    setShowAppImages(false);
+    for (const url of urls) {
+      await sendImageByUrl(url);
+    }
+  }
+
+  function toggleImgSelection(url: string) {
+    setSelectedImgUrls((prev) => {
+      if (prev.includes(url)) return prev.filter((u) => u !== url);
+      if (prev.length >= 10) return prev;
+      return [...prev, url];
+    });
   }
 
   async function addQuickReply() {
@@ -1213,22 +1238,25 @@ export function ChatInbox({
       {showAppImages && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
           <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <h3 className="font-semibold text-slate-950">รูปจากแอป</h3>
               <button
-                onClick={() => setShowAppImages(false)}
+                onClick={() => { setShowAppImages(false); setAppImagesFolder(null); setSelectedImgUrls([]); }}
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
               >
                 ✕
               </button>
             </div>
+            {/* Project tabs */}
             <div className="flex border-b border-slate-200 px-5">
               {(["wela", "elysium"] as const).map((proj) => (
                 <button
                   key={proj}
                   onClick={() => {
                     setAppImagesProject(proj);
-                    void loadAppImages(proj);
+                    setAppImagesFolder(null);
+                    void loadAppImages(proj, null);
                   }}
                   className={`mr-5 border-b-2 py-2.5 text-sm font-medium capitalize transition-colors ${
                     appImagesProject === proj
@@ -1240,33 +1268,103 @@ export function ChatInbox({
                 </button>
               ))}
             </div>
+            {/* Breadcrumb */}
+            {appImagesFolder && (
+              <div className="flex items-center gap-1 border-b border-slate-100 px-5 py-2 text-sm">
+                <button
+                  onClick={() => { setAppImagesFolder(null); void loadAppImages(appImagesProject, null); }}
+                  className="capitalize text-brand-600 hover:underline"
+                >
+                  {appImagesProject === "wela" ? "Wela" : "Elysium"}
+                </button>
+                <span className="text-slate-400">›</span>
+                <span className="capitalize text-slate-700">{appImagesFolder}</span>
+              </div>
+            )}
+            {/* Content */}
             <div className="p-5">
               {loadingAppImages ? (
                 <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-              ) : appImages.length === 0 ? (
-                <div className="py-12 text-center text-sm text-slate-400">ไม่มีรูปภาพ — อัปโหลดรูปไปยัง Storage bucket &apos;project-images/{appImagesProject}/&apos; ก่อน</div>
+              ) : appFolders.length === 0 && appImages.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-400">
+                  ไม่มีรูปภาพ — อัปโหลดรูปไปยัง Storage bucket &apos;project-images/{appImagesProject}/&apos; ก่อน
+                </div>
               ) : (
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                  {appImages.map((img) => (
+                  {/* Folders */}
+                  {appFolders.map((folder) => (
                     <button
-                      key={img.name}
-                      disabled={busy}
-                      onClick={() => void sendImageByUrl(img.url)}
-                      className="group aspect-square overflow-hidden rounded-lg border-2 border-transparent hover:border-brand-600 focus:border-brand-600 focus:outline-none disabled:opacity-50"
-                      title={img.name}
+                      key={folder}
+                      onClick={() => { setAppImagesFolder(folder); void loadAppImages(appImagesProject, folder); }}
+                      className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={img.url}
-                        alt={img.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
-                      />
+                      <svg className="h-8 w-8" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z" />
+                      </svg>
+                      <span className="max-w-full truncate px-1 text-xs font-medium capitalize">{folder}</span>
                     </button>
                   ))}
+                  {/* Images */}
+                  {appImages.map((img) => {
+                    const isSelected = selectedImgUrls.includes(img.url);
+                    return (
+                      <div key={img.name} className="group relative aspect-square">
+                        {/* Click image → send immediately */}
+                        <button
+                          disabled={busy}
+                          onClick={() => { void sendImageByUrl(img.url); setShowAppImages(false); setAppImagesFolder(null); setSelectedImgUrls([]); }}
+                          className="h-full w-full overflow-hidden rounded-lg border-2 border-transparent transition-colors hover:border-brand-600 focus:outline-none disabled:opacity-50"
+                          title={img.name}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={img.url} alt={img.name} loading="lazy" className="h-full w-full object-cover" />
+                        </button>
+                        {/* Checkbox → multi-select */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleImgSelection(img.url); }}
+                          className={`absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 shadow-sm transition-all ${
+                            isSelected
+                              ? "border-brand-600 bg-brand-600 text-white opacity-100"
+                              : "border-white bg-white/80 text-transparent opacity-0 group-hover:opacity-100"
+                          }`}
+                          title="เลือกหลายรูป"
+                        >
+                          {isSelected && (
+                            <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
+            {/* Multi-select confirm bar */}
+            {selectedImgUrls.length > 0 && (
+              <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3">
+                <span className="text-sm text-slate-600">
+                  เลือก <span className="font-semibold text-slate-800">{selectedImgUrls.length}</span> รูป
+                  {selectedImgUrls.length >= 10 && <span className="ml-1 text-amber-600">(สูงสุด 10)</span>}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedImgUrls([])}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    onClick={() => void sendSelectedImages()}
+                    disabled={busy}
+                    className="rounded-lg bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                  >
+                    ส่ง {selectedImgUrls.length} รูป
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
