@@ -9,6 +9,7 @@ function adminSupabase() {
 }
 
 const ALLOWED = ["wela", "elysium"] as const;
+const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "gif", "webp"]);
 
 export async function GET(request: NextRequest) {
   const project = request.nextUrl.searchParams.get("project");
@@ -34,13 +35,14 @@ export async function GET(request: NextRequest) {
 
   for (const item of data ?? []) {
     if (item.name === ".emptyFolderPlaceholder") continue;
-    if (item.id === null) {
-      folders.push(item.name);
-    } else {
+    const ext = item.name.split(".").pop()?.toLowerCase() ?? "";
+    if (IMAGE_EXTS.has(ext)) {
       const { data: urlData } = supabase.storage
         .from("project-images")
         .getPublicUrl(`${prefix}/${item.name}`);
       images.push({ name: item.name, url: urlData.publicUrl });
+    } else if (item.id === null) {
+      folders.push(item.name);
     }
   }
 
