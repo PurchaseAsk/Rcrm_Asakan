@@ -21,11 +21,17 @@ export async function POST(request: NextRequest) {
   const token = (conv.line_oa_accounts as unknown as { channel_access_token: string } | null)?.channel_access_token;
   if (!token) return NextResponse.json({ error: "No token" }, { status: 500 });
 
-  await fetch("https://api.line.me/v2/bot/message/markAsRead", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ chat: { type: "user", userId: conv.sender_line_id } }),
-  });
+  await Promise.all([
+    fetch("https://api.line.me/v2/bot/message/markAsRead", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ chat: { type: "user", userId: conv.sender_line_id } }),
+    }),
+    supabase
+      .from("line_conversations")
+      .update({ last_read_at: new Date().toISOString() })
+      .eq("id", conversation_id),
+  ]);
 
   return NextResponse.json({ ok: true });
 }

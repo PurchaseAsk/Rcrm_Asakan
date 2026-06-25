@@ -139,7 +139,6 @@ export function LineInbox({
     setMessages([]);
     await refreshMessages(conv.id);
     const now = new Date().toISOString();
-    void supabase.from("line_conversations").update({ last_read_at: now }).eq("id", conv.id);
     setConversations((prev) => prev.map((c) => c.id === conv.id ? { ...c, last_read_at: now } : c));
     void fetch("/api/line/mark-read", {
       method: "POST",
