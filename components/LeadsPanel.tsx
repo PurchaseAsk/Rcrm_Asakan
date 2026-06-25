@@ -108,6 +108,7 @@ export function LeadsPanel({
   stages,
   search,
   setSearch,
+  userRole,
 }: {
   leads: Lead[];
   filter: "active" | "unfollowed";
@@ -216,6 +217,7 @@ export function LeadsPanel({
     setError("");
     if (!draft.customer_name.trim()) return setError("กรุณากรอกชื่อลูกค้า");
     if (!draft.phone.trim()) return setError("กรุณากรอกเบอร์โทร");
+    if (!/^\d{10}$/.test(draft.phone.trim())) return setError("เบอร์โทรต้องเป็นตัวเลข 10 หลัก");
     if (!draft.pipeline_id) return setError("กรุณาเลือก Pipeline");
     if (!draft.source) return setError("กรุณาเลือกแหล่งที่มา");
 

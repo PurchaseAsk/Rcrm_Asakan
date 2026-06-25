@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { LineConversation, LineMessage, LineOaAccount } from "@/types/crm";
+import type { LineConversation, LineMessage, LineOaAccount, Pipeline, Profile, Stage } from "@/types/crm";
 
 const supabase = createBrowserSupabase();
 const PAGE_SIZE = 30;
@@ -15,13 +15,24 @@ function isLineUnread(conv: LineConversation): boolean {
 
 export function LineInbox({
   userId,
+  pipelines,
+  stages,
+  profiles,
   toast,
+  onLeadCreated,
+  onLeadOpen,
   onUnreadCountChange,
 }: {
   userId: string;
+  pipelines: Pipeline[];
+  stages: Stage[];
+  profiles: Profile[];
   toast: (msg: string) => void;
+  onLeadCreated?: (leadId: string, pipelineId: string) => void;
+  onLeadOpen?: (leadId: string) => void;
   onUnreadCountChange?: (count: number) => void;
 }) {
+  type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
   const [oaAccounts, setOaAccounts] = useState<LineOaAccount[]>([]);
   const [filterOaId, setFilterOaId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<LineConversation[]>([]);
@@ -32,6 +43,9 @@ export function LineInbox({
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [leadModal, setLeadModal] = useState<{ conv: LineConversation; msgs: LineMessage[] } | null>(null);
+  const [leadDraft, setLeadDraft] = useState<LeadDraft>({ customer_name: "", phone: "", email: "", assigned_to: "", pipeline_id: "" });
+  const [submittingLead, setSubmittingLead] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedConvIdRef = useRef<string | null>(null);
   const filterOaIdRef = useRef<string | null>(null);
@@ -262,8 +276,94 @@ export function LineInbox({
   const unreadCount = conversations.filter(isLineUnread).length;
   const hasMore = total === null || conversations.length < total;
   const selectedConv = conversations.find((c) => c.id === selectedConvId) ?? null;
+  const draftStages = useMemo(() => {
+    if (!leadDraft.pipeline_id) return [];
+    const scoped = stages.filter((s) => s.pipeline_id === leadDraft.pipeline_id && !s.is_unfollow);
+    return scoped.length ? scoped : stages.filter((s) => !s.pipeline_id && !s.is_unfollow);
+  }, [leadDraft.pipeline_id, stages]);
 
   useEffect(() => { onUnreadCountChange?.(unreadCount); }, [unreadCount, onUnreadCountChange]);
+
+  function openCreateLead(conv: LineConversation) {
+    if (conv.lead_id) return;
+    setLeadDraft({
+      customer_name: conv.display_name || "",
+      phone: "",
+      email: "",
+      assigned_to: "",
+      pipeline_id: pipelines[0]?.id ?? "",
+    });
+    setLeadModal({ conv, msgs: messages });
+  }
+
+  async function submitCreateLead() {
+    if (!leadModal) return;
+    if (!leadDraft.customer_name.trim()) return toast("กรุณากรอกชื่อลูกค้า");
+    if (!leadDraft.pipeline_id) return toast("กรุณาเลือก Pipeline");
+    setSubmittingLead(true);
+    try {
+      const { conv } = leadModal;
+      if (leadDraft.phone.trim()) {
+        const { data: dups } = await supabase.rpc("find_lead_by_phone", {
+          p_phone: leadDraft.phone.trim(),
+        }) as { data: { id: string; customer_name: string }[] | null };
+        if (dups?.[0]) {
+          toast(`มีลีดอยู่แล้ว: ${dups[0].customer_name} (เบอร์ซ้ำ)`);
+          return;
+        }
+      }
+
+      const { data: lead, error } = await supabase
+        .from("leads")
+        .insert({
+          customer_name: leadDraft.customer_name.trim(),
+          phone: leadDraft.phone.trim() || null,
+          email: leadDraft.email.trim() || null,
+          assigned_to: leadDraft.assigned_to || null,
+          pipeline_id: leadDraft.pipeline_id,
+          stage_id: draftStages[0]?.id ?? null,
+          facebook_id: conv.sender_line_id,
+          status: "active",
+          source: "line",
+          metadata: {
+            line_conversation_id: conv.id,
+            line_oa_id: conv.line_oa_id,
+            line_sender_id: conv.sender_line_id,
+            line_display_name: conv.display_name,
+          },
+          last_activity_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+      if (error) {
+        toast(error.message);
+        return;
+      }
+
+      const snapshot = leadModal.msgs.slice(-5).map((m) => {
+        const who = m.direction === "inbound" ? (conv.display_name || "ลูกค้า") : "ทีม";
+        const content = m.attachment_type === "image" ? "[รูปภาพ]" : (m.content ?? "");
+        return `${who}: ${content}`;
+      }).join("\n");
+
+      await Promise.all([
+        supabase.from("line_conversations").update({ lead_id: lead.id }).eq("id", conv.id),
+        supabase.from("lead_activities").insert({
+          lead_id: lead.id,
+          type: "created",
+          content: snapshot ? `สร้างลีดจาก LINE\n${snapshot}` : "สร้างลีดจาก LINE",
+          created_by: userId,
+        }),
+      ]);
+
+      setConversations((prev) => prev.map((c) => c.id === conv.id ? { ...c, lead_id: lead.id } : c));
+      setLeadModal(null);
+      toast("สร้างลีดสำเร็จ!");
+      onLeadCreated?.(lead.id, leadDraft.pipeline_id);
+    } finally {
+      setSubmittingLead(false);
+    }
+  }
 
   return (
     <section className="overflow-hidden border-t border-slate-200 bg-white">
@@ -398,6 +498,21 @@ export function LineInbox({
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {selectedConv.lead_id ? (
+                  <button
+                    onClick={() => onLeadOpen?.(selectedConv.lead_id!)}
+                    className="flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                  >
+                    Lead linked ↗
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => openCreateLead(selectedConv)}
+                    className="flex h-8 items-center gap-1 rounded-lg border border-[#06C755]/30 bg-green-50 px-2.5 text-xs font-medium text-[#049a43] hover:bg-green-100"
+                  >
+                    + สร้างลีด
+                  </button>
+                )}
                 {selectedConv.last_message_direction === "inbound" && (
                   <button
                     onClick={() => void markHandled(selectedConv.id)}
@@ -522,6 +637,128 @@ export function LineInbox({
           </div>
         )}
       </div>
+
+      {leadModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h3 className="font-semibold text-slate-950">สร้างลีดจาก LINE</h3>
+              <p className="text-xs text-slate-500">
+                {leadModal.conv.line_oa_accounts?.name} · {leadModal.conv.sender_line_id}
+              </p>
+            </div>
+
+            <div className="space-y-3 px-5 py-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">ชื่อลูกค้า *</label>
+                <input
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#06C755]"
+                  value={leadDraft.customer_name}
+                  onChange={(e) => setLeadDraft({ ...leadDraft, customer_name: e.target.value })}
+                  placeholder="ชื่อ-นามสกุล"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">เบอร์โทร</label>
+                  <input
+                    className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#06C755]"
+                    value={leadDraft.phone}
+                    onChange={(e) => setLeadDraft({ ...leadDraft, phone: e.target.value })}
+                    placeholder="0812345678"
+                    type="tel"
+                    maxLength={10}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">Email</label>
+                  <input
+                    className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#06C755]"
+                    value={leadDraft.email}
+                    onChange={(e) => setLeadDraft({ ...leadDraft, email: e.target.value })}
+                    placeholder="email@example.com"
+                    type="email"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Pipeline *</label>
+                <select
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#06C755]"
+                  value={leadDraft.pipeline_id}
+                  onChange={(e) => setLeadDraft({ ...leadDraft, pipeline_id: e.target.value })}
+                >
+                  <option value="">— เลือก Pipeline —</option>
+                  {pipelines.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                {leadDraft.pipeline_id && draftStages[0] && (
+                  <p className="mt-1 text-xs text-slate-400">Stage เริ่มต้น: {draftStages[0].name}</p>
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">มอบหมายให้</label>
+                <select
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#06C755]"
+                  value={leadDraft.assigned_to}
+                  onChange={(e) => setLeadDraft({ ...leadDraft, assigned_to: e.target.value })}
+                >
+                  <option value="">— ไม่ระบุ —</option>
+                  {profiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name || p.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {leadModal.msgs.length > 0 && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    บันทึก snapshot {Math.min(leadModal.msgs.length, 5)} ข้อความสุดท้าย
+                  </label>
+                  <div className="max-h-36 overflow-y-auto rounded-lg bg-slate-50 px-3 py-2 font-mono text-[11px] text-slate-600">
+                    {leadModal.msgs.slice(-5).map((m) => {
+                      const time = new Date(m.created_at).toLocaleTimeString("th-TH", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+                      const sender = m.direction === "inbound" ? leadModal.conv.display_name || "ลูกค้า" : (m.profiles?.full_name ?? "ทีม");
+                      const content = m.attachment_type === "image" ? "[รูปภาพ]" : (m.content ?? "");
+                      return (
+                        <div key={m.id} className="py-0.5">
+                          <span className="text-slate-400">[{time}]</span>{" "}
+                          <span className={m.direction === "outbound" ? "text-[#049a43]" : "text-slate-700"}>
+                            {sender}:
+                          </span>{" "}
+                          {content}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
+              <button
+                onClick={() => setLeadModal(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => void submitCreateLead()}
+                disabled={submittingLead || !leadDraft.customer_name.trim()}
+                className="rounded-lg bg-[#06C755] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {submittingLead ? "กำลังสร้าง…" : "สร้างลีด"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

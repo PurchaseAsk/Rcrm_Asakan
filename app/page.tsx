@@ -655,7 +655,22 @@ export default function HomePage() {
           {activeTab === "line" && (
             <LineInbox
               userId={currentUserId}
+              pipelines={data.pipelines}
+              stages={data.stages}
+              profiles={data.profiles}
               toast={showToast}
+              onLeadCreated={(leadId, pipelineId) => {
+                void loadCrmData(supabase).then((fresh) => {
+                  setData(fresh);
+                  setActivePipelineId(pipelineId);
+                  setActiveTab("leads");
+                  setSelectedLeadId(leadId);
+                });
+              }}
+              onLeadOpen={(leadId) => {
+                setActiveTab("leads");
+                setSelectedLeadId(leadId);
+              }}
               onUnreadCountChange={setLineUnreadCount}
             />
           )}
