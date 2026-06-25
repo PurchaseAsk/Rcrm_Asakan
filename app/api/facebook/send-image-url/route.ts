@@ -56,8 +56,7 @@ export async function POST(request: NextRequest) {
           payload: { url: image_url, is_reusable: true },
         },
       },
-      messaging_type: "MESSAGE_TAG",
-      tag: "HUMAN_AGENT",
+      messaging_type: "RESPONSE",
     }),
   });
 

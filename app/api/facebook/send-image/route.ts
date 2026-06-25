@@ -70,8 +70,7 @@ export async function POST(request: NextRequest) {
           payload: { url: publicUrl, is_reusable: true },
         },
       },
-      messaging_type: "MESSAGE_TAG",
-      tag: "HUMAN_AGENT",
+      messaging_type: "RESPONSE",
     }),
   });
 
