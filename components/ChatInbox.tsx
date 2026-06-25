@@ -495,9 +495,8 @@ export function ChatInbox({
     const urls = [...selectedImgUrls];
     setSelectedImgUrls([]);
     setShowAppImages(false);
-    for (const url of urls) {
-      await sendImageByUrl(url);
-    }
+    setAppImagesFolder(null);
+    await Promise.all(urls.map((url) => sendImageByUrl(url)));
   }
 
   function toggleImgSelection(url: string) {
