@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       recipient: { id: senderPsid },
       message: { text: text.trim() },
-      messaging_type: "RESPONSE",
+      messaging_type: "MESSAGE_TAG",
+      tag: "HUMAN_AGENT",
     }),
   });
 
