@@ -13,12 +13,15 @@ import {
   Boxes,
   Globe,
   Inbox,
+  KeyRound,
   LayoutDashboard,
   LogOut,
+  Menu,
   MessageCircle,
   Settings,
   Split,
   Tags,
+  UserCog,
   UserRound,
   Users,
   Workflow,
@@ -50,6 +53,7 @@ import { PipelineBar } from "@/components/PipelineBar";
 import { PipelineManagementModal } from "@/components/PipelineManagementModal";
 import { PipelinePanel } from "@/components/PipelinePanel";
 import { RemindersTab } from "@/components/RemindersTab";
+import { UsersPanel } from "@/components/UsersPanel";
 import { WebsiteSettingsTab } from "@/components/WebsiteSettingsTab";
 import { RulesPanel } from "@/components/RulesPanel";
 import { StageChangeNoteModal } from "@/components/StageChangeNoteModal";
@@ -70,7 +74,9 @@ const mainTabs: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "leads", label: "ลีดทั้งหมด", icon: UserRound },
 ];
 
-const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean }[] = [
+const topbarTabs = mainTabs.filter((item) => !["dashboard", "my-tags", "leads"].includes(item.id));
+
+const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean; adminOnly?: boolean }[] = [
   { id: "customers", label: "ทะเบียนลูกค้า", icon: BookUser },
   { id: "teams", label: "Teams", icon: Users },
   { id: "pipelines", label: "Pipelines", icon: Boxes },
@@ -79,6 +85,7 @@ const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: 
   { id: "tags", label: "Global Tags", icon: Tags, managerOnly: true },
   { id: "pages", label: "Pages", icon: Bell, managerOnly: true },
   { id: "website", label: "Website Leads", icon: Globe, managerOnly: true },
+  { id: "users", label: "จัดการ Users", icon: UserCog, adminOnly: true },
 ];
 
 const supabase = createBrowserSupabase();
@@ -104,6 +111,9 @@ export default function HomePage() {
   const [chatOpenLeadId, setChatOpenLeadId] = useState<string | null>(null);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [lineUnreadCount, setLineUnreadCount] = useState(0);
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [changePwDraft, setChangePwDraft] = useState({ current: "", pw: "", confirm: "" });
+  const [changePwBusy, setChangePwBusy] = useState(false);
 
   // Ref so Realtime and reminder callbacks always read the latest leadId
   // without causing channel teardown on every lead open (H-2)
@@ -214,7 +224,9 @@ export default function HomePage() {
     }
   }, [activePipelineId, data.pipelines]);
 
-  const visibleSettingsTabs = settingsTabs.filter((tab) => !tab.managerOnly || canManage);
+  const visibleSettingsTabs = settingsTabs.filter(
+    (tab) => (!tab.managerOnly || canManage) && (!tab.adminOnly || profile?.role === "admin"),
+  );
   const isSettingsTab = visibleSettingsTabs.some((t) => t.id === activeTab);
 
   // Close settings dropdown when navigating to a settings tab via direct click
@@ -358,22 +370,28 @@ export default function HomePage() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="flex h-14 w-full items-center gap-1 px-3 xl:px-5">
           {/* Logo */}
-          <div className="flex shrink-0 items-center gap-2 pr-3 mr-1 border-r border-slate-200">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-700 text-xs font-bold text-white shadow-sm hover:bg-brand-800 transition"
-            >
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+            className="mr-1 flex h-11 shrink-0 items-center gap-2 rounded-xl border border-transparent pr-3 transition hover:border-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-700 text-xs font-bold text-white shadow-sm">
               RP
-            </button>
+            </span>
             <div className="hidden lg:block">
               <div className="text-sm font-semibold leading-tight text-slate-950">AsakanLeadFlow</div>
               <div className="text-[11px] text-slate-500">{roleLabel(profile?.role)}</div>
             </div>
-          </div>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm lg:ml-1">
+              <Menu size={15} />
+            </span>
+          </button>
+
+          <div className="mr-1 h-7 w-px shrink-0 bg-slate-200" />
 
           {/* Main nav */}
           <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-            {mainTabs.map((item) => {
+            {topbarTabs.map((item) => {
               const Icon = item.icon;
               const active = activeTab === item.id;
               return (
@@ -437,14 +455,6 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Logout */}
-          <button
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-            aria-label="Sign out"
-            onClick={() => supabase.auth.signOut()}
-          >
-            <LogOut size={16} />
-          </button>
         </div>
       </header>
 
@@ -608,6 +618,13 @@ export default function HomePage() {
               profiles={data.profiles}
             />
           )}
+          {activeTab === "users" && profile?.role === "admin" && (
+            <UsersPanel
+              accessToken={session?.access_token ?? ""}
+              currentUserId={currentUserId}
+              onToast={showToast}
+            />
+          )}
           {activeTab === "inbox" && (
             <ChatInbox
               pages={data.pages}
@@ -740,6 +757,17 @@ export default function HomePage() {
             </nav>
             <div className="border-t border-slate-200 p-2">
               <button
+                onClick={() => {
+                  setShowChangePw(true);
+                  setChangePwDraft({ current: "", pw: "", confirm: "" });
+                  setSidebarOpen(false);
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+              >
+                <KeyRound size={16} />
+                เปลี่ยนรหัสผ่าน
+              </button>
+              <button
                 onClick={() => supabase.auth.signOut()}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
               >
@@ -769,6 +797,83 @@ export default function HomePage() {
           }}
         />
       ) : null}
+
+      {/* Change password modal */}
+      {showChangePw && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h3 className="font-semibold text-slate-950">เปลี่ยนรหัสผ่าน</h3>
+              <button onClick={() => setShowChangePw(false)} className="text-slate-400 hover:text-slate-700">✕</button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">รหัสผ่านปัจจุบัน *</label>
+                <input
+                  type="password"
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                  value={changePwDraft.current}
+                  onChange={(e) => setChangePwDraft({ ...changePwDraft, current: e.target.value })}
+                  placeholder="รหัสผ่านที่ใช้อยู่ตอนนี้"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">รหัสผ่านใหม่ *</label>
+                <input
+                  type="password"
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                  value={changePwDraft.pw}
+                  onChange={(e) => setChangePwDraft({ ...changePwDraft, pw: e.target.value })}
+                  placeholder="อย่างน้อย 6 ตัวอักษร"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">ยืนยันรหัสผ่านใหม่ *</label>
+                <input
+                  type="password"
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                  value={changePwDraft.confirm}
+                  onChange={(e) => setChangePwDraft({ ...changePwDraft, confirm: e.target.value })}
+                  placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                />
+              </div>
+              {changePwDraft.confirm && changePwDraft.pw !== changePwDraft.confirm && (
+                <p className="text-xs text-red-600">รหัสผ่านใหม่ไม่ตรงกัน</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
+              <button
+                onClick={() => setShowChangePw(false)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                disabled={changePwBusy || !changePwDraft.current || changePwDraft.pw.length < 6 || changePwDraft.pw !== changePwDraft.confirm}
+                onClick={async () => {
+                  setChangePwBusy(true);
+                  const email = session?.user.email ?? "";
+                  const { error: verifyError } = await supabase.auth.signInWithPassword({ email, password: changePwDraft.current });
+                  if (verifyError) {
+                    setChangePwBusy(false);
+                    showToast("รหัสผ่านปัจจุบันไม่ถูกต้อง");
+                    return;
+                  }
+                  const { error } = await supabase.auth.updateUser({ password: changePwDraft.pw });
+                  setChangePwBusy(false);
+                  if (error) { showToast(error.message); return; }
+                  showToast("เปลี่ยนรหัสผ่านเรียบร้อย");
+                  setShowChangePw(false);
+                }}
+                className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800 disabled:opacity-50"
+              >
+                {changePwBusy ? "กำลังบันทึก…" : "บันทึก"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

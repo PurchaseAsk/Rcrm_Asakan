@@ -30,14 +30,6 @@ export function LoginScreen() {
     );
   }
 
-  async function signUp() {
-    setBusy(true);
-    setMessage("");
-    const { error } = await supabase.auth.signUp({ email, password });
-    setBusy(false);
-    setMessage(error?.message || "Account created. Check email if confirmation is enabled.");
-  }
-
   return (
     <main className="flex min-h-dvh items-center justify-center bg-slate-100 p-4">
       <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -79,15 +71,6 @@ export function LoginScreen() {
         >
           {busy ? "Working..." : mode === "password" ? "Sign in" : "Send Magic Link"}
         </button>
-        {mode === "password" ? (
-          <button
-            className="mt-2 h-11 w-full rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            disabled={busy || !email || !password}
-            onClick={signUp}
-          >
-            Create account
-          </button>
-        ) : null}
       </section>
     </main>
   );

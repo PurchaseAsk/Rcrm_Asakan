@@ -71,4 +71,5 @@ export type TabId =
   | "pages"
   | "customers"
   | "website"
-  | "line";
+  | "line"
+  | "users";

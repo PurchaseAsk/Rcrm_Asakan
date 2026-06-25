@@ -42,10 +42,10 @@ export function FunnelBoard({
   return (
     <section className="space-y-2">
       {canFilterByMember && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
           <span className="text-sm text-slate-500">ดูลีดของ:</span>
           <select
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-brand-600 focus:outline-none"
+            className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 focus:border-brand-600 focus:bg-white focus:outline-none sm:h-9 sm:flex-none sm:bg-white"
             value={assigneeFilter ?? ""}
             onChange={(e) => setAssigneeFilter!(e.target.value)}
           >
