@@ -330,24 +330,50 @@ export function ChatInbox({
 
   async function sendReply() {
     if (!replyText.trim() || !selectedConvId) return;
-    setBusy(true);
+    const text = replyText.trim();
+    const convId = selectedConvId;
+    const tempId = `opt-${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const optimistic: Message = {
+      id: tempId,
+      conversation_id: convId,
+      direction: "outbound",
+      content: text,
+      created_at: now,
+      attachment_type: null,
+      attachment_url: null,
+      fb_message_id: null,
+      sent_by: userId,
+      profiles: null,
+    };
+
+    setMessages((prev) => [...prev, optimistic]);
+    setReplyText("");
+    setConversations((prev) => prev.map((c) =>
+      c.id === convId
+        ? { ...c, customer_read_at: null, last_message_text: text, last_message_direction: "outbound", last_message_at: now }
+        : c,
+    ));
+
     try {
       const res = await fetch("/api/facebook/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: selectedConvId, text: replyText.trim(), sent_by: userId }),
+        body: JSON.stringify({ conversation_id: convId, text, sent_by: userId }),
       });
       const result = (await res.json()) as { error?: string };
       if (!res.ok) {
-        toast(result.error ?? "Send failed");
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setReplyText(text);
+        toast(result.error ?? "ส่งไม่สำเร็จ");
         return;
       }
-      setReplyText("");
-      setConversations((prev) => prev.map((c) => c.id === selectedConvId ? { ...c, customer_read_at: null } : c));
-      await refreshMessages(selectedConvId);
-      await refreshConversations();
-    } finally {
-      setBusy(false);
+      await refreshMessages(convId);
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setReplyText(text);
+      toast("ส่งไม่สำเร็จ");
     }
   }
 
