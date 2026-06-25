@@ -379,40 +379,91 @@ export function ChatInbox({
 
   async function sendImage(file: File) {
     if (!selectedConvId) return;
-    setBusy(true);
+    const convId = selectedConvId;
+    const tempId = `opt-${Date.now()}`;
+    const now = new Date().toISOString();
+    const blobUrl = URL.createObjectURL(file);
+
+    const optimistic: Message = {
+      id: tempId,
+      conversation_id: convId,
+      direction: "outbound",
+      content: null,
+      created_at: now,
+      attachment_type: "image",
+      attachment_url: blobUrl,
+      fb_message_id: null,
+      sent_by: userId,
+      profiles: null,
+    };
+
+    setMessages((prev) => [...prev, optimistic]);
+    setConversations((prev) => prev.map((c) =>
+      c.id === convId ? { ...c, customer_read_at: null, last_message_text: "[รูปภาพ]", last_message_direction: "outbound", last_message_at: now } : c,
+    ));
+
     try {
       const form = new FormData();
-      form.append("conversation_id", selectedConvId);
+      form.append("conversation_id", convId);
       form.append("file", file);
       if (userId) form.append("sent_by", userId);
       const res = await fetch("/api/facebook/send-image", { method: "POST", body: form });
       const result = (await res.json()) as { error?: string };
-      if (!res.ok) toast(result.error ?? "Send failed");
-      else await refreshMessages(selectedConvId);
+      if (!res.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        toast(result.error ?? "ส่งไม่สำเร็จ");
+      } else {
+        await refreshMessages(convId);
+      }
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      toast("ส่งไม่สำเร็จ");
     } finally {
-      setBusy(false);
+      URL.revokeObjectURL(blobUrl);
     }
   }
 
   async function sendImageByUrl(imageUrl: string) {
     if (!selectedConvId) return;
-    setBusy(true);
+    const convId = selectedConvId;
+    const tempId = `opt-${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const optimistic: Message = {
+      id: tempId,
+      conversation_id: convId,
+      direction: "outbound",
+      content: null,
+      created_at: now,
+      attachment_type: "image",
+      attachment_url: imageUrl,
+      fb_message_id: null,
+      sent_by: userId,
+      profiles: null,
+    };
+
     setShowAppImages(false);
+    setMessages((prev) => [...prev, optimistic]);
+    setConversations((prev) => prev.map((c) =>
+      c.id === convId ? { ...c, customer_read_at: null, last_message_text: "[รูปภาพ]", last_message_direction: "outbound", last_message_at: now } : c,
+    ));
+
     try {
       const res = await fetch("/api/facebook/send-image-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: selectedConvId, image_url: imageUrl, sent_by: userId }),
+        body: JSON.stringify({ conversation_id: convId, image_url: imageUrl, sent_by: userId }),
       });
       const result = (await res.json()) as { error?: string };
-      if (!res.ok) toast(result.error ?? "Send failed");
-      else {
-        setConversations((prev) => prev.map((c) => c.id === selectedConvId ? { ...c, customer_read_at: null } : c));
-        await refreshMessages(selectedConvId);
-        await refreshConversations();
+      if (!res.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        toast(result.error ?? "ส่งไม่สำเร็จ");
+      } else {
+        await refreshMessages(convId);
       }
-    } finally {
-      setBusy(false);
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      toast("ส่งไม่สำเร็จ");
     }
   }
 
