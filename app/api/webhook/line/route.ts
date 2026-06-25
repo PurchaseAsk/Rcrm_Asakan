@@ -156,8 +156,12 @@ async function enrichLineProfile(
     const res = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.error("[line-enrich] profile API failed", res.status);
+      return;
+    }
     const data = (await res.json()) as { displayName?: string; pictureUrl?: string };
+    console.log("[line-enrich] profile data:", JSON.stringify(data));
     await supabase
       .from("line_conversations")
       .update({ display_name: data.displayName ?? null, picture_url: data.pictureUrl ?? null })
