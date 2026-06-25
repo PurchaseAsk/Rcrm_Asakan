@@ -35,6 +35,7 @@ export function LineInbox({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedConvIdRef = useRef<string | null>(null);
   const filterOaIdRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { filterOaIdRef.current = filterOaId; }, [filterOaId]);
 
@@ -144,19 +145,94 @@ export function LineInbox({
 
   async function sendReply() {
     if (!replyText.trim() || !selectedConvId) return;
-    setBusy(true);
+    const text = replyText.trim();
+    const convId = selectedConvId;
+    const tempId = `opt-${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const optimistic: LineMessage = {
+      id: tempId,
+      conversation_id: convId,
+      direction: "outbound",
+      content: text,
+      created_at: now,
+      attachment_type: null,
+      attachment_url: null,
+      line_message_id: null,
+      sent_by: userId,
+      profiles: null,
+    };
+
+    setMessages((prev) => [...prev, optimistic]);
+    setReplyText("");
+    setConversations((prev) => prev.map((c) =>
+      c.id === convId ? { ...c, last_message_text: text, last_message_direction: "outbound", last_message_at: now } : c,
+    ));
+
     try {
       const res = await fetch("/api/line/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: selectedConvId, text: replyText.trim(), sent_by: userId }),
+        body: JSON.stringify({ conversation_id: convId, text, sent_by: userId }),
       });
       const result = (await res.json()) as { error?: string };
-      if (!res.ok) { toast(result.error ?? "Send failed"); return; }
-      setReplyText("");
-      await refreshMessages(selectedConvId);
+      if (!res.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setReplyText(text);
+        toast(result.error ?? "ส่งไม่สำเร็จ");
+        return;
+      }
+      await refreshMessages(convId);
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setReplyText(text);
+      toast("ส่งไม่สำเร็จ");
+    }
+  }
+
+  async function sendImage(file: File) {
+    if (!selectedConvId) return;
+    const convId = selectedConvId;
+    const tempId = `opt-${Date.now()}`;
+    const now = new Date().toISOString();
+    const blobUrl = URL.createObjectURL(file);
+
+    const optimistic: LineMessage = {
+      id: tempId,
+      conversation_id: convId,
+      direction: "outbound",
+      content: null,
+      created_at: now,
+      attachment_type: "image",
+      attachment_url: blobUrl,
+      line_message_id: null,
+      sent_by: userId,
+      profiles: null,
+    };
+
+    setMessages((prev) => [...prev, optimistic]);
+    setConversations((prev) => prev.map((c) =>
+      c.id === convId ? { ...c, last_message_text: "[รูปภาพ]", last_message_direction: "outbound", last_message_at: now } : c,
+    ));
+
+    try {
+      const form = new FormData();
+      form.append("conversation_id", convId);
+      form.append("file", file);
+      if (userId) form.append("sent_by", userId);
+      const res = await fetch("/api/line/send-image", { method: "POST", body: form });
+      const result = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        toast(result.error ?? "ส่งไม่สำเร็จ");
+      } else {
+        await refreshMessages(convId);
+      }
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      toast("ส่งไม่สำเร็จ");
     } finally {
-      setBusy(false);
+      URL.revokeObjectURL(blobUrl);
     }
   }
 
@@ -376,6 +452,26 @@ export function LineInbox({
 
             {/* Reply */}
             <div className="flex shrink-0 gap-2 border-t border-slate-200 p-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void sendImage(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                title="อัปโหลดรูป"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+              </button>
               <input
                 className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-[#06C755] disabled:opacity-50"
                 value={replyText}

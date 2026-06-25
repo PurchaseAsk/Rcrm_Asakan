@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         },
         { onConflict: "line_oa_id,sender_line_id" },
       )
-      .select("id, display_name")
+      .select("id, display_name, picture_url")
       .single();
 
     if (!conv) continue;
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!conv.display_name) {
+    if (!conv.display_name || !conv.picture_url) {
       await enrichLineProfile(supabase, conv.id, senderLineId, oa.channel_access_token);
     }
   }
