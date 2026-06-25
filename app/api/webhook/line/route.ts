@@ -87,12 +87,17 @@ export async function POST(request: NextRequest) {
     if (!conv) continue;
 
     if (event.message?.id) {
+      let attachmentUrl: string | null = null;
+      if (msgType === "image") {
+        attachmentUrl = await downloadLineImage(supabase, event.message.id, conv.id, oa.channel_access_token);
+      }
       await supabase.from("line_messages").upsert(
         {
           conversation_id: conv.id,
           direction: "inbound",
           content: text,
           attachment_type: msgType !== "text" ? msgType : null,
+          attachment_url: attachmentUrl,
           line_message_id: event.message.id,
         },
         { onConflict: "line_message_id", ignoreDuplicates: true },
@@ -105,6 +110,32 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ status: "ok" });
+}
+
+async function downloadLineImage(
+  supabase: ReturnType<typeof adminSupabase>,
+  messageId: string,
+  convId: string,
+  accessToken: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    const ext = contentType.includes("png") ? "png" : contentType.includes("gif") ? "gif" : "jpg";
+    const buffer = await res.arrayBuffer();
+    const path = `line/${convId}/${messageId}.${ext}`;
+    const { error } = await supabase.storage
+      .from("chat-attachments")
+      .upload(path, buffer, { contentType, upsert: false });
+    if (error) return null;
+    const { data } = supabase.storage.from("chat-attachments").getPublicUrl(path);
+    return data.publicUrl;
+  } catch {
+    return null;
+  }
 }
 
 async function enrichLineProfile(

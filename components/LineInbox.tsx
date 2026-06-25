@@ -347,7 +347,12 @@ export function LineInbox({
                     )}
                     <div className={`flex ${msg.direction === "outbound" ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[72%] rounded-2xl px-3 py-2 text-sm ${msg.direction === "outbound" ? "bg-[#06C755] text-white" : "bg-slate-100 text-slate-900"}`}>
-                        {msg.attachment_type === "image" ? (
+                        {msg.attachment_type === "image" && msg.attachment_url ? (
+                          <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={msg.attachment_url} alt="attachment" className="max-w-[240px] rounded-xl" />
+                          </a>
+                        ) : msg.attachment_type === "image" ? (
                           <p className="italic text-xs opacity-70">[รูปภาพ]</p>
                         ) : msg.attachment_type ? (
                           <p className="italic text-xs opacity-70">[{msg.attachment_type}]</p>

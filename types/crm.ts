@@ -193,6 +193,7 @@ export type LineMessage = {
   direction: "inbound" | "outbound";
   content: string | null;
   attachment_type: string | null;
+  attachment_url: string | null;
   line_message_id: string | null;
   sent_by: string | null;
   created_at: string;
