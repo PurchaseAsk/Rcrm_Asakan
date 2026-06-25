@@ -384,6 +384,7 @@ export function ChatInbox({
 
   async function sendImage(file: File) {
     if (!selectedConvId) return;
+    if (file.size > 4.5 * 1024 * 1024) { toast("ไฟล์ใหญ่เกิน 4.5 MB — กรุณาบีบอัดรูปก่อนส่ง"); return; }
     const convId = selectedConvId;
     const tempId = `opt-${Date.now()}`;
     const now = new Date().toISOString();
