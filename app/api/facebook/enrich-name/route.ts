@@ -33,35 +33,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No page token" }, { status: 400 });
   }
 
-  // Use Conversations API — more reliable than direct /{psid}?fields=name
-  const res = await fetch(
-    `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,pic,pic_small,pic_square}&access_token=${encodeURIComponent(token)}`,
-  );
+  let nameToSave = row.sender_name;
 
-  if (!res.ok) {
-    const err = (await res.json()) as unknown;
-    console.error("[enrich-name] Conversations API error psid=%s:", row.sender_psid, JSON.stringify(err));
-    return NextResponse.json({ error: "Graph API error" }, { status: 500 });
+  if (!nameToSave) {
+    const res = await fetch(
+      `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id}&access_token=${encodeURIComponent(token)}`,
+    );
+    if (!res.ok) {
+      const err = (await res.json()) as unknown;
+      console.error("[enrich-name] Conversations API error psid=%s:", row.sender_psid, JSON.stringify(err));
+      return NextResponse.json({ error: "Graph API error" }, { status: 500 });
+    }
+    type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string }[] } }[] };
+    const data = (await res.json()) as ConvApiResult;
+    const participants = data.data?.[0]?.participants?.data ?? [];
+    const user = participants.find((p) => p.id !== fbPageId);
+    nameToSave = user?.name ?? null;
   }
 
-  type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; pic?: string; pic_small?: string; pic_square?: string }[] } }[] };
-  const data = (await res.json()) as ConvApiResult;
-  const participants = data.data?.[0]?.participants?.data ?? [];
-  const user = participants.find((p) => p.id !== fbPageId);
-
-  if (user?.name) {
+  if (nameToSave) {
     let pictureUrl: string | null = null;
     try {
-      const highToken = process.env.FB_ADS_TOKEN ?? token;
       const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(highToken)}`,
+        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(token)}`,
       );
-      const picData = (await picRes.json()) as { profile_pic?: string; first_name?: string; error?: { message?: string; code?: number } };
+      const picData = (await picRes.json()) as { profile_pic?: string; error?: { message?: string; code?: number } };
       console.log("[enrich-name] profile API:", JSON.stringify(picData));
       if (picData.profile_pic) pictureUrl = picData.profile_pic;
     } catch (e) { console.error("[enrich-name] profile API error:", e); }
-    await supabase.from("conversations").update({ sender_name: user.name, picture_url: pictureUrl }).eq("id", conv_id);
-    return NextResponse.json({ name: user.name });
+    await supabase.from("conversations").update({ sender_name: nameToSave, picture_url: pictureUrl }).eq("id", conv_id);
+    return NextResponse.json({ name: nameToSave });
   }
 
   return NextResponse.json({ name: null });
