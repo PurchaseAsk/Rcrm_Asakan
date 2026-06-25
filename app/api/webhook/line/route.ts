@@ -122,7 +122,10 @@ async function downloadLineImage(
     const res = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("[line-image] content fetch failed", res.status, await res.text());
+      return null;
+    }
     const contentType = res.headers.get("content-type") ?? "image/jpeg";
     const ext = contentType.includes("png") ? "png" : contentType.includes("gif") ? "gif" : "jpg";
     const buffer = await res.arrayBuffer();
@@ -130,10 +133,15 @@ async function downloadLineImage(
     const { error } = await supabase.storage
       .from("chat-attachments")
       .upload(path, buffer, { contentType, upsert: false });
-    if (error) return null;
+    if (error) {
+      console.error("[line-image] storage upload failed", error.message);
+      return null;
+    }
     const { data } = supabase.storage.from("chat-attachments").getPublicUrl(path);
+    console.log("[line-image] uploaded ok", data.publicUrl);
     return data.publicUrl;
-  } catch {
+  } catch (e) {
+    console.error("[line-image] exception", e);
     return null;
   }
 }
