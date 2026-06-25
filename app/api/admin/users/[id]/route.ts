@@ -41,26 +41,30 @@ export async function PATCH(
   }
 
   if (body.action === "update_role" && body.role) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role: body.role })
-      .eq("id", id);
+    const { error } = await supabase.from("profiles").update({ role: body.role }).eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true });
   }
 
+  if (body.action === "disable") {
+    const [authRes, dbRes] = await Promise.all([
+      supabase.auth.admin.updateUserById(id, { ban_duration: "876600h" }),
+      supabase.from("profiles").update({ is_active: false }).eq("id", id),
+    ]);
+    if (authRes.error) return NextResponse.json({ error: authRes.error.message }, { status: 400 });
+    if (dbRes.error) return NextResponse.json({ error: dbRes.error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (body.action === "enable") {
+    const [authRes, dbRes] = await Promise.all([
+      supabase.auth.admin.updateUserById(id, { ban_duration: "none" }),
+      supabase.from("profiles").update({ is_active: true }).eq("id", id),
+    ]);
+    if (authRes.error) return NextResponse.json({ error: authRes.error.message }, { status: 400 });
+    if (dbRes.error) return NextResponse.json({ error: dbRes.error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  if (!(await requireAdmin(request))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  const { id } = await params;
-  const supabase = adminSupabase();
-  const { error } = await supabase.auth.admin.deleteUser(id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true });
 }

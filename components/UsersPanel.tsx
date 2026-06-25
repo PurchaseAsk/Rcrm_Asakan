@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { Role } from "@/types/crm";
-import { Copy, KeyRound, RefreshCw, Trash2, UserPlus } from "lucide-react";
+import { Copy, KeyRound, RefreshCw, UserPlus } from "lucide-react";
 
 type UserRow = {
   id: string;
   email: string;
   full_name: string | null;
   role: Role;
+  is_active: boolean;
   created_at: string;
 };
 
@@ -40,8 +41,8 @@ export function UsersPanel({
   const [showCreate, setShowCreate] = useState(false);
   const [draft, setDraft] = useState<Draft>({ email: "", full_name: "", role: "staff" });
   const [busy, setBusy] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [shownPassword, setShownPassword] = useState<{ label: string; password: string } | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const headers = {
     "Content-Type": "application/json",
@@ -103,11 +104,20 @@ export function UsersPanel({
     setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role } : u));
   }
 
-  async function deleteUser(userId: string) {
-    const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE", headers });
-    if (!res.ok) { onToast("ลบ user ไม่สำเร็จ"); return; }
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
-    setConfirmDeleteId(null);
+  async function toggleActive(user: UserRow) {
+    setTogglingId(user.id);
+    try {
+      const action = user.is_active ? "disable" : "enable";
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) { onToast("ไม่สำเร็จ"); return; }
+      setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, is_active: !u.is_active } : u));
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   function copyToClipboard(text: string) {
@@ -115,12 +125,18 @@ export function UsersPanel({
     onToast("คัดลอกแล้ว");
   }
 
+  const activeCount = users.filter((u) => u.is_active).length;
+  const disabledCount = users.length - activeCount;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-slate-900">จัดการ Users</h2>
-          <p className="text-sm text-slate-500">{users.length} บัญชีในระบบ</p>
+          <p className="text-sm text-slate-500">
+            {activeCount} active
+            {disabledCount > 0 && <span className="ml-1 text-slate-400">· {disabledCount} disabled</span>}
+          </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -146,12 +162,7 @@ export function UsersPanel({
               <Copy size={13} />
               Copy
             </button>
-            <button
-              onClick={() => setShownPassword(null)}
-              className="rounded-md px-2 py-2 text-sm text-green-600 hover:text-green-800"
-            >
-              ✕
-            </button>
+            <button onClick={() => setShownPassword(null)} className="px-2 py-2 text-sm text-green-600 hover:text-green-800">✕</button>
           </div>
           <p className="mt-2 text-xs text-green-700">บันทึกรหัสผ่านนี้ก่อนปิด — จะไม่แสดงอีกครั้ง</p>
         </div>
@@ -167,16 +178,17 @@ export function UsersPanel({
               <tr className="border-b border-slate-100 bg-slate-50">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">ชื่อ / Email</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Role</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">สถานะ</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">สร้างเมื่อ</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {users.map((user) => (
-                <tr key={user.id} className="hover:bg-slate-50">
+                <tr key={user.id} className={`transition-colors ${user.is_active ? "hover:bg-slate-50" : "bg-slate-50/60 opacity-60"}`}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${user.is_active ? "bg-brand-100 text-brand-700" : "bg-slate-200 text-slate-500"}`}>
                         {(user.full_name || user.email).charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -193,8 +205,9 @@ export function UsersPanel({
                     ) : (
                       <select
                         value={user.role}
+                        disabled={!user.is_active}
                         onChange={(e) => void updateRole(user.id, e.target.value as Role)}
-                        className={`rounded-full border-0 px-2 py-0.5 text-xs font-medium outline-none ${ROLE_COLOR[user.role]}`}
+                        className={`rounded-full border-0 px-2 py-0.5 text-xs font-medium outline-none disabled:cursor-not-allowed ${ROLE_COLOR[user.role]}`}
                       >
                         <option value="admin">Admin</option>
                         <option value="team_lead">Team Lead</option>
@@ -202,25 +215,33 @@ export function UsersPanel({
                       </select>
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${user.is_active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
+                      {user.is_active ? "Active" : "Disabled"}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {new Date(user.created_at).toLocaleDateString("th-TH")}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => void resetPassword(user)}
-                        title="Reset Password"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600"
-                      >
-                        <KeyRound size={13} />
-                      </button>
+                      {user.is_active && (
+                        <button
+                          onClick={() => void resetPassword(user)}
+                          title="Reset Password"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600"
+                        >
+                          <KeyRound size={13} />
+                        </button>
+                      )}
                       {user.id !== currentUserId && (
                         <button
-                          onClick={() => setConfirmDeleteId(user.id)}
-                          title="ลบ User"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => void toggleActive(user)}
+                          disabled={togglingId === user.id}
+                          title={user.is_active ? "Disable user" : "Enable user"}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 disabled:opacity-50 ${user.is_active ? "bg-brand-600" : "bg-slate-300"}`}
                         >
-                          <Trash2 size={13} />
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${user.is_active ? "translate-x-4" : "translate-x-0"}`} />
                         </button>
                       )}
                     </div>
@@ -289,35 +310,6 @@ export function UsersPanel({
               >
                 {busy && <RefreshCw size={13} className="animate-spin" />}
                 สร้าง User
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm delete modal */}
-      {confirmDeleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white shadow-xl">
-            <div className="px-5 py-5">
-              <h3 className="font-semibold text-slate-950">ยืนยันการลบ</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {users.find((u) => u.id === confirmDeleteId)?.email}
-              </p>
-              <p className="mt-2 text-sm text-red-600">การกระทำนี้ไม่สามารถย้อนกลับได้</p>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
-              <button
-                onClick={() => setConfirmDeleteId(null)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={() => void deleteUser(confirmDeleteId)}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-              >
-                ลบ User
               </button>
             </div>
           </div>
