@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
       );
 
       if (!isEcho && !conv.sender_name && msgToken) {
-        void enrichSenderName(supabase, conv.id, senderPsid, msgToken, fbPageId);
+        await enrichSenderName(supabase, conv.id, senderPsid, msgToken, fbPageId);
       }
     }
   }
