@@ -98,10 +98,12 @@ export function ChatInbox({
   }, [openByLeadId]);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(`qr_${userId}`);
-      if (raw) setQuickReplies(JSON.parse(raw) as QuickReply[]);
-    } catch { /* ignore */ }
+    void supabase
+      .from("quick_replies")
+      .select("id, title, content")
+      .eq("user_id", userId)
+      .order("created_at")
+      .then(({ data }) => setQuickReplies((data ?? []) as QuickReply[]));
   }, [userId]);
 
   useEffect(() => {
@@ -480,15 +482,20 @@ export function ChatInbox({
     }
   }
 
-  function saveQr(list: QuickReply[]) {
-    setQuickReplies(list);
-    try { localStorage.setItem(`qr_${userId}`, JSON.stringify(list)); } catch { /* ignore */ }
+  async function addQuickReply() {
+    if (!qrDraft?.title.trim() || !qrDraft?.content.trim()) return;
+    const { data } = await supabase.from("quick_replies").insert({
+      user_id: userId,
+      title: qrDraft.title.trim(),
+      content: qrDraft.content.trim(),
+    }).select("id, title, content").single();
+    if (data) setQuickReplies((prev) => [...prev, data as QuickReply]);
+    setQrDraft(null);
   }
 
-  function addQuickReply() {
-    if (!qrDraft?.title.trim() || !qrDraft?.content.trim()) return;
-    saveQr([...quickReplies, { id: crypto.randomUUID(), title: qrDraft.title.trim(), content: qrDraft.content.trim() }]);
-    setQrDraft(null);
+  async function deleteQuickReply(id: string) {
+    await supabase.from("quick_replies").delete().eq("id", id);
+    setQuickReplies((prev) => prev.filter((r) => r.id !== id));
   }
 
   // stages for the currently selected pipeline in the draft
@@ -1138,7 +1145,7 @@ export function ChatInbox({
                                 <div className="mt-0.5 line-clamp-2 text-xs text-slate-500">{qr.content}</div>
                               </button>
                               <button
-                                onClick={() => saveQr(quickReplies.filter((r) => r.id !== qr.id))}
+                                onClick={() => void deleteQuickReply(qr.id)}
                                 className="mt-0.5 shrink-0 text-slate-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
                               >
                                 ✕
