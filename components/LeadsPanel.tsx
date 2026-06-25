@@ -122,8 +122,10 @@ export function LeadsPanel({
   stages: Stage[];
   search: string;
   setSearch: (v: string) => void;
+  userRole?: string;
 }) {
   const canFilterByMember = !!filterableProfiles?.length && !!setAssigneeFilter;
+  const canManage = userRole === "admin" || userRole === "team_lead";
 
   // ── Create lead modal ────────────────────────────────────────────────────
   const [showModal, setShowModal] = useState(false);
@@ -213,6 +215,7 @@ export function LeadsPanel({
   async function submit() {
     setError("");
     if (!draft.customer_name.trim()) return setError("กรุณากรอกชื่อลูกค้า");
+    if (!draft.phone.trim()) return setError("กรุณากรอกเบอร์โทร");
     if (!draft.pipeline_id) return setError("กรุณาเลือก Pipeline");
     if (!draft.source) return setError("กรุณาเลือกแหล่งที่มา");
 
@@ -411,28 +414,31 @@ export function LeadsPanel({
             Unfollowed
           </button>
 
-          {/* Export */}
-          <button
-            onClick={() => setShowDateFilter((v) => !v)}
-            className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors ${
-              hasDateFilter
-                ? "border-brand-300 bg-brand-50 text-brand-700"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            <Download size={14} />
-            Export
-            {hasDateFilter && <span className="text-xs opacity-70">(กรอง)</span>}
-          </button>
+          {/* Export / Import — manager+ only */}
+          {canManage && (
+            <>
+              <button
+                onClick={() => setShowDateFilter((v) => !v)}
+                className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors ${
+                  hasDateFilter
+                    ? "border-brand-300 bg-brand-50 text-brand-700"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <Download size={14} />
+                Export
+                {hasDateFilter && <span className="text-xs opacity-70">(กรอง)</span>}
+              </button>
 
-          {/* Import */}
-          <button
-            onClick={openImport}
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <Upload size={14} />
-            Import
-          </button>
+              <button
+                onClick={openImport}
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <Upload size={14} />
+                Import
+              </button>
+            </>
+          )}
 
           <button
             onClick={openModal}
@@ -503,7 +509,7 @@ export function LeadsPanel({
               {field("ชื่อลูกค้า *", inp("ชื่อ-นามสกุล", "customer_name"))}
 
               <div className="grid grid-cols-2 gap-3">
-                {field("เบอร์โทร", inp("0812345678", "phone", "tel", { maxLength: 15 }))}
+                {field("เบอร์โทร *", inp("0812345678", "phone", "tel", { maxLength: 15 }))}
                 {field("Email", inp("email@example.com", "email", "email"))}
               </div>
 

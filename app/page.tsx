@@ -498,6 +498,7 @@ export default function HomePage() {
               stages={data.stages}
               search={search}
               setSearch={setSearch}
+              userRole={profile?.role}
             />
           )}
           {activeTab === "funnel" && (
