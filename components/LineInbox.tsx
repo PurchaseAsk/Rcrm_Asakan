@@ -313,6 +313,8 @@ export function LineInbox({
         }
       }
 
+      const firstStageId = draftStages[0]?.id ?? null;
+      const now = new Date().toISOString();
       const { data: lead, error } = await supabase
         .from("leads")
         .insert({
@@ -321,7 +323,8 @@ export function LineInbox({
           email: leadDraft.email.trim() || null,
           assigned_to: leadDraft.assigned_to || null,
           pipeline_id: leadDraft.pipeline_id,
-          stage_id: draftStages[0]?.id ?? null,
+          stage_id: firstStageId,
+          stage_entered_at: firstStageId ? now : null,
           facebook_id: conv.sender_line_id,
           status: "active",
           source: "line",
@@ -331,7 +334,7 @@ export function LineInbox({
             line_sender_id: conv.sender_line_id,
             line_display_name: conv.display_name,
           },
-          last_activity_at: new Date().toISOString(),
+          last_activity_at: now,
         })
         .select()
         .single();

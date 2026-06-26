@@ -127,11 +127,23 @@ export default function HomePage() {
 
   // Ref to clear previous toast timer so rapid toasts don't stack (L-3)
   const toastTimerRef = useRef<number | null>(null);
+  const defaultAssigneeAppliedForRef = useRef<string | null>(null);
 
   const currentUserId = session?.user.id || "";
   const canManage = profile?.role === "admin" || profile?.role === "team_lead";
   const selectedLead = data.leads.find((lead) => lead.id === selectedLeadId) || null;
   const managingPipeline = data.pipelines.find((pipeline) => pipeline.id === managingPipelineId) || null;
+
+  useEffect(() => {
+    if (!currentUserId || !profile) {
+      defaultAssigneeAppliedForRef.current = null;
+      return;
+    }
+    if (!canManage) return;
+    if (defaultAssigneeAppliedForRef.current === currentUserId) return;
+    defaultAssigneeAppliedForRef.current = currentUserId;
+    setAssigneeFilter(currentUserId);
+  }, [canManage, currentUserId, profile]);
 
   useEffect(() => {
     let mounted = true;
@@ -277,6 +289,7 @@ export default function HomePage() {
     if (profile.role === "admin") return data.profiles;
     if (profile.role === "team_lead") {
       const memberIds = new Set(myTeamMemberIds);
+      memberIds.add(currentUserId);
       return data.profiles.filter((p) => memberIds.has(p.id));
     }
     return [];
@@ -706,8 +719,9 @@ export default function HomePage() {
               openByLeadId={chatOpenLeadId}
               onLeadCreated={(leadId, pipelineId) => {
                 void loadCrmData(supabase).then((fresh) => {
+                  const createdLead = fresh.leads.find((lead) => lead.id === leadId);
                   setData(fresh);
-                  setActivePipelineId(pipelineId);
+                  setActivePipelineId(createdLead?.pipeline_id || pipelineId);
                   setActiveTab("leads");
                   setSelectedLeadId(leadId);
                 });
@@ -728,8 +742,9 @@ export default function HomePage() {
               toast={showToast}
               onLeadCreated={(leadId, pipelineId) => {
                 void loadCrmData(supabase).then((fresh) => {
+                  const createdLead = fresh.leads.find((lead) => lead.id === leadId);
                   setData(fresh);
-                  setActivePipelineId(pipelineId);
+                  setActivePipelineId(createdLead?.pipeline_id || pipelineId);
                   setActiveTab("leads");
                   setSelectedLeadId(leadId);
                 });

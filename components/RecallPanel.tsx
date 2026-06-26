@@ -27,7 +27,7 @@ export function RecallPanel({
   reload: () => Promise<void>;
   toast: (message: string) => void;
 }) {
-  const [form, setForm] = useState({ stage_id: "", inactive_days: "3", recall_to: "pool" });
+  const [form, setForm] = useState({ stage_id: "", inactive_days: "3" });
   const [busy, setBusy] = useState(false);
 
   async function createRule() {
@@ -37,14 +37,14 @@ export function RecallPanel({
       const { error } = await supabase.from("auto_recall_rules").insert({
         stage_id: form.stage_id,
         inactive_days: Number(form.inactive_days || 3),
-        recall_to: form.recall_to,
+        recall_to: "pool",
         is_active: true,
       });
       if (error) {
         toast(error.message);
         return;
       }
-      setForm({ stage_id: "", inactive_days: "3", recall_to: "pool" });
+      setForm({ stage_id: "", inactive_days: "3" });
       await reload();
     } finally {
       setBusy(false);
@@ -53,7 +53,7 @@ export function RecallPanel({
 
   return (
     <Panel title="Auto recall">
-      <div className="mb-4 grid gap-2 md:grid-cols-5">
+      <div className="mb-4 grid gap-2 md:grid-cols-4">
         <Select
           label="Stage"
           value={form.stage_id}
@@ -65,16 +65,6 @@ export function RecallPanel({
           value={form.inactive_days}
           onChange={(value) => setForm({ ...form, inactive_days: value })}
           type="number"
-        />
-        <Select
-          label="Recall to"
-          value={form.recall_to}
-          onChange={(value) => setForm({ ...form, recall_to: value })}
-          options={[
-            { value: "pool", label: "Pool" },
-            { value: "admin", label: "Admin" },
-            { value: "team", label: "Team" },
-          ]}
         />
         <div className="flex items-end">
           <button
@@ -96,20 +86,20 @@ export function RecallPanel({
         </div>
       </div>
       <DataTable
-        headers={["Stage", "Inactive", "Due now", "Recall to", "Status", "Actions"]}
+        headers={["Stage", "Inactive", "Due now", "Status", "Actions"]}
         rows={rules.map((rule) => {
           const due = leads.filter(
             (lead) =>
               lead.stage_id === rule.stage_id &&
               lead.status === "active" &&
               lead.assigned_to &&
-              new Date(lead.last_activity_at).getTime() < Date.now() - rule.inactive_days * 86_400_000,
+              lead.stage_entered_at &&
+              new Date(lead.stage_entered_at).getTime() < Date.now() - rule.inactive_days * 86_400_000,
           ).length;
           return [
             rule.funnel_stages?.name || stages.find((stage) => stage.id === rule.stage_id)?.name || "-",
             `${rule.inactive_days} days`,
             due.toString(),
-            rule.recall_to,
             rule.is_active ? "Active" : "Off",
             <RowActions
               key={rule.id}

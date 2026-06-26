@@ -563,6 +563,7 @@ export function ChatInbox({
       }
 
       const firstStageId = draftStages[0]?.id ?? null;
+      const now = new Date().toISOString();
       const { data: lead, error } = await supabase
         .from("leads")
         .insert({
@@ -572,11 +573,12 @@ export function ChatInbox({
           assigned_to: leadDraft.assigned_to || null,
           pipeline_id: leadDraft.pipeline_id,
           stage_id: firstStageId,
+          stage_entered_at: firstStageId ? now : null,
           facebook_id: conv.sender_psid,
           page_id: conv.page_id,
           status: "active",
           source: "chat",
-          last_activity_at: new Date().toISOString(),
+          last_activity_at: now,
         })
         .select()
         .single();
@@ -627,6 +629,10 @@ export function ChatInbox({
       ]);
 
       toast("สร้างลีดสำเร็จ!");
+      if (!leadDraft.assigned_to) {
+        await supabase.rpc("distribute_lead", { p_lead_id: lead.id });
+      }
+
       setLeadModal(null);
       await refreshConversations();
       onLeadCreated?.(lead.id, leadDraft.pipeline_id);
