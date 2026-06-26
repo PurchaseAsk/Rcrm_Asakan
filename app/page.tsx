@@ -4,6 +4,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -100,6 +101,8 @@ export default function HomePage() {
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [bootstrapping, setBootstrapping] = useState(false);
+  const [bootError, setBootError] = useState("");
   const [toast, setToast] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [leadDetail, setLeadDetail] = useState<LeadDetail>({ activities: [], reminders: [] });
@@ -169,10 +172,31 @@ export default function HomePage() {
     if (!session?.user) {
       setProfile(null);
       setData(emptyData);
+      setBootstrapping(false);
+      setBootError("");
       return;
     }
 
-    void bootstrap(session.user.id, session.user.email || "", setProfile, setData, showToast);
+    let cancelled = false;
+    const bootstrapTimeout = new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error("Loading CRM data took too long. Please retry.")), 12_000);
+    });
+
+    setBootstrapping(true);
+    setBootError("");
+    void Promise.race([
+      bootstrap(session.user.id, session.user.email || "", setProfile, setData, showToast),
+      bootstrapTimeout,
+    ])
+      .catch((error) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : "Failed to load CRM data";
+        setBootError(message);
+        showToast(message);
+      })
+      .finally(() => {
+        if (!cancelled) setBootstrapping(false);
+      });
     const reloadLiveData = () => {
       void loadCrmData(supabase)
         .then(setData)
@@ -189,6 +213,7 @@ export default function HomePage() {
       .subscribe();
 
     return () => {
+      cancelled = true;
       void supabase.removeChannel(channel);
     };
   }, [session?.user]); // selectedLeadId removed — use ref to avoid channel teardown on every lead open
@@ -357,8 +382,41 @@ export default function HomePage() {
     });
   }
 
-  if (loading) {
-    return <FullScreenState title="Opening CRM" description="Checking session and Supabase connection" />;
+  if (loading || bootstrapping) {
+    return (
+      <FullScreenState
+        title={loading ? "Opening CRM" : "Loading CRM data"}
+        description={loading ? "Checking session and Supabase connection" : "Loading profile, leads, and pipelines"}
+      />
+    );
+  }
+
+  if (bootError && session) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-slate-100 p-4 text-center">
+        <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mx-auto mb-4 h-10 w-10 rounded-lg bg-red-600" />
+          <h1 className="font-semibold text-slate-950">CRM loading failed</h1>
+          <p className="mt-2 text-sm text-slate-500">{bootError}</p>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="h-10 rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => void supabase.auth.signOut()}
+              className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   if (!session) {
@@ -418,6 +476,15 @@ export default function HomePage() {
               );
             })}
           </nav>
+
+          <Link
+            href="/sales-hub"
+            title="Sales Hub"
+            className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 sm:px-3"
+          >
+            <Boxes size={16} />
+            <span className="hidden xl:inline">Sales Hub</span>
+          </Link>
 
           {/* Gear dropdown */}
           <div className="relative shrink-0">
