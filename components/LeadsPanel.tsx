@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Download, Plus, RefreshCcw, Search, Upload, X } from "lucide-react";
+import { Download, Filter, Plus, RefreshCcw, Search, Upload, X } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Pipeline, Profile, Stage } from "@/types/crm";
 import { actorName, MANUAL_SOURCES, pillClass, sourceLabel } from "@/lib/helpers";
@@ -134,10 +134,11 @@ export function LeadsPanel({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // ── Date range (for export) ──────────────────────────────────────────────
+  // ── Filter bar ───────────────────────────────────────────────────────────
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   // ── Import modal ─────────────────────────────────────────────────────────
   const [showImport, setShowImport] = useState(false);
@@ -168,14 +169,20 @@ export function LeadsPanel({
   }
 
   const dateFilteredLeads = useMemo(() => {
-    if (!dateFrom && !dateTo) return leads;
-    return leads.filter((lead) => {
-      const d = new Date(lead.created_at);
-      if (dateFrom && d < new Date(dateFrom)) return false;
-      if (dateTo && d > new Date(dateTo + "T23:59:59")) return false;
-      return true;
-    });
-  }, [leads, dateFrom, dateTo]);
+    let result = leads;
+    if (dateFrom || dateTo) {
+      result = result.filter((lead) => {
+        const d = new Date(lead.created_at);
+        if (dateFrom && d < new Date(dateFrom)) return false;
+        if (dateTo && d > new Date(dateTo + "T23:59:59")) return false;
+        return true;
+      });
+    }
+    if (sourceFilter) {
+      result = result.filter((lead) => lead.source === sourceFilter);
+    }
+    return result;
+  }, [leads, dateFrom, dateTo, sourceFilter]);
 
   // ── Pipeline / stage helpers ──────────────────────────────────────────────
   const firstStageOfPipeline = useMemo(() => {
@@ -373,7 +380,7 @@ export function LeadsPanel({
   );
 
   const active = activePreset();
-  const hasDateFilter = !!(dateFrom || dateTo);
+  const activeFilterCount = [!!(dateFrom || dateTo), !!sourceFilter].filter(Boolean).length;
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -418,20 +425,33 @@ export function LeadsPanel({
             Unfollowed
           </button>
 
+          {/* Filter button */}
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`relative inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors ${
+              activeFilterCount > 0
+                ? "border-brand-300 bg-brand-50 text-brand-700"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <Filter size={14} />
+            กรอง
+            {activeFilterCount > 0 && (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-700 text-[10px] font-bold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
           {/* Export / Import — manager+ only */}
           {canManage && (
             <>
               <button
-                onClick={() => setShowDateFilter((v) => !v)}
-                className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors ${
-                  hasDateFilter
-                    ? "border-brand-300 bg-brand-50 text-brand-700"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
+                onClick={exportCSV}
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 <Download size={14} />
                 Export
-                {hasDateFilter && <span className="text-xs opacity-70">(กรอง)</span>}
               </button>
 
               <button
@@ -455,44 +475,81 @@ export function LeadsPanel({
         </div>
       </div>
 
-      {/* ── Date range panel (inline expand) ── */}
-      {showDateFilter && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
-          <span className="text-xs text-slate-500 shrink-0">ช่วงเวลา:</span>
-          {DATE_PRESETS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setPreset(p.id)}
-              className={`h-7 rounded-md px-2.5 text-xs font-medium transition-colors ${
-                active === p.id
-                  ? "bg-brand-700 text-white"
-                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-600 outline-none focus:border-brand-600"
-          />
-          <span className="text-xs text-slate-400">–</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-600 outline-none focus:border-brand-600"
-          />
-          <span className="ml-2 text-xs text-slate-500">{dateFilteredLeads.length} ลีด</span>
-          <button
-            onClick={exportCSV}
-            className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg bg-brand-700 px-3 text-xs font-medium text-white hover:bg-brand-900"
-          >
-            <Download size={12} />
-            ดาวน์โหลด CSV
-          </button>
+      {/* ── Filter bar ── */}
+      {showFilters && (
+        <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 space-y-2.5">
+          {/* Date filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-20 shrink-0 text-xs font-medium text-slate-500">วันที่สร้าง</span>
+            {DATE_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPreset(p.id)}
+                className={`h-7 rounded-md px-2.5 text-xs font-medium transition-colors ${
+                  active === p.id
+                    ? "bg-brand-700 text-white"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-600 outline-none focus:border-brand-600"
+            />
+            <span className="text-xs text-slate-400">–</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-600 outline-none focus:border-brand-600"
+            />
+          </div>
+
+          {/* Source filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-20 shrink-0 text-xs font-medium text-slate-500">แหล่งที่มา</span>
+            {[
+              { value: "", label: "ทั้งหมด" },
+              { value: "facebook", label: "Facebook" },
+              { value: "chat", label: "Chat" },
+              { value: "line", label: "Line" },
+              { value: "website", label: "Website" },
+              { value: "walk_in", label: "Walk-in" },
+              { value: "cold_call", label: "Cold Call" },
+              { value: "referral", label: "Referral" },
+              { value: "event", label: "Event" },
+              { value: "other", label: "อื่นๆ" },
+            ].map((s) => (
+              <button
+                key={s.value}
+                onClick={() => setSourceFilter(s.value)}
+                className={`h-7 rounded-md px-2.5 text-xs font-medium transition-colors ${
+                  sourceFilter === s.value
+                    ? "bg-brand-700 text-white"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Result count + clear */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">{dateFilteredLeads.length} ลีดที่กรอง</span>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={() => { setDateFrom(""); setDateTo(""); setSourceFilter(""); }}
+                className="text-xs text-rose-500 hover:text-rose-700"
+              >
+                ล้างตัวกรอง
+              </button>
+            )}
+          </div>
         </div>
       )}
 
