@@ -212,6 +212,15 @@ function PipelineTable({
     return { matrix: m, stageTotals: st, grandTotal: grand };
   }, [activeLeads]);
 
+  const { unfollowedByUser, unfollowedTotal } = useMemo(() => {
+    const m = new Map<string, number>();
+    leads.filter((l) => l.status === "unfollowed").forEach((lead) => {
+      const uid = lead.assigned_to ?? "__pool__";
+      m.set(uid, (m.get(uid) ?? 0) + 1);
+    });
+    return { unfollowedByUser: m, unfollowedTotal: leads.filter((l) => l.status === "unfollowed").length };
+  }, [leads]);
+
   const rows = useMemo(() => {
     const r = [...matrix.entries()].map(([uid, sm]) => ({
       uid,
@@ -258,6 +267,9 @@ function PipelineTable({
               </th>
             ))}
             <th className="px-3 py-3 text-center">
+              <span className="text-xl font-bold text-rose-500">{unfollowedTotal}</span>
+            </th>
+            <th className="px-3 py-3 text-center">
               <span className="text-xl font-bold text-slate-700">{grandTotal}</span>
             </th>
           </tr>
@@ -272,6 +284,9 @@ function PipelineTable({
                 {s.name}{sortIcon(s.id)}
               </th>
             ))}
+            <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-rose-400 whitespace-nowrap">
+              เลิกติดตาม
+            </th>
             <th
               className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 cursor-pointer select-none hover:text-slate-900"
               onClick={() => toggleSort("__total__")}
@@ -295,12 +310,17 @@ function PipelineTable({
                   </td>
                 );
               })}
+              <td className="px-3 py-3 text-center tabular-nums">
+                {(unfollowedByUser.get(row.uid) ?? 0) > 0
+                  ? <span className="font-semibold text-rose-500">{unfollowedByUser.get(row.uid)}</span>
+                  : <span className="text-slate-300">-</span>}
+              </td>
               <td className="px-3 py-3 text-center font-semibold tabular-nums text-slate-800">{row.total}</td>
             </tr>
           ))}
           {!rows.length && (
             <tr>
-              <td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">ไม่มีลีด</td>
+              <td colSpan={stages.length + 3} className="py-12 text-center text-sm text-slate-400">ไม่มีลีด</td>
             </tr>
           )}
         </tbody>
@@ -356,15 +376,16 @@ function ConversionsView({
     return { days: dayList, series: s };
   }, [filteredLeads, dateFrom, dateTo, stages]);
 
-  const { matrix, stageTotals } = useMemo(() => {
-    const m = new Map<string, { total: number; stages: Map<string, number> }>();
+  const { matrix, stageTotals, totalUnfollowed } = useMemo(() => {
+    const m = new Map<string, { total: number; stages: Map<string, number>; unfollowed: number }>();
     filteredLeads.forEach((lead) => {
       const uid = lead.assigned_to ?? "__pool__";
-      if (!m.has(uid)) m.set(uid, { total: 0, stages: new Map() });
+      if (!m.has(uid)) m.set(uid, { total: 0, stages: new Map(), unfollowed: 0 });
       const row = m.get(uid)!;
       row.total++;
       const sid = lead.stage_id ?? "__none__";
       row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1);
+      if (lead.status === "unfollowed") row.unfollowed++;
     });
     const rows = [...m.entries()]
       .map(([uid, data]) => ({
@@ -375,6 +396,7 @@ function ConversionsView({
             : (profileById.get(uid)?.full_name ?? profileById.get(uid)?.email ?? uid.slice(0, 8)),
         total: data.total,
         stages: data.stages,
+        unfollowed: data.unfollowed,
       }))
       .sort((a, b) => b.total - a.total);
     const st: Record<string, number> = {};
@@ -382,21 +404,23 @@ function ConversionsView({
       const sid = l.stage_id ?? "__none__";
       st[sid] = (st[sid] ?? 0) + 1;
     });
-    return { matrix: rows, stageTotals: st };
+    const uf = filteredLeads.filter((l) => l.status === "unfollowed").length;
+    return { matrix: rows, stageTotals: st, totalUnfollowed: uf };
   }, [filteredLeads, profileById]);
 
   const { sourceMatrix, sourceStageTotals } = useMemo(() => {
-    const m = new Map<string, { total: number; stages: Map<string, number> }>();
+    const m = new Map<string, { total: number; stages: Map<string, number>; unfollowed: number }>();
     filteredLeads.forEach((lead) => {
       const key = sourceLabel(lead.source, lead.metadata);
-      if (!m.has(key)) m.set(key, { total: 0, stages: new Map() });
+      if (!m.has(key)) m.set(key, { total: 0, stages: new Map(), unfollowed: 0 });
       const row = m.get(key)!;
       row.total++;
       const sid = lead.stage_id ?? "__none__";
       row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1);
+      if (lead.status === "unfollowed") row.unfollowed++;
     });
     const rows = [...m.entries()]
-      .map(([src, data]) => ({ src, total: data.total, stages: data.stages }))
+      .map(([src, data]) => ({ src, total: data.total, stages: data.stages, unfollowed: data.unfollowed }))
       .sort((a, b) => b.total - a.total);
     const st: Record<string, number> = {};
     filteredLeads.forEach((l) => {
@@ -444,6 +468,9 @@ function ConversionsView({
                   {s.name}
                 </th>
               ))}
+              <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-rose-400 whitespace-nowrap">
+                เลิกติดตาม
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -459,6 +486,9 @@ function ConversionsView({
                     </td>
                   );
                 })}
+                <td className="px-3 py-3 text-center tabular-nums">
+                  {row.unfollowed > 0 ? <span className="font-medium text-rose-500">{row.unfollowed}</span> : <span className="text-slate-300">-</span>}
+                </td>
               </tr>
             ))}
             {matrix.length > 0 && (
@@ -473,10 +503,13 @@ function ConversionsView({
                     </td>
                   );
                 })}
+                <td className="px-3 py-3 text-center tabular-nums text-rose-500">
+                  {totalUnfollowed > 0 ? totalUnfollowed : <span className="font-normal text-slate-300">-</span>}
+                </td>
               </tr>
             )}
             {!matrix.length && (
-              <tr><td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดในช่วงวันที่นี้</td></tr>
+              <tr><td colSpan={stages.length + 3} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดในช่วงวันที่นี้</td></tr>
             )}
           </tbody>
         </table>
@@ -498,6 +531,9 @@ function ConversionsView({
                   {s.name}
                 </th>
               ))}
+              <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-rose-400 whitespace-nowrap">
+                เลิกติดตาม
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -513,6 +549,9 @@ function ConversionsView({
                     </td>
                   );
                 })}
+                <td className="px-3 py-3 text-center tabular-nums">
+                  {row.unfollowed > 0 ? <span className="font-medium text-rose-500">{row.unfollowed}</span> : <span className="text-slate-300">-</span>}
+                </td>
               </tr>
             ))}
             {sourceMatrix.length > 0 && (
@@ -527,10 +566,13 @@ function ConversionsView({
                     </td>
                   );
                 })}
+                <td className="px-3 py-3 text-center tabular-nums text-rose-500">
+                  {totalUnfollowed > 0 ? totalUnfollowed : <span className="font-normal text-slate-300">-</span>}
+                </td>
               </tr>
             )}
             {!sourceMatrix.length && (
-              <tr><td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดในช่วงวันที่นี้</td></tr>
+              <tr><td colSpan={stages.length + 3} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดในช่วงวันที่นี้</td></tr>
             )}
           </tbody>
         </table>

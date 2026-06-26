@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Lead, Profile, Stage, Tag } from "@/types/crm";
+import type { Lead, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import type { LeadDetail } from "@/types/app";
 import { actorName, deleteRow, recallCountdownText, toggleLeadTag } from "@/lib/helpers";
 import { Field } from "@/components/ui/Field";
@@ -28,6 +28,7 @@ export function LeadDrawer({
   lead,
   detail,
   stages,
+  pipelines,
   profiles,
   tags,
   userId,
@@ -41,6 +42,7 @@ export function LeadDrawer({
   lead: Lead;
   detail: LeadDetail;
   stages: Stage[];
+  pipelines: Pipeline[];
   profiles: Profile[];
   tags: Tag[];
   userId: string;
@@ -55,7 +57,7 @@ export function LeadDrawer({
     customer_name: lead.customer_name || "",
     phone: lead.phone || "",
     email: lead.email || "",
-    value: String(lead.value || 0),
+    pipeline_id: lead.pipeline_id || "",
     stage_id: lead.stage_id || "",
     assigned_to: lead.assigned_to || "",
   });
@@ -72,12 +74,18 @@ export function LeadDrawer({
     !lead.assigned_to ||
     lead.assigned_to === userId;
 
+  // Pipeline change allowed for owner, team_lead, and admin only
+  const canChangePipeline =
+    userRole === "admin" ||
+    userRole === "team_lead" ||
+    lead.assigned_to === userId;
+
   useEffect(() => {
     setForm({
       customer_name: lead.customer_name || "",
       phone: lead.phone || "",
       email: lead.email || "",
-      value: String(lead.value || 0),
+      pipeline_id: lead.pipeline_id || "",
       stage_id: lead.stage_id || "",
       assigned_to: lead.assigned_to || "",
     });
@@ -89,50 +97,60 @@ export function LeadDrawer({
   async function saveLeadInfo() {
     setBusy(true);
     try {
-      const stage = stages.find((item) => item.id === form.stage_id);
-      // Guard: prevent saving a stage that belongs to a different pipeline than the lead.
-      if (stage && lead.pipeline_id && stage.pipeline_id && stage.pipeline_id !== lead.pipeline_id) {
-        toast("Stage ไม่ตรงกับ Pipeline ของลีดนี้ กรุณาเลือก Stage ใหม่");
-        return;
-      }
-      const stageChanged = false;
+      const pipelineChanged = form.pipeline_id !== (lead.pipeline_id || "");
       const assigneeChanged = form.assigned_to !== (lead.assigned_to || "");
-      const stageChangeNote = stageChanged
-        ? await requestStageChangeNote(stage?.name || "selected stage")
-        : null;
-      if (stageChanged && !stageChangeNote) return;
 
-      const { error } = await supabase
-        .from("leads")
-        .update({
-          customer_name: form.customer_name,
-          phone: form.phone || null,
-          email: form.email || null,
-          value: Number(form.value || 0),
-          assigned_to: form.assigned_to || null,
-          last_activity_at: new Date().toISOString(),
-        })
-        .eq("id", lead.id);
+      // When switching pipelines, find the first stage of the target pipeline
+      let newStageId: string | null = null;
+      if (pipelineChanged && form.pipeline_id) {
+        const { data: firstStage } = await supabase
+          .from("funnel_stages")
+          .select("id")
+          .eq("pipeline_id", form.pipeline_id)
+          .eq("is_unfollow", false)
+          .order("position", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        newStageId = firstStage?.id ?? null;
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        customer_name: form.customer_name,
+        phone: form.phone || null,
+        email: form.email || null,
+        assigned_to: form.assigned_to || null,
+        last_activity_at: new Date().toISOString(),
+      };
+      if (pipelineChanged) {
+        updatePayload.pipeline_id = form.pipeline_id || null;
+        if (newStageId) {
+          updatePayload.stage_id = newStageId;
+          updatePayload.stage_entered_at = new Date().toISOString();
+        }
+      }
+
+      const { error } = await supabase.from("leads").update(updatePayload).eq("id", lead.id);
       if (error) return toast(error.message);
 
       const activities: { lead_id: string; type: string; content: string; created_by: string }[] = [];
-      if (stageChanged) {
+      if (pipelineChanged) {
+        const newPipeline = pipelines.find((p) => p.id === form.pipeline_id);
         activities.push({
           lead_id: lead.id,
-          type: "stage_change",
-          content: `${currentActorName} moved lead to ${stage?.name || "new stage"}: ${stageChangeNote}`,
+          type: "pipeline_change",
+          content: `${currentActorName} ย้าย pipeline เป็น ${newPipeline?.name || "ไม่มี pipeline"}`,
           created_by: userId,
         });
       }
       if (assigneeChanged) {
         const nextAssignee = actorName(form.assigned_to, profiles);
-        const previousAssignee = lead.assigned_to ? actorName(lead.assigned_to, profiles) : "central pool";
+        const previousAssignee = lead.assigned_to ? actorName(lead.assigned_to, profiles) : "กองกลาง";
         activities.push({
           lead_id: lead.id,
           type: "assigned",
           content: form.assigned_to
-            ? `${currentActorName} assigned lead from ${previousAssignee} to ${nextAssignee}`
-            : `${currentActorName} returned lead from ${previousAssignee} to central pool`,
+            ? `${currentActorName} มอบหมายลีดจาก ${previousAssignee} ให้ ${nextAssignee}`
+            : `${currentActorName} คืนลีดจาก ${previousAssignee} กลับกองกลาง`,
           created_by: userId,
         });
       }
@@ -147,7 +165,7 @@ export function LeadDrawer({
       await supabase.from("lead_activities").insert(activities);
       await reload();
       setEditingInfo(false);
-      toast("Lead info saved");
+      toast("บันทึกข้อมูลลีดเรียบร้อย");
     } finally {
       setBusy(false);
     }
@@ -316,12 +334,14 @@ export function LeadDrawer({
               type="email"
               disabled={!editingInfo}
             />
-            <Field
-              label="Value"
-              value={form.value}
-              onChange={(value) => setForm({ ...form, value })}
-              type="number"
-              disabled={!editingInfo}
+            <Select
+              label="Pipeline"
+              value={form.pipeline_id}
+              onChange={(value) => setForm({ ...form, pipeline_id: value })}
+              options={pipelines.map((p) => ({ value: p.id, label: p.name }))}
+              allowEmpty
+              emptyLabel="ไม่มี pipeline"
+              disabled={!editingInfo || !canChangePipeline}
             />
             <Select
               label="Stage"

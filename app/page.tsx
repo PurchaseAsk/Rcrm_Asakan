@@ -764,6 +764,7 @@ export default function HomePage() {
           lead={selectedLead}
           detail={leadDetail}
           stages={pipelineStages}
+          pipelines={data.pipelines}
           profiles={data.profiles}
           tags={data.tags}
           userId={currentUserId}
