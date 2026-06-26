@@ -240,6 +240,7 @@ export function LeadsPanel({
         source: draft.source,
         pipeline_id: draft.pipeline_id,
         stage_id: firstStageOfPipeline?.id ?? null,
+        stage_entered_at: firstStageOfPipeline?.id ? new Date().toISOString() : null,
         assigned_to: draft.assigned_to || null,
         status: "active",
         last_activity_at: new Date().toISOString(),
@@ -333,6 +334,7 @@ export function LeadsPanel({
         source,
         pipeline_id: importPipelineId,
         stage_id: stage?.id ?? null,
+        stage_entered_at: stage?.id ? now : null,
         status: "active",
         last_activity_at: now,
       });

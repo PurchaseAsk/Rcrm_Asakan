@@ -1,4 +1,4 @@
-const CACHE_NAME = "leadflow-v1";
+const CACHE_NAME = "leadflow-v2";
 
 // Cache static Next.js assets cache-first
 const STATIC_RE = /^\/_next\/static\//;

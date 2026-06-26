@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
       email: email ?? null,
       pipeline_id: rule?.pipeline_id ?? null,
       stage_id: rule?.stage_id ?? null,
+      stage_entered_at: rule?.stage_id ? new Date().toISOString() : null,
       assigned_to: rule?.assigned_to ?? null,
       source: "website",
       metadata,
