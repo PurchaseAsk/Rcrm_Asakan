@@ -113,6 +113,7 @@ export default function HomePage() {
   const [managingPipelineId, setManagingPipelineId] = useState<string | null>(null);
   const [stageNoteRequest, setStageNoteRequest] = useState<StageNoteRequest | null>(null);
   const [voucherStage, setVoucherStage] = useState<import("@/types/crm").Stage | null>(null);
+  const [pendingVoucherLead, setPendingVoucherLead] = useState<import("@/types/crm").Lead | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatOpenLeadId, setChatOpenLeadId] = useState<string | null>(null);
@@ -597,6 +598,14 @@ export default function HomePage() {
               setAssigneeFilter={setAssigneeFilter}
               recallRules={data.recallRules}
               onMoveLead={async (leadId, stage) => {
+                if (stage.is_voucher_stage) {
+                  const lead = data.leads.find((l) => l.id === leadId);
+                  if (lead) {
+                    setPendingVoucherLead(lead);
+                    setVoucherStage(stage);
+                  }
+                  return;
+                }
                 const moved = await updateLeadStage(
                   leadId,
                   stage,
@@ -787,22 +796,26 @@ export default function HomePage() {
         />
       ) : null}
 
-      {voucherStage && selectedLead && (
-        <VoucherModal
-          lead={selectedLead}
-          stage={voucherStage}
-          pipeline={data.pipelines.find((p) => p.id === selectedLead.pipeline_id) ?? null}
-          salesProfile={data.profiles.find((p) => p.id === selectedLead.assigned_to) ?? null}
-          userId={currentUserId}
-          actorName={actorName(currentUserId, data.profiles)}
-          onSuccess={() => {
-            setVoucherStage(null);
-            void reloadSelectedLead();
-            showToast("ส่งขออนุมัติคูปองแล้ว");
-          }}
-          onClose={() => setVoucherStage(null)}
-        />
-      )}
+      {voucherStage && (pendingVoucherLead ?? selectedLead) && (() => {
+        const voucherLead = pendingVoucherLead ?? selectedLead!;
+        const closeVoucher = () => { setVoucherStage(null); setPendingVoucherLead(null); };
+        return (
+          <VoucherModal
+            lead={voucherLead}
+            stage={voucherStage}
+            pipeline={data.pipelines.find((p) => p.id === voucherLead.pipeline_id) ?? null}
+            salesProfile={data.profiles.find((p) => p.id === voucherLead.assigned_to) ?? null}
+            userId={currentUserId}
+            actorName={actorName(currentUserId, data.profiles)}
+            onSuccess={() => {
+              closeVoucher();
+              void reload();
+              showToast("ส่งขออนุมัติคูปองแล้ว");
+            }}
+            onClose={closeVoucher}
+          />
+        );
+      })()}
 
       {managingPipeline ? (
         <PipelineManagementModal
