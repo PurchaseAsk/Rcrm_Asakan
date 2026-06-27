@@ -133,8 +133,9 @@ export function VoucherModal({
               className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
               placeholder="08xxxxxxxx"
               inputMode="numeric"
+              maxLength={10}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
               disabled={busy}
             />
           </div>
