@@ -79,8 +79,8 @@ const topbarTabs = mainTabs.filter((item) => !["dashboard", "my-tags", "leads"].
 
 const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean; adminOnly?: boolean }[] = [
   { id: "customers", label: "ทะเบียนลูกค้า", icon: BookUser },
-  { id: "teams", label: "Teams", icon: Users },
-  { id: "pipelines", label: "Pipelines", icon: Boxes },
+  { id: "teams", label: "Teams", icon: Users, managerOnly: true },
+  { id: "pipelines", label: "Pipelines", icon: Boxes, managerOnly: true },
   { id: "stages", label: "Stages", icon: Workflow, managerOnly: true },
   { id: "rules", label: "Rules", icon: Settings, managerOnly: true },
   { id: "tags", label: "Global Tags", icon: Tags, managerOnly: true },

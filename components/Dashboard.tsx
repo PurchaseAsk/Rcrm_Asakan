@@ -503,7 +503,7 @@ function ConversionsView({
             <tr className="border-b border-slate-200 bg-slate-50">
               <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-48">ผู้ใช้</th>
               <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">ลีดใหม่</th>
-              {stages.map((s) => (
+              {stages.slice(1).map((s) => (
                 <th key={s.id} className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
                   {s.name}
                 </th>
@@ -518,7 +518,7 @@ function ConversionsView({
               <tr key={row.uid} className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
                 <td className="px-4 py-3 font-medium text-slate-800">{row.name}</td>
                 <td className="px-3 py-3 text-center font-bold tabular-nums text-brand-700">{row.total}</td>
-                {stages.map((s) => {
+                {stages.slice(1).map((s) => {
                   const v = row.stages.get(s.id) ?? 0;
                   return (
                     <td key={s.id} className="px-3 py-3 text-center tabular-nums">
@@ -535,7 +535,7 @@ function ConversionsView({
               <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
                 <td className="px-4 py-3 text-slate-700">รวม</td>
                 <td className="px-3 py-3 text-center tabular-nums text-brand-700">{filteredLeads.length}</td>
-                {stages.map((s) => {
+                {stages.slice(1).map((s) => {
                   const v = stageTotals[s.id] ?? 0;
                   return (
                     <td key={s.id} className="px-3 py-3 text-center tabular-nums text-slate-700">
@@ -549,7 +549,7 @@ function ConversionsView({
               </tr>
             )}
             {!matrix.length && (
-              <tr><td colSpan={stages.length + 3} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดในช่วงวันที่นี้</td></tr>
+              <tr><td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดในช่วงวันที่นี้</td></tr>
             )}
           </tbody>
         </table>
@@ -566,7 +566,7 @@ function ConversionsView({
             <tr className="border-b border-slate-200 bg-slate-50">
               <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-64">แหล่งที่มา</th>
               <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">ลีดใหม่</th>
-              {stages.map((s) => (
+              {stages.slice(1).map((s) => (
                 <th key={s.id} className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
                   {s.name}
                 </th>
@@ -581,7 +581,7 @@ function ConversionsView({
               <tr key={row.src} className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
                 <td className="px-4 py-3 font-medium text-slate-800">{row.src}</td>
                 <td className="px-3 py-3 text-center font-bold tabular-nums text-brand-700">{row.total}</td>
-                {stages.map((s) => {
+                {stages.slice(1).map((s) => {
                   const v = row.stages.get(s.id) ?? 0;
                   return (
                     <td key={s.id} className="px-3 py-3 text-center tabular-nums">
@@ -598,7 +598,7 @@ function ConversionsView({
               <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
                 <td className="px-4 py-3 text-slate-700">รวม</td>
                 <td className="px-3 py-3 text-center tabular-nums text-brand-700">{filteredLeads.length}</td>
-                {stages.map((s) => {
+                {stages.slice(1).map((s) => {
                   const v = sourceStageTotals[s.id] ?? 0;
                   return (
                     <td key={s.id} className="px-3 py-3 text-center tabular-nums text-slate-700">
@@ -612,7 +612,7 @@ function ConversionsView({
               </tr>
             )}
             {!sourceMatrix.length && (
-              <tr><td colSpan={stages.length + 3} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดในช่วงวันที่นี้</td></tr>
+              <tr><td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดในช่วงวันที่นี้</td></tr>
             )}
           </tbody>
         </table>
