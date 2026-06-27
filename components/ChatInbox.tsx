@@ -21,6 +21,9 @@ function isUnread(conv: Conversation): boolean {
   return new Date(conv.last_message_at) > new Date(conv.last_read_at);
 }
 
+type AppImagesCache = { folders: string[]; images: { name: string; url: string }[] };
+const appImagesCache = new Map<string, AppImagesCache>();
+
 export function ChatInbox({
   pages,
   profiles,
@@ -474,6 +477,14 @@ export function ChatInbox({
   }
 
   async function loadAppImages(project: "wela" | "elysium", folder?: string | null) {
+    const cacheKey = `${project}:${folder ?? ""}`;
+    const cached = appImagesCache.get(cacheKey);
+    if (cached) {
+      setAppFolders(cached.folders);
+      setAppImages(cached.images);
+      setSelectedImgUrls([]);
+      return;
+    }
     setLoadingAppImages(true);
     setAppImages([]);
     setAppFolders([]);
@@ -484,8 +495,10 @@ export function ChatInbox({
       const res = await fetch(`/api/project-images?${params.toString()}`);
       if (!res.ok) return;
       const json = (await res.json()) as { folders: string[]; images: { name: string; url: string }[] };
-      setAppFolders(json.folders ?? []);
-      setAppImages(json.images ?? []);
+      const result = { folders: json.folders ?? [], images: json.images ?? [] };
+      appImagesCache.set(cacheKey, result);
+      setAppFolders(result.folders);
+      setAppImages(result.images);
     } finally {
       setLoadingAppImages(false);
     }
@@ -1296,6 +1309,45 @@ export function ChatInbox({
                   ไม่มีรูปภาพ — อัปโหลดรูปไปยัง Storage bucket &apos;project-images/{appImagesProject}/&apos; ก่อน
                 </div>
               ) : (
+                <>
+                {appImages.length > 0 && (() => {
+                  const allSelected = appImages.every((img) => selectedImgUrls.includes(img.url));
+                  const someSelected = !allSelected && appImages.some((img) => selectedImgUrls.includes(img.url));
+                  return (
+                    <label className="mb-3 flex cursor-pointer items-center gap-2 text-sm text-slate-600 select-none">
+                      <span
+                        onClick={() => {
+                          if (allSelected) {
+                            setSelectedImgUrls((prev) => prev.filter((u) => !appImages.find((i) => i.url === u)));
+                          } else {
+                            const toAdd = appImages.map((i) => i.url).filter((u) => !selectedImgUrls.includes(u));
+                            setSelectedImgUrls((prev) => [...prev, ...toAdd].slice(0, 10));
+                          }
+                        }}
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                          allSelected ? "border-brand-600 bg-brand-600" : someSelected ? "border-brand-600 bg-brand-100" : "border-slate-300 bg-white"
+                        }`}
+                      >
+                        {allSelected && (
+                          <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                        {someSelected && <span className="h-1.5 w-1.5 rounded-sm bg-brand-600" />}
+                      </span>
+                      <span onClick={() => {
+                        if (allSelected) {
+                          setSelectedImgUrls((prev) => prev.filter((u) => !appImages.find((i) => i.url === u)));
+                        } else {
+                          const toAdd = appImages.map((i) => i.url).filter((u) => !selectedImgUrls.includes(u));
+                          setSelectedImgUrls((prev) => [...prev, ...toAdd].slice(0, 10));
+                        }
+                      }}>
+                        {allSelected ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"} ({appImages.length} รูป)
+                      </span>
+                    </label>
+                  );
+                })()}
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
                   {/* Folders */}
                   {appFolders.map((folder) => (
@@ -1345,6 +1397,7 @@ export function ChatInbox({
                     );
                   })}
                 </div>
+                </>
               )}
             </div>
             {/* Multi-select confirm bar */}
