@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, Plus, Trash2, RefreshCcw, Globe, Check } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Pipeline, Stage, Profile } from "@/types/crm";
+import type { Pipeline, Stage, Profile, Page } from "@/types/crm";
 
 const supabase = createBrowserSupabase();
 
@@ -13,14 +13,16 @@ type WebsiteLeadRule = {
   pipeline_id: string | null;
   stage_id: string | null;
   assigned_to: string | null;
+  facebook_page_id: string | null;
   is_active: boolean;
   created_at: string;
 };
 
-export function WebsiteSettingsTab({ pipelines, stages, profiles }: {
+export function WebsiteSettingsTab({ pipelines, stages, profiles, pages }: {
   pipelines: Pipeline[];
   stages: Stage[];
   profiles: Profile[];
+  pages: Page[];
 }) {
   const [secret, setSecret] = useState("");
   const [copied, setCopied] = useState(false);
@@ -32,6 +34,7 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles }: {
     pipeline_id: "",
     stage_id: "",
     assigned_to: "",
+    facebook_page_id: "",
   });
 
   const load = useCallback(async () => {
@@ -72,12 +75,13 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles }: {
         pipeline_id: newRule.pipeline_id || null,
         stage_id: newRule.stage_id || null,
         assigned_to: newRule.assigned_to || null,
+        facebook_page_id: newRule.facebook_page_id || null,
       })
       .select()
       .single();
     if (data) {
       setRules((prev) => [...prev, data as WebsiteLeadRule]);
-      setNewRule({ project_slug: "", pipeline_id: "", stage_id: "", assigned_to: "" });
+      setNewRule({ project_slug: "", pipeline_id: "", stage_id: "", assigned_to: "", facebook_page_id: "" });
     }
     setSaving(false);
   }
@@ -165,6 +169,7 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles }: {
                 <th className="px-4 py-2.5 text-left">Pipeline</th>
                 <th className="px-4 py-2.5 text-left">ขั้นตอนเริ่มต้น</th>
                 <th className="px-4 py-2.5 text-left">ผู้รับ</th>
+                <th className="px-4 py-2.5 text-left">เพจ (แจก)</th>
                 <th className="px-4 py-2.5 text-center">เปิด</th>
                 <th className="px-4 py-2.5" />
               </tr>
@@ -181,12 +186,20 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles }: {
                 const pipeline = pipelines.find((p) => p.id === r.pipeline_id);
                 const stage = stages.find((s) => s.id === r.stage_id);
                 const profile = profiles.find((p) => p.id === r.assigned_to);
+                const page = pages.find((p) => p.id === r.facebook_page_id);
                 return (
                   <tr key={r.id} className={r.is_active ? "" : "opacity-40"}>
                     <td className="px-4 py-3 font-mono text-xs">{r.project_slug}</td>
                     <td className="px-4 py-3 text-slate-700">{pipeline?.name ?? <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-3 text-slate-700">{stage?.name ?? <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-3 text-slate-700">{profile?.full_name ?? profile?.email ?? <span className="text-slate-300">—</span>}</td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {page ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+                          {page.name}
+                        </span>
+                      ) : <span className="text-slate-300">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => void toggleRule(r.id, r.is_active)}
@@ -251,6 +264,16 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles }: {
                     {profiles.map((p) => (
                       <option key={p.id} value={p.id}>{p.full_name ?? p.email}</option>
                     ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2">
+                  <select
+                    className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-brand-600"
+                    value={newRule.facebook_page_id}
+                    onChange={(e) => setNewRule((p) => ({ ...p, facebook_page_id: e.target.value }))}
+                  >
+                    <option value="">— ไม่ระบุ —</option>
+                    {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </td>
                 <td className="px-3 py-2" />

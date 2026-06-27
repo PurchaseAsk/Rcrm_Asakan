@@ -711,6 +711,7 @@ export default function HomePage() {
               pipelines={data.pipelines}
               stages={data.stages}
               profiles={data.profiles}
+              pages={data.pages}
             />
           )}
           {activeTab === "users" && profile?.role === "admin" && (

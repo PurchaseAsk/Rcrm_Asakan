@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   // Find matching active rule for this project_slug
   const { data: rule } = await supabase
     .from("website_lead_rules")
-    .select("pipeline_id, stage_id, assigned_to")
+    .select("pipeline_id, stage_id, assigned_to, facebook_page_id")
     .eq("project_slug", project_slug)
     .eq("is_active", true)
     .maybeSingle();
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       customer_name: name,
       phone: phone ?? null,
       email: email ?? null,
+      page_id: rule?.facebook_page_id ?? null,
       pipeline_id: rule?.pipeline_id ?? null,
       stage_id: rule?.stage_id ?? null,
       stage_entered_at: rule?.stage_id ? new Date().toISOString() : null,
@@ -97,6 +98,11 @@ export async function POST(request: NextRequest) {
     content: activityContent,
     created_by: null,
   });
+
+  // If a virtual facebook_page is mapped, run distribution so round-robin works
+  if (rule?.facebook_page_id) {
+    await supabase.rpc("distribute_lead", { p_lead_id: lead.id });
+  }
 
   return NextResponse.json({ ok: true, lead_id: lead.id });
 }
