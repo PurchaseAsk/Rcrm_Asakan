@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, RefreshCcw, CheckCircle, X } from "lucide-react";
+import { Bell, RefreshCcw, CheckCircle, X, Tag } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Reminder } from "@/types/crm";
 
@@ -12,9 +12,11 @@ type ReminderWithLead = Reminder & { leads?: { id: string; customer_name: string
 export function RemindersTab({
   userId,
   onOpenLead,
+  onNavigate,
 }: {
   userId: string;
   onOpenLead: (lead: Lead) => void;
+  onNavigate?: (tab: string) => void;
 }) {
   const [reminders, setReminders] = useState<ReminderWithLead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,13 +142,24 @@ export function RemindersTab({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-950">การแจ้งเตือน</h2>
-        <button
-          className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-          onClick={() => void load()}
-        >
-          <RefreshCcw size={14} />
-          รีเฟรช
-        </button>
+        <div className="flex items-center gap-2">
+          {onNavigate && (
+            <button
+              className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+              onClick={() => onNavigate("my-tags")}
+            >
+              <Tag size={14} />
+              แท็กของฉัน
+            </button>
+          )}
+          <button
+            className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+            onClick={() => void load()}
+          >
+            <RefreshCcw size={14} />
+            รีเฟรช
+          </button>
+        </div>
       </div>
 
       <section>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Bell } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Profile, Tag } from "@/types/crm";
 import { deleteRow } from "@/lib/helpers";
@@ -17,6 +18,7 @@ export function MyTagsPanel({
   reload,
   toast,
   onOpenLead,
+  onNavigate,
 }: {
   tags: Tag[];
   leads: Lead[];
@@ -25,6 +27,7 @@ export function MyTagsPanel({
   reload: () => Promise<void>;
   toast: (message: string) => void;
   onOpenLead: (lead: Lead) => void;
+  onNavigate?: (tab: string) => void;
 }) {
   const [form, setForm] = useState({ name: "", color: "#0ea5e9" });
   const [busy, setBusy] = useState(false);
@@ -97,6 +100,17 @@ export function MyTagsPanel({
 
   return (
     <div className="space-y-4">
+      {onNavigate && (
+        <div className="flex justify-end">
+          <button
+            className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+            onClick={() => onNavigate("reminders")}
+          >
+            <Bell size={14} />
+            การแจ้งเตือน
+          </button>
+        </div>
+      )}
       {/* Create personal tag */}
       <Panel title="แท็กของฉัน">
         <div className="mb-4 grid gap-2 md:grid-cols-[1fr_160px_120px]">

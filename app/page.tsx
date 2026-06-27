@@ -70,7 +70,7 @@ import { Panel } from "@/components/ui/Panel";
 
 const mainTabs: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "funnel", label: "Funnel", icon: Split },
+  { id: "funnel", label: "Lead", icon: Split },
   { id: "inbox", label: "Inbox", icon: Inbox },
   { id: "line", label: "Line", icon: MessageCircle },
   { id: "reminders", label: "Reminders", icon: BellRing },
@@ -672,6 +672,7 @@ export default function HomePage() {
               reload={reload}
               toast={showToast}
               onOpenLead={openLead}
+              onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)}
             />
           )}
           {activeTab === "pipelines" && (
@@ -704,7 +705,7 @@ export default function HomePage() {
             />
           )}
           {activeTab === "reminders" && (
-            <RemindersTab userId={currentUserId} onOpenLead={openLead} />
+            <RemindersTab userId={currentUserId} onOpenLead={openLead} onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)} />
           )}
           {activeTab === "website" && canManage && (
             <WebsiteSettingsTab
