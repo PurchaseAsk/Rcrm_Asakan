@@ -61,8 +61,13 @@ export function FunnelBoard({
       )}
       <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm md:overflow-x-auto md:scrollbar-thin">
         <div className="flex flex-col gap-3 md:grid md:min-w-[640px] md:auto-cols-fr md:grid-flow-col md:gap-1.5">
-          {stages.map((stage) => {
-            const stageLeads = leads.filter((lead) => lead.stage_id === stage.id);
+          {(() => {
+            const knownStageIds = new Set(stages.map((s) => s.id));
+            return stages.map((stage, stageIndex) => {
+            const stageLeads = leads.filter((lead) =>
+              lead.stage_id === stage.id ||
+              (stageIndex === 0 && (!lead.stage_id || !knownStageIds.has(lead.stage_id))),
+            );
             return (
               <div
                 key={stage.id}
@@ -108,7 +113,8 @@ export function FunnelBoard({
                 </div>
               </div>
             );
-          })}
+          });
+          })()}
         </div>
       </div>
     </section>
