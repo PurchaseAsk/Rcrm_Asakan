@@ -352,29 +352,65 @@ function ConversionsView({
     [leads, dateFrom, dateTo],
   );
 
+  // Historical stage entries: leadId → set of stageIds the lead has ever entered
+  const [stagesByLead, setStagesByLead] = useState<Map<string, Set<string>>>(new Map());
+
+  useEffect(() => {
+    const ids = filteredLeads.map((l) => l.id);
+    if (ids.length === 0) {
+      setStagesByLead(new Map());
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("lead_activities")
+      .select("lead_id, stage_id")
+      .eq("type", "stage_change")
+      .not("stage_id", "is", null)
+      .in("lead_id", ids)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const m = new Map<string, Set<string>>();
+        (data ?? []).forEach((row: { lead_id: string; stage_id: string }) => {
+          if (!m.has(row.lead_id)) m.set(row.lead_id, new Set());
+          m.get(row.lead_id)!.add(row.stage_id);
+        });
+        setStagesByLead(m);
+      });
+    return () => { cancelled = true; };
+  }, [filteredLeads]);
+
   const { days, series } = useMemo(() => {
     const dayList = buildDayRange(dateFrom, dateTo);
     const totalPerDay: Record<string, number> = {};
-    const stagePerDay: Record<string, Record<string, number>> = {};
     dayList.forEach((d) => { totalPerDay[d] = 0; });
     filteredLeads.forEach((lead) => {
       const day = isoDay(lead.created_at);
+      if (day in totalPerDay) totalPerDay[day]++;
+    });
+    const stageEntriesPerDay: Record<string, Record<string, Set<string>>> = {};
+    // Count distinct leads that entered each stage, bucketed by lead creation day
+    stagesByLead.forEach((stageSet, leadId) => {
+      const lead = filteredLeads.find((l) => l.id === leadId);
+      if (!lead) return;
+      const day = isoDay(lead.created_at);
       if (!(day in totalPerDay)) return;
-      totalPerDay[day]++;
-      const sid = lead.stage_id ?? "__none__";
-      stagePerDay[sid] ??= {};
-      stagePerDay[sid][day] = (stagePerDay[sid][day] ?? 0) + 1;
+      stageSet.forEach((sid) => {
+        stageEntriesPerDay[sid] ??= {};
+        stageEntriesPerDay[sid][day] ??= new Set();
+        stageEntriesPerDay[sid][day].add(leadId);
+      });
     });
     const s = [
       { name: "ลีดใหม่ (รวม)", color: CHART_COLORS[0], values: dayList.map((d) => totalPerDay[d]) },
       ...stages.slice(0, 7).map((st, i) => ({
         name: st.name,
         color: CHART_COLORS[i + 1] ?? "#94a3b8",
-        values: dayList.map((d) => stagePerDay[st.id]?.[d] ?? 0),
+        values: dayList.map((d) => stageEntriesPerDay[st.id]?.[d]?.size ?? 0),
       })),
     ];
     return { days: dayList, series: s };
-  }, [filteredLeads, dateFrom, dateTo, stages]);
+  }, [filteredLeads, dateFrom, dateTo, stages, stagesByLead]);
 
   const { matrix, stageTotals, totalUnfollowed } = useMemo(() => {
     const m = new Map<string, { total: number; stages: Map<string, number>; unfollowed: number }>();
@@ -383,8 +419,9 @@ function ConversionsView({
       if (!m.has(uid)) m.set(uid, { total: 0, stages: new Map(), unfollowed: 0 });
       const row = m.get(uid)!;
       row.total++;
-      const sid = lead.stage_id ?? "__none__";
-      row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1);
+      const hist = stagesByLead.get(lead.id);
+      const sids = hist && hist.size > 0 ? [...hist] : [lead.stage_id ?? "__none__"];
+      sids.forEach((sid) => row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1));
       if (lead.status === "unfollowed") row.unfollowed++;
     });
     const rows = [...m.entries()]
@@ -401,12 +438,13 @@ function ConversionsView({
       .sort((a, b) => b.total - a.total);
     const st: Record<string, number> = {};
     filteredLeads.forEach((l) => {
-      const sid = l.stage_id ?? "__none__";
-      st[sid] = (st[sid] ?? 0) + 1;
+      const hist = stagesByLead.get(l.id);
+      const sids = hist && hist.size > 0 ? [...hist] : [l.stage_id ?? "__none__"];
+      sids.forEach((sid) => { st[sid] = (st[sid] ?? 0) + 1; });
     });
     const uf = filteredLeads.filter((l) => l.status === "unfollowed").length;
     return { matrix: rows, stageTotals: st, totalUnfollowed: uf };
-  }, [filteredLeads, profileById]);
+  }, [filteredLeads, profileById, stagesByLead]);
 
   const { sourceMatrix, sourceStageTotals } = useMemo(() => {
     const m = new Map<string, { total: number; stages: Map<string, number>; unfollowed: number }>();
@@ -415,8 +453,9 @@ function ConversionsView({
       if (!m.has(key)) m.set(key, { total: 0, stages: new Map(), unfollowed: 0 });
       const row = m.get(key)!;
       row.total++;
-      const sid = lead.stage_id ?? "__none__";
-      row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1);
+      const hist = stagesByLead.get(lead.id);
+      const sids = hist && hist.size > 0 ? [...hist] : [lead.stage_id ?? "__none__"];
+      sids.forEach((sid) => row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1));
       if (lead.status === "unfollowed") row.unfollowed++;
     });
     const rows = [...m.entries()]
@@ -424,11 +463,12 @@ function ConversionsView({
       .sort((a, b) => b.total - a.total);
     const st: Record<string, number> = {};
     filteredLeads.forEach((l) => {
-      const sid = l.stage_id ?? "__none__";
-      st[sid] = (st[sid] ?? 0) + 1;
+      const hist = stagesByLead.get(l.id);
+      const sids = hist && hist.size > 0 ? [...hist] : [l.stage_id ?? "__none__"];
+      sids.forEach((sid) => { st[sid] = (st[sid] ?? 0) + 1; });
     });
     return { sourceMatrix: rows, sourceStageTotals: st };
-  }, [filteredLeads]);
+  }, [filteredLeads, stagesByLead]);
 
   return (
     <div className="space-y-4">

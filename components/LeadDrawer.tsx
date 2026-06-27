@@ -207,6 +207,7 @@ export function LeadDrawer({
 
       await supabase.from("lead_activities").insert({
         lead_id: lead.id,
+        stage_id: stage.id,
         type: "stage_change",
         content: `${currentActorName} moved lead to ${stage.name}: ${stageChangeNote}`,
         created_by: userId,

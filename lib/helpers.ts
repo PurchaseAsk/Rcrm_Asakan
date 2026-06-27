@@ -383,6 +383,7 @@ export async function updateLeadStage(
   }
   await supabase.from("lead_activities").insert({
     lead_id: leadId,
+    stage_id: stage.id,
     type: "stage_change",
     content: `${actorLabel} moved lead to ${stage.name}: ${note}`,
     created_by: userId,
