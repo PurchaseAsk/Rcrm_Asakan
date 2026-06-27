@@ -101,7 +101,7 @@ export function StagesPanel({
         {orderedStages.map((stage, index) => (
           <div
             key={stage.id}
-            className="grid gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-[40px_1fr_96px_112px_160px_132px]"
+            className="grid gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-[40px_1fr_96px_112px_110px_160px_132px]"
           >
             <div className="text-sm text-slate-500">#{index + 1}</div>
             <input
@@ -120,6 +120,13 @@ export function StagesPanel({
               onClick={() => updateStage(stage.id, { is_unfollow: !stage.is_unfollow }, reload, toast)}
             >
               {stage.is_unfollow ? "Unfollow" : "Active"}
+            </button>
+            <button
+              className={`rounded-lg border text-sm ${stage.is_voucher_stage ? "border-amber-300 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-400 hover:bg-slate-50"}`}
+              title="ส่งคูปองเมื่อเลื่อนถึง stage นี้"
+              onClick={() => updateStage(stage.id, { is_voucher_stage: !stage.is_voucher_stage }, reload, toast)}
+            >
+              {stage.is_voucher_stage ? "🎟️ Voucher" : "🎟️"}
             </button>
             <select
               className="h-10 rounded-lg border border-slate-200 px-2 text-xs text-slate-700"

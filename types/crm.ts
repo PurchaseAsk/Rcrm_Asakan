@@ -5,6 +5,7 @@ export type Profile = {
   email: string;
   full_name: string | null;
   role: Role;
+  sales_suffix: string | null;
 };
 
 export type Stage = {
@@ -13,6 +14,7 @@ export type Stage = {
   position: number;
   color: string;
   is_unfollow: boolean;
+  is_voucher_stage: boolean;
   pipeline_id: string | null;
   capi_event: string | null;
 };
@@ -26,6 +28,8 @@ export type Pipeline = {
   color: string;
   is_active: boolean;
   created_by: string | null;
+  gas_webhook_url: string | null;
+  gas_project_key: string | null;
   pipeline_teams?: { team_id: string; teams?: { name: string } | null }[];
   pipeline_users?: { user_id: string; profiles?: Profile | null }[];
 };

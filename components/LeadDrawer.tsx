@@ -34,6 +34,7 @@ export function LeadDrawer({
   userId,
   userRole,
   requestStageChangeNote,
+  onVoucherStage,
   onClose,
   reload,
   toast,
@@ -48,6 +49,7 @@ export function LeadDrawer({
   userId: string;
   userRole: "admin" | "team_lead" | "staff";
   requestStageChangeNote: (stageName: string) => Promise<string | null>;
+  onVoucherStage?: (stage: Stage) => void;
   onClose: () => void;
   reload: () => Promise<void>;
   toast: (message: string) => void;
@@ -185,6 +187,12 @@ export function LeadDrawer({
       }
       if (form.stage_id === (lead.stage_id || "")) {
         toast("Stage is unchanged");
+        return;
+      }
+
+      // Voucher stage: delegate to parent modal instead of normal note flow
+      if (stage.is_voucher_stage && onVoucherStage) {
+        onVoucherStage(stage);
         return;
       }
 

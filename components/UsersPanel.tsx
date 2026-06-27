@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import type { Role } from "@/types/crm";
 import { Copy, KeyRound, RefreshCw, UserPlus } from "lucide-react";
+import { createBrowserSupabase } from "@/lib/supabase";
+
+const supabase = createBrowserSupabase();
 
 type UserRow = {
   id: string;
@@ -11,6 +14,7 @@ type UserRow = {
   role: Role;
   is_active: boolean;
   created_at: string;
+  sales_suffix?: string | null;
 };
 
 type Draft = { email: string; full_name: string; role: Role };
@@ -52,13 +56,24 @@ export function UsersPanel({
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/users", { headers });
+      const [res, { data: profiles }] = await Promise.all([
+        fetch("/api/admin/users", { headers }),
+        supabase.from("profiles").select("id,sales_suffix"),
+      ]);
       if (!res.ok) return;
       const json = (await res.json()) as { users: UserRow[] };
-      setUsers(json.users ?? []);
+      const suffixMap = new Map((profiles ?? []).map((p: { id: string; sales_suffix: string | null }) => [p.id, p.sales_suffix]));
+      setUsers((json.users ?? []).map((u) => ({ ...u, sales_suffix: suffixMap.get(u.id) ?? null })));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function updateSalesSuffix(userId: string, suffix: string) {
+    const val = suffix.trim().toUpperCase() || null;
+    const { error } = await supabase.from("profiles").update({ sales_suffix: val }).eq("id", userId);
+    if (error) { onToast(error.message); return; }
+    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, sales_suffix: val } : u));
   }
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -178,6 +193,7 @@ export function UsersPanel({
               <tr className="border-b border-slate-100 bg-slate-50">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">ชื่อ / Email</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Role</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Sales Code</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">สถานะ</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">สร้างเมื่อ</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500">Actions</th>
@@ -196,6 +212,16 @@ export function UsersPanel({
                         <div className="text-xs text-slate-500">{user.email}</div>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      className="h-7 w-14 rounded border border-slate-200 px-2 text-center text-xs font-mono font-bold uppercase tracking-widest text-slate-700 outline-none focus:border-brand-600 disabled:opacity-40"
+                      maxLength={4}
+                      placeholder="—"
+                      defaultValue={user.sales_suffix ?? ""}
+                      disabled={!user.is_active}
+                      onBlur={(e) => void updateSalesSuffix(user.id, e.target.value)}
+                    />
                   </td>
                   <td className="px-4 py-3">
                     {user.id === currentUserId ? (

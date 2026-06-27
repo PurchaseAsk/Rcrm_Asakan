@@ -6,6 +6,9 @@ import { addPipelineTeam, addPipelineUser, removePipelineTeam, removePipelineUse
 import { pillClass } from "@/lib/helpers";
 import { RecallPanel } from "@/components/RecallPanel";
 import { StagesPanel } from "@/components/StagesPanel";
+import { createBrowserSupabase } from "@/lib/supabase";
+
+const supabase = createBrowserSupabase();
 
 export function PipelineManagementModal({
   pipeline,
@@ -30,9 +33,27 @@ export function PipelineManagementModal({
   toast: (message: string) => void;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"stages" | "recall" | "members">("stages");
+  const [tab, setTab] = useState<"stages" | "recall" | "members" | "settings">("stages");
   const [addTeamId, setAddTeamId] = useState("");
   const [addUserId, setAddUserId] = useState("");
+  const [gasUrl, setGasUrl] = useState(pipeline.gas_webhook_url ?? "");
+  const [gasKey, setGasKey] = useState(pipeline.gas_project_key ?? "");
+  const [savingGas, setSavingGas] = useState(false);
+
+  async function saveGasConfig() {
+    setSavingGas(true);
+    try {
+      const { error } = await supabase
+        .from("pipelines")
+        .update({ gas_webhook_url: gasUrl.trim() || null, gas_project_key: gasKey.trim() || null })
+        .eq("id", pipeline.id);
+      if (error) { toast(error.message); return; }
+      await reload();
+      toast("บันทึก GAS config แล้ว");
+    } finally {
+      setSavingGas(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/35 p-4">
@@ -47,7 +68,7 @@ export function PipelineManagementModal({
           </button>
         </div>
         <div className="flex gap-2 border-b border-slate-200 p-3">
-          {(["stages", "recall", "members"] as const).map((item) => (
+          {(["stages", "recall", "members", "settings"] as const).map((item) => (
             <button key={item} className={pillClass(tab === item)} onClick={() => setTab(item)}>
               {item}
             </button>
@@ -159,6 +180,44 @@ export function PipelineManagementModal({
                   ))}
                 </div>
               </section>
+            </div>
+          ) : null}
+          {tab === "settings" ? (
+            <div className="max-w-lg space-y-4">
+              <div>
+                <h3 className="mb-1 font-semibold text-slate-800">GAS Webhook (Voucher)</h3>
+                <p className="mb-3 text-xs text-slate-500">
+                  ตั้งค่า Google Apps Script Web App URL และ Project Key สำหรับออกคูปองเมื่อเลื่อน stage 🎟️
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">GAS Webhook URL</label>
+                    <input
+                      className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                      placeholder="https://script.google.com/macros/s/.../exec"
+                      value={gasUrl}
+                      onChange={(e) => setGasUrl(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">Project Key</label>
+                    <input
+                      className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm uppercase outline-none focus:border-brand-600"
+                      placeholder="เช่น WELA หรือ RED_DRAGON"
+                      value={gasKey}
+                      onChange={(e) => setGasKey(e.target.value.toUpperCase())}
+                    />
+                    <p className="mt-1 text-xs text-slate-400">ต้องตรงกับ key ใน CONFIGS ของ GAS script</p>
+                  </div>
+                  <button
+                    onClick={() => void saveGasConfig()}
+                    disabled={savingGas}
+                    className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {savingGas ? "กำลังบันทึก…" : "บันทึก"}
+                  </button>
+                </div>
+              </div>
             </div>
           ) : null}
         </div>

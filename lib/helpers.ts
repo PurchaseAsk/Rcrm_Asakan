@@ -451,7 +451,7 @@ export async function loadCrmData(
       .order("created_at"),
     client.from("facebook_pages").select("id,page_id,name,is_active").order("created_at", { ascending: false }),
     client.from("teams").select("*, team_members(user_id,is_lead,profiles(id,email,full_name,role))").order("created_at"),
-    client.from("profiles").select("id,email,full_name,role"),
+    client.from("profiles").select("id,email,full_name,role,sales_suffix"),
     client
       .from("distribution_rules")
       .select("*, teams(name), facebook_pages(name), pipelines(name,color)")

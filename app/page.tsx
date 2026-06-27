@@ -12,6 +12,8 @@ import {
   BellRing,
   BookUser,
   Boxes,
+  Eye,
+  EyeOff,
   Globe,
   Inbox,
   KeyRound,
@@ -62,6 +64,7 @@ import { StagesPanel } from "@/components/StagesPanel";
 import { MyTagsPanel } from "@/components/MyTagsPanel";
 import { TagsPanel } from "@/components/TagsPanel";
 import { TeamsPanel } from "@/components/TeamsPanel";
+import { VoucherModal } from "@/components/VoucherModal";
 import { FullScreenState } from "@/components/ui/FullScreenState";
 import { Panel } from "@/components/ui/Panel";
 
@@ -109,6 +112,7 @@ export default function HomePage() {
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [managingPipelineId, setManagingPipelineId] = useState<string | null>(null);
   const [stageNoteRequest, setStageNoteRequest] = useState<StageNoteRequest | null>(null);
+  const [voucherStage, setVoucherStage] = useState<import("@/types/crm").Stage | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatOpenLeadId, setChatOpenLeadId] = useState<string | null>(null);
@@ -116,6 +120,7 @@ export default function HomePage() {
   const [lineUnreadCount, setLineUnreadCount] = useState(0);
   const [showChangePw, setShowChangePw] = useState(false);
   const [changePwDraft, setChangePwDraft] = useState({ current: "", pw: "", confirm: "" });
+  const [visiblePwFields, setVisiblePwFields] = useState({ current: false, pw: false, confirm: false });
   const [changePwBusy, setChangePwBusy] = useState(false);
 
   // Ref so Realtime and reminder callbacks always read the latest leadId
@@ -770,6 +775,7 @@ export default function HomePage() {
           userId={currentUserId}
           userRole={profile?.role ?? "staff"}
           requestStageChangeNote={requestStageChangeNote}
+          onVoucherStage={(stage) => setVoucherStage(stage)}
           onClose={() => setSelectedLeadId(null)}
           reload={reloadSelectedLead}
           toast={showToast}
@@ -780,6 +786,23 @@ export default function HomePage() {
           }}
         />
       ) : null}
+
+      {voucherStage && selectedLead && (
+        <VoucherModal
+          lead={selectedLead}
+          stage={voucherStage}
+          pipeline={data.pipelines.find((p) => p.id === selectedLead.pipeline_id) ?? null}
+          salesProfile={data.profiles.find((p) => p.id === selectedLead.assigned_to) ?? null}
+          userId={currentUserId}
+          actorName={actorName(currentUserId, data.profiles)}
+          onSuccess={() => {
+            setVoucherStage(null);
+            void reloadSelectedLead();
+            showToast("ส่งขออนุมัติคูปองแล้ว");
+          }}
+          onClose={() => setVoucherStage(null)}
+        />
+      )}
 
       {managingPipeline ? (
         <PipelineManagementModal
@@ -859,6 +882,7 @@ export default function HomePage() {
                 onClick={() => {
                   setShowChangePw(true);
                   setChangePwDraft({ current: "", pw: "", confirm: "" });
+                  setVisiblePwFields({ current: false, pw: false, confirm: false });
                   setSidebarOpen(false);
                 }}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
@@ -908,34 +932,64 @@ export default function HomePage() {
             <div className="space-y-3 px-5 py-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">รหัสผ่านปัจจุบัน *</label>
-                <input
-                  type="password"
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
-                  value={changePwDraft.current}
-                  onChange={(e) => setChangePwDraft({ ...changePwDraft, current: e.target.value })}
-                  placeholder="รหัสผ่านที่ใช้อยู่ตอนนี้"
-                  autoFocus
-                />
+                <div className="relative">
+                  <input
+                    type={visiblePwFields.current ? "text" : "password"}
+                    className="h-10 w-full rounded-lg border border-slate-200 px-3 pr-10 text-sm outline-none focus:border-brand-600"
+                    value={changePwDraft.current}
+                    onChange={(e) => setChangePwDraft({ ...changePwDraft, current: e.target.value })}
+                    placeholder="รหัสผ่านที่ใช้อยู่ตอนนี้"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVisiblePwFields((prev) => ({ ...prev, current: !prev.current }))}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-400 hover:text-slate-700"
+                    aria-label={visiblePwFields.current ? "Hide current password" : "Show current password"}
+                  >
+                    {visiblePwFields.current ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">รหัสผ่านใหม่ *</label>
-                <input
-                  type="password"
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
-                  value={changePwDraft.pw}
-                  onChange={(e) => setChangePwDraft({ ...changePwDraft, pw: e.target.value })}
-                  placeholder="อย่างน้อย 6 ตัวอักษร"
-                />
+                <div className="relative">
+                  <input
+                    type={visiblePwFields.pw ? "text" : "password"}
+                    className="h-10 w-full rounded-lg border border-slate-200 px-3 pr-10 text-sm outline-none focus:border-brand-600"
+                    value={changePwDraft.pw}
+                    onChange={(e) => setChangePwDraft({ ...changePwDraft, pw: e.target.value })}
+                    placeholder="อย่างน้อย 6 ตัวอักษร"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVisiblePwFields((prev) => ({ ...prev, pw: !prev.pw }))}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-400 hover:text-slate-700"
+                    aria-label={visiblePwFields.pw ? "Hide new password" : "Show new password"}
+                  >
+                    {visiblePwFields.pw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">ยืนยันรหัสผ่านใหม่ *</label>
-                <input
-                  type="password"
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
-                  value={changePwDraft.confirm}
-                  onChange={(e) => setChangePwDraft({ ...changePwDraft, confirm: e.target.value })}
-                  placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
-                />
+                <div className="relative">
+                  <input
+                    type={visiblePwFields.confirm ? "text" : "password"}
+                    className="h-10 w-full rounded-lg border border-slate-200 px-3 pr-10 text-sm outline-none focus:border-brand-600"
+                    value={changePwDraft.confirm}
+                    onChange={(e) => setChangePwDraft({ ...changePwDraft, confirm: e.target.value })}
+                    placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVisiblePwFields((prev) => ({ ...prev, confirm: !prev.confirm }))}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-400 hover:text-slate-700"
+                    aria-label={visiblePwFields.confirm ? "Hide confirm password" : "Show confirm password"}
+                  >
+                    {visiblePwFields.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
               {changePwDraft.confirm && changePwDraft.pw !== changePwDraft.confirm && (
                 <p className="text-xs text-red-600">รหัสผ่านใหม่ไม่ตรงกัน</p>
