@@ -8,6 +8,10 @@ out/
 # Environment files — set these in Vercel dashboard instead
 .env.local
 .env.*.local
+.env.info
+
+# Local Supabase state
+supabase/.temp/
 
 # Logs
 *.log
