@@ -72,16 +72,21 @@ export async function POST(request: NextRequest) {
 
   // Duplicate phone — find existing lead and log activity instead
   if (error?.code === "23505" && phone) {
-    const { data: dups } = await supabase
-      .rpc("find_lead_by_phone", { p_phone: phone }) as { data: { id: string }[] | null };
+    const { data: dups } = await supabase.rpc("find_lead_by_phone", {
+      p_phone: phone,
+      p_pipeline_id: rule?.pipeline_id ?? null,
+    }) as { data: { id: string }[] | null };
     const existingId = dups?.[0]?.id;
     if (existingId) {
-      await supabase.from("lead_activities").insert({
-        lead_id: existingId,
-        type: "note",
-        content: activityContent,
-        created_by: null,
-      });
+      await Promise.all([
+        supabase.from("leads").update({ last_activity_at: new Date().toISOString() }).eq("id", existingId),
+        supabase.from("lead_activities").insert({
+          lead_id: existingId,
+          type: "note",
+          content: activityContent,
+          created_by: null,
+        }),
+      ]);
       return NextResponse.json({ ok: true, lead_id: existingId, duplicate: true });
     }
     return NextResponse.json({ ok: true, duplicate: true });

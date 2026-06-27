@@ -233,9 +233,10 @@ export function LeadsPanel({
       if (draft.phone.trim()) {
         const { data: dups } = (await supabase.rpc("find_lead_by_phone", {
           p_phone: draft.phone.trim(),
+          p_pipeline_id: draft.pipeline_id || null,
         })) as { data: { id: string; customer_name: string }[] | null };
         if (dups?.[0]) {
-          setError(`มีลีดอยู่แล้ว: ${dups[0].customer_name} (เบอร์ซ้ำ)`);
+          setError(`เบอร์นี้มีลีดอยู่แล้วใน pipeline นี้: ${dups[0].customer_name}`);
           return;
         }
       }
@@ -328,7 +329,10 @@ export function LeadsPanel({
       const source = knownSources.includes(rawSource) ? rawSource : "other";
 
       if (phone) {
-        const { data: dups } = (await supabase.rpc("find_lead_by_phone", { p_phone: phone })) as {
+        const { data: dups } = (await supabase.rpc("find_lead_by_phone", {
+          p_phone: phone,
+          p_pipeline_id: importPipelineId || null,
+        })) as {
           data: { id: string }[] | null;
         };
         if (dups?.[0]) { skip++; continue; }

@@ -568,9 +568,10 @@ export function ChatInbox({
       if (leadDraft.phone.trim()) {
         const { data: dups } = await supabase.rpc("find_lead_by_phone", {
           p_phone: leadDraft.phone.trim(),
+          p_pipeline_id: leadDraft.pipeline_id || null,
         }) as { data: { id: string; customer_name: string }[] | null };
         if (dups?.[0]) {
-          toast(`มีลีดอยู่แล้ว: ${dups[0].customer_name} (เบอร์ซ้ำ)`);
+          toast(`มีลีดอยู่แล้วใน pipeline นี้: ${dups[0].customer_name} (เบอร์ซ้ำ)`);
           return;
         }
       }

@@ -272,7 +272,49 @@ async function handleLeadgen(
 
   const activitySuffix = campaignName ? ` · แคมเปญ: ${campaignName}` : "";
 
-  // Insert-first: facebook_lead_id UNIQUE index prevents duplicates at DB level
+  // Look up target pipeline from distribution rule before insert so phone dedupe
+  // is scoped to the same project/pipeline that distribution will use.
+  const { data: distRule } = await supabase
+    .from("distribution_rules")
+    .select("pipeline_id")
+    .eq("page_id", pageId)
+    .eq("is_active", true)
+    .order("priority", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const targetPipelineId: string | null = distRule?.pipeline_id ?? null;
+
+  if (rawPhone) {
+    const { data: dups } = await supabase.rpc("find_lead_by_phone", {
+      p_phone: rawPhone,
+      p_pipeline_id: targetPipelineId,
+    }) as {
+      data: { id: string; customer_name: string }[] | null;
+    };
+    const existing = dups?.[0];
+    if (existing) {
+      await supabase
+        .from("leads")
+        .update({
+          ...(email ? { email } : {}),
+          ...(Object.keys(metadata).length ? { metadata } : {}),
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id);
+
+      await supabase.from("lead_activities").insert({
+        lead_id: existing.id,
+        type: "note",
+        content: `Facebook Lead Form received — merged with existing lead (same phone)${activitySuffix}`,
+        created_by: null,
+      });
+      return;
+    }
+  }
+
+  // Insert after phone dedupe; facebook_lead_id UNIQUE still handles retries
+  // where no phone is available or the target pipeline changed.
   const { data: lead } = await supabase
     .from("leads")
     .insert({
@@ -280,6 +322,7 @@ async function handleLeadgen(
       phone: rawPhone ?? null,
       email: email ?? null,
       page_id: pageId,
+      pipeline_id: targetPipelineId,
       source: "facebook",
       status: "active",
       facebook_lead_id: leadgen_id,
@@ -321,6 +364,7 @@ async function handleLeadgen(
           phone: rawPhone ?? null,
           email: email ?? null,
           page_id: pageId,
+          pipeline_id: targetPipelineId,
           source: "facebook",
           status: "active",
           metadata: Object.keys(metadata).length ? metadata : null,
@@ -355,7 +399,10 @@ async function handleLeadgen(
 
   // Not duplicate — find existing lead by phone and merge
   if (!rawPhone) return;
-  const { data: dups } = await supabase.rpc("find_lead_by_phone", { p_phone: rawPhone }) as {
+  const { data: dups } = await supabase.rpc("find_lead_by_phone", {
+    p_phone: rawPhone,
+    p_pipeline_id: targetPipelineId,
+  }) as {
     data: { id: string; customer_name: string }[] | null;
   };
   const existing = dups?.[0];
