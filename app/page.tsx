@@ -238,7 +238,7 @@ export default function HomePage() {
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [session?.user]); // selectedLeadId removed — use ref to avoid channel teardown on every lead open
+  }, [session?.user?.id]); // use .id (string) not object ref — prevents re-bootstrap on token refresh (e.g. wake from sleep)
 
   useEffect(() => {
     if (!currentUserId) return;
