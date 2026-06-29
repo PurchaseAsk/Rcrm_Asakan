@@ -1110,12 +1110,35 @@ export function ChatInbox({
                       >
                         {repliedMessage && (
                           <div
-                            className={`mb-2 border-l-2 py-1 pl-2 text-xs ${
-                              msg.direction === "outbound" ? "border-blue-200 text-blue-100" : "border-slate-300 text-slate-500"
+                            className={`mb-2 flex items-stretch gap-2 overflow-hidden rounded-xl px-2.5 py-2 text-xs ${
+                              msg.direction === "outbound"
+                                ? "bg-black/20"
+                                : "bg-white ring-1 ring-slate-200"
                             }`}
                           >
-                            <div className="font-medium">ตอบกลับ</div>
-                            <div className="line-clamp-2 max-w-[220px]">{messagePreview(repliedMessage)}</div>
+                            <div
+                              className={`w-0.5 shrink-0 rounded-full ${
+                                msg.direction === "outbound" ? "bg-blue-200" : "bg-brand-500"
+                              }`}
+                            />
+                            <div className="min-w-0">
+                              <div
+                                className={`mb-0.5 text-[10px] font-semibold ${
+                                  msg.direction === "outbound" ? "text-blue-100" : "text-brand-600"
+                                }`}
+                              >
+                                {repliedMessage.direction === "inbound"
+                                  ? (selectedConv?.sender_name || "ลูกค้า")
+                                  : "คุณ"}
+                              </div>
+                              <div
+                                className={`line-clamp-2 leading-relaxed ${
+                                  msg.direction === "outbound" ? "text-white/75" : "text-slate-500"
+                                }`}
+                              >
+                                {repliedMessage.attachment_type === "image" ? "📷 รูปภาพ" : messagePreview(repliedMessage)}
+                              </div>
+                            </div>
                           </div>
                         )}
                         {msg.attachment_type === "image" && msg.attachment_url ? (
@@ -1161,15 +1184,20 @@ export function ChatInbox({
 
               <div className="shrink-0 border-t border-slate-200">
                 {replyTarget && (
-                  <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-2 text-sm">
-                    <div className="min-w-0">
-                      <div className="text-xs font-medium text-slate-600">↩ กำลังตอบกลับข้อความลูกค้า</div>
-                      <div className="mt-0.5 truncate text-xs text-slate-500">{messagePreview(replyTarget)}</div>
+                  <div className="flex items-center gap-3 border-b border-slate-100 bg-brand-50 px-4 py-2">
+                    <div className="h-8 w-0.5 shrink-0 rounded-full bg-brand-500" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-semibold text-brand-600">
+                        ตอบกลับ {replyTarget.direction === "inbound" ? (selectedConv?.sender_name || "ลูกค้า") : "คุณ"}
+                      </div>
+                      <div className="truncate text-xs text-slate-500">
+                        {replyTarget.attachment_type === "image" ? "📷 รูปภาพ" : messagePreview(replyTarget)}
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setReplyTarget(null)}
-                      className="text-lg leading-none text-slate-400 hover:text-slate-700"
+                      className="shrink-0 text-lg leading-none text-slate-400 hover:text-slate-700"
                     >
                       ×
                     </button>
