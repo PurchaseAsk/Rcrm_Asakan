@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         message ? `💬 ${message}` : null,
         `📂 ${project_slug}`,
       ].filter(Boolean);
-      void sendTelegram(dupParts.join("\n"));
+      await sendTelegram(dupParts.join("\n"));
       return NextResponse.json({ ok: true, lead_id: existingId, duplicate: true });
     }
     return NextResponse.json({ ok: true, duplicate: true });
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     appointment_date ? `📅 นัด: ${appointment_date}` : null,
     `📂 ${project_slug}`,
   ].filter(Boolean);
-  void sendTelegram(parts.join("\n"));
+  await sendTelegram(parts.join("\n"));
 
   return NextResponse.json({ ok: true, lead_id: lead.id });
 }
