@@ -88,6 +88,15 @@ export async function POST(request: NextRequest) {
           created_by: null,
         }),
       ]);
+      const dupParts = [
+        `🌐 <b>ลีดซ้ำ (เว็บไซต์)</b>`,
+        `👤 ${name}`,
+        phone ? `📞 ${phone}` : null,
+        email ? `📧 ${email}` : null,
+        message ? `💬 ${message}` : null,
+        `📂 ${project_slug}`,
+      ].filter(Boolean);
+      void sendTelegram(dupParts.join("\n"));
       return NextResponse.json({ ok: true, lead_id: existingId, duplicate: true });
     }
     return NextResponse.json({ ok: true, duplicate: true });
