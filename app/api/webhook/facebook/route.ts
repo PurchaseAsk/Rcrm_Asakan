@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { sendTelegram } from "@/lib/telegram";
 
 function adminSupabase() {
   return createClient(
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     const { data: page } = await supabase
       .from("facebook_pages")
-      .select("id, token")
+      .select("id, name, token")
       .eq("page_id", fbPageId)
       .single();
 
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
       if (change.field === "leadgen") {
         console.log("[webhook] leadgen event received", { fbPageId, leadgen_id: (change.value as LeadgenWebhookValue).leadgen_id, hasToken: !!leadgenToken });
         if (leadgenToken) {
-          await handleLeadgen(supabase, page.id, change.value as LeadgenWebhookValue, leadgenToken);
+          await handleLeadgen(supabase, page.id, page.name ?? "", change.value as LeadgenWebhookValue, leadgenToken);
         } else {
           console.error("[webhook] leadgen skipped — no token for page", fbPageId);
         }
@@ -226,10 +227,17 @@ export async function POST(request: NextRequest) {
       const { data: conv } = await supabase
         .from("conversations")
         .upsert(convPayload, { onConflict: "page_id,sender_psid" })
-        .select("id, sender_name")
+        .select("id, sender_name, created_at")
         .single();
 
       if (!conv) continue;
+
+      const isNewConversation = !isEcho && Date.now() - new Date(conv.created_at).getTime() < 15_000;
+      if (isNewConversation) {
+        const senderLabel = conv.sender_name || senderPsid;
+        const msgPreview = text ? (text.length > 120 ? text.slice(0, 120) + "…" : text) : "[รูปภาพ]";
+        void sendTelegram(`💬 <b>แชทใหม่</b>\n👤 ${senderLabel}\n📄 ${page.name ?? ""}\n💬 ${msgPreview}`);
+      }
 
       await supabase.from("messages").upsert(
         {
@@ -255,6 +263,7 @@ export async function POST(request: NextRequest) {
 async function handleLeadgen(
   supabase: SupabaseClient,
   pageId: string,
+  pageName: string,
   webhookValue: LeadgenWebhookValue,
   pageToken: string,
 ) {
@@ -371,6 +380,15 @@ async function handleLeadgen(
       created_by: null,
     });
     await supabase.rpc("distribute_lead", { p_lead_id: lead.id });
+    const parts = [
+      `🧲 <b>ลีดใหม่ (Lead Form)</b>`,
+      `👤 ${name ?? "ไม่ระบุชื่อ"}`,
+      rawPhone ? `📞 ${rawPhone}` : null,
+      email ? `📧 ${email}` : null,
+      campaignName ? `📢 ${campaignName}` : null,
+      pageName ? `📄 ${pageName}` : null,
+    ].filter(Boolean);
+    void sendTelegram(parts.join("\n"));
     return;
   }
 

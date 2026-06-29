@@ -691,6 +691,17 @@ export function ChatInbox({
       if (!leadDraft.assigned_to) {
         await supabase.rpc("distribute_lead", { p_lead_id: lead.id });
       }
+      void fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "lead",
+          name: leadDraft.customer_name.trim(),
+          phone: leadDraft.phone.trim() || undefined,
+          page_name: conv.facebook_pages?.name,
+          pipeline_name: pipelines.find((p) => p.id === leadDraft.pipeline_id)?.name,
+        }),
+      });
 
       setLeadModal(null);
       await refreshConversations();
