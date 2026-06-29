@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { sendTelegram } from "@/lib/telegram";
 
 interface WebsiteLeadPayload {
   secret: string;
@@ -108,6 +109,17 @@ export async function POST(request: NextRequest) {
   if (rule?.facebook_page_id) {
     await supabase.rpc("distribute_lead", { p_lead_id: lead.id });
   }
+
+  const parts = [
+    `🌐 <b>ลีดใหม่ (เว็บไซต์)</b>`,
+    `👤 ${name}`,
+    phone ? `📞 ${phone}` : null,
+    email ? `📧 ${email}` : null,
+    message ? `💬 ${message}` : null,
+    appointment_date ? `📅 นัด: ${appointment_date}` : null,
+    `📂 ${project_slug}`,
+  ].filter(Boolean);
+  void sendTelegram(parts.join("\n"));
 
   return NextResponse.json({ ok: true, lead_id: lead.id });
 }
