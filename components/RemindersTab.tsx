@@ -22,7 +22,6 @@ export function RemindersTab({
   onNavigate?: (tab: string) => void;
 }) {
   const canManageTeamReminders = userRole === "admin" || userRole === "team_lead";
-  const [activeTab, setActiveTab] = useState<"team" | "mine">("team");
   const [reminders, setReminders] = useState<ReminderWithLead[]>([]);
   const [teamReminders, setTeamReminders] = useState<TeamReminderWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,22 +238,6 @@ export function RemindersTab({
         </div>
       </div>
 
-      <div className="flex border-b border-slate-200">
-        <button
-          className={`border-b-2 px-4 py-2 text-sm font-medium ${activeTab === "team" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
-          onClick={() => setActiveTab("team")}
-        >
-          Team reminders
-        </button>
-        <button
-          className={`border-b-2 px-4 py-2 text-sm font-medium ${activeTab === "mine" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
-          onClick={() => setActiveTab("mine")}
-        >
-          My reminders
-        </button>
-      </div>
-
-      {activeTab === "team" && (
         <section className="space-y-4">
           {canManageTeamReminders && (
             <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -295,10 +278,7 @@ export function RemindersTab({
             </div>
           )}
         </section>
-      )}
 
-      {activeTab === "mine" && (
-      <>
       <section>
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
           วันนี้ ({today.length})
@@ -330,8 +310,6 @@ export function RemindersTab({
           </div>
         )}
       </section>
-      </>
-      )}
     </div>
   );
 }
