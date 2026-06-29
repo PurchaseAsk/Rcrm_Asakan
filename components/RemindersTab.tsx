@@ -186,20 +186,22 @@ export function RemindersTab({
   function TeamReminderCard({ item }: { item: TeamReminderWithProfile }) {
     const author = item.profiles?.full_name || item.profiles?.email || "Manager";
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <div className="flex items-start gap-3">
-          <Megaphone size={17} className="mt-0.5 shrink-0 text-brand-600" />
+      <div className="min-h-[112px] rounded-lg border border-amber-200 bg-amber-50/70 p-3 shadow-sm">
+        <div className="flex items-start gap-2.5">
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+            <Megaphone size={15} />
+          </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="truncate text-sm font-semibold text-slate-950">{item.title}</h3>
-                <p className="mt-0.5 text-xs text-slate-500">
+                <h3 className="line-clamp-1 text-sm font-semibold text-slate-950">{item.title}</h3>
+                <p className="mt-0.5 truncate text-[11px] text-amber-700/80">
                   {author} · {new Date(item.created_at).toLocaleString("th-TH")}
                 </p>
               </div>
               {canManageTeamReminders && (
                 <button
-                  className="shrink-0 rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  className="shrink-0 rounded p-1 text-amber-500 hover:bg-red-50 hover:text-red-600"
                   title="Delete"
                   onClick={() => void deleteTeamReminder(item.id)}
                 >
@@ -207,7 +209,7 @@ export function RemindersTab({
                 </button>
               )}
             </div>
-            {item.body && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{item.body}</p>}
+            {item.body && <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-xs leading-5 text-slate-700">{item.body}</p>}
           </div>
         </div>
       </div>
@@ -273,7 +275,7 @@ export function RemindersTab({
               ยังไม่มีประกาศทีม
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5">
               {teamReminders.map((item) => <TeamReminderCard key={item.id} item={item} />)}
             </div>
           )}
