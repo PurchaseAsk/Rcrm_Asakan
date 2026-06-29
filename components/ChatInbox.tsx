@@ -8,6 +8,26 @@ import html2canvas from "html2canvas";
 const supabase = createBrowserSupabase();
 const CONVERSATION_PAGE_SIZE = 30;
 
+function playPing() {
+  try {
+    const ctx = new AudioContext();
+    const gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    [0, 0.12].forEach((delay, i) => {
+      const osc = ctx.createOscillator();
+      osc.connect(gain);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(i === 0 ? 880 : 1100, ctx.currentTime + delay);
+      osc.frequency.exponentialRampToValueAtTime(i === 0 ? 660 : 880, ctx.currentTime + delay + 0.18);
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + delay + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.22);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.22);
+    });
+  } catch { /* browser blocked autoplay — ignore */ }
+}
+
 const AVATAR_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f59e0b"];
 function avatarColor(name: string): string {
   let hash = 0;
@@ -134,8 +154,12 @@ export function ChatInbox({
     const channel = supabase
       .channel("chat-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
-        const convId = (payload.new as { conversation_id: string }).conversation_id;
+        const newMsg = payload.new as { conversation_id: string; direction: string };
+        const convId = newMsg.conversation_id;
         const id = selectedConvIdRef.current;
+        if (newMsg.direction === "inbound") {
+          playPing();
+        }
         if (id && convId === id) {
           await refreshMessages(id);
           const now = new Date().toISOString();
