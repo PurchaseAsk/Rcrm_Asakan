@@ -388,7 +388,7 @@ async function handleLeadgen(
       campaignName ? `📢 ${campaignName}` : null,
       pageName ? `📄 ${pageName}` : null,
     ].filter(Boolean);
-    void sendTelegram(parts.join("\n"));
+    await sendTelegram(parts.join("\n"));
     return;
   }
 
