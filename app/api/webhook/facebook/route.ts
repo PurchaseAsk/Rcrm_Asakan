@@ -86,14 +86,12 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = body as { object?: string; entry?: FbEntry[] };
-  console.log("[webhook] raw payload:", JSON.stringify(payload).slice(0, 1000));
   if (payload.object !== "page") return NextResponse.json({ status: "ignored" });
 
   const supabase = adminSupabase();
 
   for (const entry of payload.entry ?? []) {
     const fbPageId = entry.id;
-    console.log("[webhook] entry page id:", fbPageId);
 
     const { data: page } = await supabase
       .from("facebook_pages")
