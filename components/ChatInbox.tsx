@@ -55,6 +55,7 @@ export function ChatInbox({
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [replyText, setReplyText] = useState("");
+  const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMoreConvs, setLoadingMoreConvs] = useState(false);
@@ -83,6 +84,12 @@ export function ChatInbox({
   const [qrDraft, setQrDraft] = useState<{ title: string; content: string } | null>(null);
   const [filterOverdue, setFilterOverdue] = useState(false);
   const [, setMinuteTick] = useState(0);
+
+  function messagePreview(msg: Message | null) {
+    if (!msg) return "";
+    if (msg.attachment_type === "image") return "[รูปภาพ]";
+    return (msg.content ?? "").replace(/\s+/g, " ").trim();
+  }
 
   useEffect(() => {
     selectedConvIdRef.current = selectedConvId;
@@ -317,6 +324,7 @@ export function ChatInbox({
   async function openConversation(conv: Conversation) {
     setSelectedConvId(conv.id);
     setShowTagPicker(false);
+    setReplyTarget(null);
     setMessages([]);
     await refreshMessages(conv.id);
     void markRead(conv.id);
@@ -340,6 +348,7 @@ export function ChatInbox({
     if (!replyText.trim() || !selectedConvId) return;
     const text = replyText.trim();
     const convId = selectedConvId;
+    const quotedMessage = replyTarget;
     const tempId = `opt-${Date.now()}`;
     const now = new Date().toISOString();
 
@@ -354,10 +363,12 @@ export function ChatInbox({
       fb_message_id: null,
       sent_by: userId,
       profiles: null,
+      reply_to_message_id: quotedMessage?.id ?? null,
     };
 
     setMessages((prev) => [...prev, optimistic]);
     setReplyText("");
+    setReplyTarget(null);
     setConversations((prev) => prev.map((c) =>
       c.id === convId
         ? { ...c, customer_read_at: null, last_message_text: text, last_message_direction: "outbound", last_message_at: now }
@@ -368,12 +379,19 @@ export function ChatInbox({
       const res = await fetch("/api/facebook/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: convId, text, sent_by: userId }),
+        body: JSON.stringify({
+          conversation_id: convId,
+          text,
+          sent_by: userId,
+          reply_to_message_id: quotedMessage?.id ?? null,
+          reply_to_text: messagePreview(quotedMessage),
+        }),
       });
       const result = (await res.json()) as { error?: string };
       if (!res.ok) {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setReplyText(text);
+        setReplyTarget(quotedMessage);
         toast(result.error ?? "ส่งไม่สำเร็จ");
         return;
       }
@@ -381,6 +399,7 @@ export function ChatInbox({
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setReplyText(text);
+      setReplyTarget(quotedMessage);
       toast("ส่งไม่สำเร็จ");
     }
   }
@@ -404,6 +423,7 @@ export function ChatInbox({
       fb_message_id: null,
       sent_by: userId,
       profiles: null,
+      reply_to_message_id: null,
     };
 
     setMessages((prev) => [...prev, optimistic]);
@@ -449,6 +469,7 @@ export function ChatInbox({
       fb_message_id: null,
       sent_by: userId,
       profiles: null,
+      reply_to_message_id: null,
     };
 
     setShowAppImages(false);
@@ -1054,6 +1075,9 @@ export function ChatInbox({
                   const dateLabel = new Date(msg.created_at).toLocaleDateString("th-TH", {
                     day: "numeric", month: "long", year: "numeric",
                   });
+                  const repliedMessage = msg.reply_to_message_id
+                    ? messages.find((item) => item.id === msg.reply_to_message_id) ?? null
+                    : null;
                   return (
                   <div key={msg.id}>
                     {showDateSep && (
@@ -1066,30 +1090,54 @@ export function ChatInbox({
                   <div
                     className={`flex ${msg.direction === "outbound" ? "justify-end" : "justify-start"}`}
                   >
-                    <div
-                      className={`max-w-[72%] rounded-2xl px-3 py-2 text-sm ${
-                        msg.direction === "outbound" ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-900"
-                      }`}
-                    >
-                      {msg.attachment_type === "image" && msg.attachment_url ? (
-                        <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={msg.attachment_url} alt="attachment" className="max-w-[240px] rounded-xl" />
-                        </a>
-                      ) : (
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <div className={`group flex max-w-[72%] flex-col ${msg.direction === "outbound" ? "items-end" : "items-start"}`}>
+                      {msg.direction === "inbound" && (
+                        <button
+                          type="button"
+                          onClick={() => setReplyTarget(msg)}
+                          className="mb-1 hidden rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500 shadow-sm hover:border-brand-300 hover:text-brand-700 group-hover:inline-flex"
+                        >
+                          ↩ ตอบกลับ
+                        </button>
                       )}
-                      <p
-                        className={`mt-1 text-[10px] ${msg.direction === "outbound" ? "text-blue-200" : "text-slate-400"}`}
+                      <div
+                        onClick={() => {
+                          if (msg.direction === "inbound") setReplyTarget(msg);
+                        }}
+                        className={`rounded-2xl px-3 py-2 text-sm ${
+                          msg.direction === "outbound" ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-900"
+                        } ${msg.direction === "inbound" ? "cursor-pointer" : ""}`}
                       >
-                        {msg.direction === "outbound" && msg.profiles && (
-                          <span className="mr-1">{msg.profiles.full_name ?? msg.profiles.email}</span>
+                        {repliedMessage && (
+                          <div
+                            className={`mb-2 border-l-2 py-1 pl-2 text-xs ${
+                              msg.direction === "outbound" ? "border-blue-200 text-blue-100" : "border-slate-300 text-slate-500"
+                            }`}
+                          >
+                            <div className="font-medium">ตอบกลับ</div>
+                            <div className="line-clamp-2 max-w-[220px]">{messagePreview(repliedMessage)}</div>
+                          </div>
                         )}
-                        {new Date(msg.created_at).toLocaleTimeString("th-TH", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                        {msg.attachment_type === "image" && msg.attachment_url ? (
+                          <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={msg.attachment_url} alt="attachment" className="max-w-[240px] rounded-xl" />
+                          </a>
+                        ) : (
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                        )}
+                        <p
+                          className={`mt-1 text-[10px] ${msg.direction === "outbound" ? "text-blue-200" : "text-slate-400"}`}
+                        >
+                          {msg.direction === "outbound" && msg.profiles && (
+                            <span className="mr-1">{msg.profiles.full_name ?? msg.profiles.email}</span>
+                          )}
+                          {new Date(msg.created_at).toLocaleTimeString("th-TH", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   {isLastOutbound && (
@@ -1111,7 +1159,23 @@ export function ChatInbox({
                 <div ref={messagesEndRef} />
               </div>
 
-              <div className="flex shrink-0 gap-2 border-t border-slate-200 p-3">
+              <div className="shrink-0 border-t border-slate-200">
+                {replyTarget && (
+                  <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-2 text-sm">
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium text-slate-600">↩ กำลังตอบกลับข้อความลูกค้า</div>
+                      <div className="mt-0.5 truncate text-xs text-slate-500">{messagePreview(replyTarget)}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyTarget(null)}
+                      className="text-lg leading-none text-slate-400 hover:text-slate-700"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2 p-3">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1244,6 +1308,7 @@ export function ChatInbox({
                 >
                   {busy ? "…" : "Send"}
                 </button>
+              </div>
               </div>
             </div>
           ) : (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  Activity,
   ArrowLeft,
   ChevronRight,
   ExternalLink,
@@ -10,7 +11,6 @@ import {
   Globe,
   LineChart,
   QrCode,
-  Receipt,
   Sparkles,
   Ticket,
   UserRound,
@@ -22,6 +22,7 @@ type HubLink = {
   subtitle: string;
   href: string;
   icon: LucideIcon;
+  isInternal?: boolean;
 };
 
 const hubSections: { title: string; items: HubLink[] }[] = [
@@ -30,15 +31,14 @@ const hubSections: { title: string; items: HubLink[] }[] = [
     items: [
       { title: "สัญญา / ติดตามงวดดาวน์", subtitle: "ContractFlow", href: "https://contractely.pages.dev", icon: FileSignature },
       { title: "ควบคุมของแถม", subtitle: "Premium Control", href: "https://asakanpremium.pages.dev/", icon: Gift },
-      { title: "Sales-kit Elysium", subtitle: "Elysium", href: "https://elymatrix.netlify.app/", icon: Ticket },
-      { title: "Sales-kit Wela", subtitle: "Wela", href: "https://saleskitwela.pages.dev/", icon: Ticket },
+      { title: "Leadflow", subtitle: "Webapp", href: "/", icon: Activity, isInternal: true },
     ],
   },
   {
     title: "Sales",
     items: [
-      { title: "Form Voucher", subtitle: "Elysium", href: "https://docs.google.com/forms/d/e/1FAIpQLSd_WBnojrpdwxmvAZyUiemmtyjK6CY8nv8lmGLtSKCk7cAo8Q/viewform?usp=dialog", icon: Receipt },
-      { title: "Form Voucher", subtitle: "Wela", href: "https://docs.google.com/forms/d/e/1FAIpQLSfB_GaJP_Xjw5fliU5pjjkLqGeNt6DiUasqHflGVA-UjI7yyg/viewform?usp=dialog", icon: Receipt },
+      { title: "Sales-kit Elysium", subtitle: "Elysium", href: "https://elymatrix.netlify.app/", icon: Ticket },
+      { title: "Sales-kit Wela", subtitle: "Wela", href: "https://saleskitwela.pages.dev/", icon: Ticket },
       { title: "Lead Website", subtitle: "Elysium", href: "https://docs.google.com/spreadsheets/d/1rIV8z4XAizTavRwGEmpIK_LNb6OS-WvLHKsufzUueyc/", icon: Globe },
       { title: "Lead Website", subtitle: "Wela", href: "https://docs.google.com/spreadsheets/d/1-ljsdgFKdztFPuFeo-_BFUSy0ZJanTs6CMp9_JPknqY", icon: Globe },
     ],
@@ -94,14 +94,9 @@ export default function SalesHubPage() {
               <div className="grid grid-cols-2 gap-2 sm:gap-2.5 md:grid-cols-3 md:gap-3">
                 {section.items.map((item) => {
                   const Icon = item.icon;
-                  return (
-                    <a
-                      key={`${section.title}-${item.title}-${item.subtitle}`}
-                      href={item.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="group flex min-h-[110px] flex-col justify-between rounded-2xl border border-[#ececea] bg-white p-3.5 transition hover:-translate-y-0.5 hover:border-[#ffe9e0] hover:shadow-[0_8px_20px_rgba(20,17,15,0.05)] sm:min-h-[120px] sm:rounded-[18px] sm:p-4"
-                    >
+                  const cardClass = "group flex min-h-[110px] flex-col justify-between rounded-2xl border border-[#ececea] bg-white p-3.5 transition hover:-translate-y-0.5 hover:border-[#ffe9e0] hover:shadow-[0_8px_20px_rgba(20,17,15,0.05)] sm:min-h-[120px] sm:rounded-[18px] sm:p-4";
+                  const cardContent = (
+                    <>
                       <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-[#f1f1ef] text-[#14110f] transition group-hover:bg-[#ffe9e0] group-hover:text-[#c9421f]">
                         <Icon size={18} />
                       </span>
@@ -109,9 +104,18 @@ export default function SalesHubPage() {
                         <span className="line-clamp-2 block text-[13.5px] font-semibold leading-tight text-[#ee5a36] sm:text-sm">{item.title}</span>
                         <span className="mt-1 flex items-center gap-1 text-[11.5px] leading-tight text-[#8e8b85] sm:text-xs">
                           {item.subtitle}
-                          <ExternalLink size={12} />
+                          {!item.isInternal && <ExternalLink size={12} />}
                         </span>
                       </span>
+                    </>
+                  );
+                  return item.isInternal ? (
+                    <Link key={`${section.title}-${item.title}-${item.subtitle}`} href={item.href} className={cardClass}>
+                      {cardContent}
+                    </Link>
+                  ) : (
+                    <a key={`${section.title}-${item.title}-${item.subtitle}`} href={item.href} target="_blank" rel="noreferrer" className={cardClass}>
+                      {cardContent}
                     </a>
                   );
                 })}

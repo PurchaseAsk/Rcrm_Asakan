@@ -18,6 +18,17 @@ type LeadgenWebhookValue = {
   campaign_id?: string;
 };
 
+type FeedChangeValue = {
+  item?: string;
+  verb?: string;
+  comment_id?: string;
+  post_id?: string;
+  parent_id?: string;
+  from?: { id: string; name?: string };
+  message?: string;
+  created_time?: number;
+};
+
 type FbReferral = {
   source?: string;
   type?: string;
@@ -39,7 +50,7 @@ type FbEntry = {
     referral?: FbReferral;
     read?: { watermark: number };
   }[];
-  changes?: { field: string; value: LeadgenWebhookValue }[];
+  changes?: { field: string; value: LeadgenWebhookValue | FeedChangeValue | Record<string, unknown> }[];
 };
 
 // Full lead data returned by Graph API GET /{leadgen_id}
@@ -94,14 +105,34 @@ export async function POST(request: NextRequest) {
     const leadgenToken = pageEnvToken ?? pageToken ?? process.env.FB_LEADGEN_TOKEN ?? null;
     const msgToken = (process.env[`FB_MSG_TOKEN_${fbPageId}`] as string | undefined) ?? pageToken ?? null;
 
-    // ── Facebook Lead Ads (leadgen form submission) ───────────────────────────
+    // ── Facebook Lead Ads (leadgen) + Feed (comments) ────────────────────────
     for (const change of entry.changes ?? []) {
-      if (change.field !== "leadgen") continue;
-      console.log("[webhook] leadgen event received", { fbPageId, leadgen_id: change.value.leadgen_id, hasToken: !!leadgenToken });
-      if (leadgenToken) {
-        await handleLeadgen(supabase, page.id, change.value, leadgenToken);
-      } else {
-        console.error("[webhook] leadgen skipped — no token for page", fbPageId);
+      if (change.field === "leadgen") {
+        console.log("[webhook] leadgen event received", { fbPageId, leadgen_id: (change.value as LeadgenWebhookValue).leadgen_id, hasToken: !!leadgenToken });
+        if (leadgenToken) {
+          await handleLeadgen(supabase, page.id, change.value as LeadgenWebhookValue, leadgenToken);
+        } else {
+          console.error("[webhook] leadgen skipped — no token for page", fbPageId);
+        }
+        continue;
+      }
+      if (change.field === "feed") {
+        const val = change.value as FeedChangeValue;
+        if (val.item === "comment" && val.verb === "add" && val.comment_id) {
+          // Skip our own replies echoed back
+          if (val.from?.id !== fbPageId && (!val.parent_id || !val.post_id || val.parent_id === val.post_id)) {
+            await supabase.from("page_comments").upsert({
+              page_id: page.id,
+              fb_comment_id: val.comment_id,
+              fb_post_id: val.post_id ?? "",
+              from_user_id: val.from?.id ?? null,
+              from_user_name: val.from?.name ?? null,
+              message: val.message ?? null,
+              fb_created_time: val.created_time ? new Date(val.created_time * 1000).toISOString() : null,
+            }, { onConflict: "fb_comment_id", ignoreDuplicates: true });
+          }
+        }
+        continue;
       }
     }
 

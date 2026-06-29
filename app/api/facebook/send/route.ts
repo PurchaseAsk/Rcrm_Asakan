@@ -6,8 +6,10 @@ export async function POST(request: NextRequest) {
     conversation_id: string;
     text: string;
     sent_by?: string;
+    reply_to_message_id?: string | null;
+    reply_to_text?: string | null;
   };
-  const { conversation_id, text, sent_by } = body;
+  const { conversation_id, text, sent_by, reply_to_message_id, reply_to_text } = body;
 
   if (!conversation_id || !text?.trim()) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -37,6 +39,11 @@ export async function POST(request: NextRequest) {
 
   const senderPsid = (conv as unknown as { sender_psid: string }).sender_psid;
 
+  const trimmedText = text.trim();
+  const quoteText = reply_to_text?.trim();
+  const quotePreview = quoteText && quoteText.length > 180 ? `${quoteText.slice(0, 180)}...` : quoteText;
+  const outboundText = quotePreview ? `ตอบกลับข้อความ:\n"${quotePreview}"\n\n${trimmedText}` : trimmedText;
+
   const fbRes = await fetch(`https://graph.facebook.com/v20.0/${page.page_id}/messages`, {
     method: "POST",
     headers: {
@@ -45,7 +52,7 @@ export async function POST(request: NextRequest) {
     },
     body: JSON.stringify({
       recipient: { id: senderPsid },
-      message: { text: text.trim() },
+      message: { text: outboundText },
       messaging_type: "RESPONSE",
     }),
   });
@@ -64,13 +71,14 @@ export async function POST(request: NextRequest) {
     supabase.from("messages").insert({
       conversation_id,
       direction: "outbound",
-      content: text.trim(),
+      content: trimmedText,
       sent_by: sent_by ?? null,
       fb_message_id: fbData.message_id ?? null,
+      reply_to_message_id: reply_to_message_id ?? null,
     }),
     supabase
       .from("conversations")
-      .update({ last_message_at: new Date().toISOString(), last_message_text: text.trim(), last_message_direction: "outbound", customer_read_at: null })
+      .update({ last_message_at: new Date().toISOString(), last_message_text: trimmedText, last_message_direction: "outbound", customer_read_at: null })
       .eq("id", conversation_id),
   ]);
 

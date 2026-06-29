@@ -164,6 +164,7 @@ export type Message = {
   sent_by: string | null;
   attachment_url: string | null;
   attachment_type: string | null;
+  reply_to_message_id: string | null;
   profiles?: { id: string; full_name: string | null; email: string } | null;
 };
 
@@ -202,4 +203,30 @@ export type LineMessage = {
   sent_by: string | null;
   created_at: string;
   profiles?: { id: string; full_name: string | null; email: string } | null;
+};
+
+export type PageComment = {
+  id: string;
+  page_id: string;
+  fb_comment_id: string;
+  fb_post_id: string;
+  from_user_id: string | null;
+  from_user_name: string | null;
+  message: string | null;
+  fb_created_time: string | null;
+  status: "active" | "archived";
+  archive_reason: "chat" | "done" | null;
+  private_reply_sent: boolean;
+  created_at: string;
+  page?: { id: string; page_id: string; name: string } | null;
+  replies?: PageCommentReply[];
+};
+
+export type PageCommentReply = {
+  id: string;
+  comment_id: string;
+  message: string;
+  fb_reply_id: string | null;
+  created_by: string | null;
+  created_at: string;
 };
