@@ -1,28 +1,37 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, RefreshCcw, CheckCircle, X, Tag } from "lucide-react";
+import { Bell, RefreshCcw, CheckCircle, X, Tag, Megaphone, Trash2 } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Lead, Reminder } from "@/types/crm";
+import type { Lead, Reminder, Role, TeamReminder } from "@/types/crm";
 
 const supabase = createBrowserSupabase();
 
 type ReminderWithLead = Reminder & { leads?: { id: string; customer_name: string } | null };
+type TeamReminderWithProfile = TeamReminder & { profiles?: { id: string; full_name: string | null; email: string } | null };
 
 export function RemindersTab({
   userId,
+  userRole,
   onOpenLead,
   onNavigate,
 }: {
   userId: string;
+  userRole: Role;
   onOpenLead: (lead: Lead) => void;
   onNavigate?: (tab: string) => void;
 }) {
+  const canManageTeamReminders = userRole === "admin" || userRole === "team_lead";
+  const [activeTab, setActiveTab] = useState<"team" | "mine">("team");
   const [reminders, setReminders] = useState<ReminderWithLead[]>([]);
+  const [teamReminders, setTeamReminders] = useState<TeamReminderWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [teamLoading, setTeamLoading] = useState(true);
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [completionNote, setCompletionNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [teamDraft, setTeamDraft] = useState({ title: "", body: "" });
+  const [teamSaving, setTeamSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,7 +47,44 @@ export function RemindersTab({
     setLoading(false);
   }, [userId]);
 
+  const loadTeamReminders = useCallback(async () => {
+    setTeamLoading(true);
+    const { data } = await supabase
+      .from("team_reminders")
+      .select("*, profiles(id, full_name, email)")
+      .order("created_at", { ascending: false });
+    setTeamReminders((data || []) as TeamReminderWithProfile[]);
+    setTeamLoading(false);
+  }, []);
+
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadTeamReminders(); }, [loadTeamReminders]);
+
+  async function createTeamReminder() {
+    if (!teamDraft.title.trim() || !canManageTeamReminders) return;
+    setTeamSaving(true);
+    try {
+      const { error } = await supabase.from("team_reminders").insert({
+        title: teamDraft.title.trim(),
+        body: teamDraft.body.trim() || null,
+        created_by: userId,
+      });
+      if (!error) {
+        setTeamDraft({ title: "", body: "" });
+        await loadTeamReminders();
+      }
+    } finally {
+      setTeamSaving(false);
+    }
+  }
+
+  async function deleteTeamReminder(id: string) {
+    if (!canManageTeamReminders) return;
+    const ok = window.confirm("ลบประกาศนี้?");
+    if (!ok) return;
+    await supabase.from("team_reminders").delete().eq("id", id);
+    await loadTeamReminders();
+  }
 
   async function confirmDone(r: ReminderWithLead) {
     if (!completionNote.trim()) return;
@@ -138,6 +184,37 @@ export function RemindersTab({
     );
   }
 
+  function TeamReminderCard({ item }: { item: TeamReminderWithProfile }) {
+    const author = item.profiles?.full_name || item.profiles?.email || "Manager";
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="flex items-start gap-3">
+          <Megaphone size={17} className="mt-0.5 shrink-0 text-brand-600" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-semibold text-slate-950">{item.title}</h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {author} · {new Date(item.created_at).toLocaleString("th-TH")}
+                </p>
+              </div>
+              {canManageTeamReminders && (
+                <button
+                  className="shrink-0 rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  title="Delete"
+                  onClick={() => void deleteTeamReminder(item.id)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
+            {item.body && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{item.body}</p>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -154,7 +231,7 @@ export function RemindersTab({
           )}
           <button
             className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-            onClick={() => void load()}
+            onClick={() => { void load(); void loadTeamReminders(); }}
           >
             <RefreshCcw size={14} />
             รีเฟรช
@@ -162,6 +239,66 @@ export function RemindersTab({
         </div>
       </div>
 
+      <div className="flex border-b border-slate-200">
+        <button
+          className={`border-b-2 px-4 py-2 text-sm font-medium ${activeTab === "team" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+          onClick={() => setActiveTab("team")}
+        >
+          Team reminders
+        </button>
+        <button
+          className={`border-b-2 px-4 py-2 text-sm font-medium ${activeTab === "mine" ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+          onClick={() => setActiveTab("mine")}
+        >
+          My reminders
+        </button>
+      </div>
+
+      {activeTab === "team" && (
+        <section className="space-y-4">
+          {canManageTeamReminders && (
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="grid gap-3 md:grid-cols-[minmax(180px,260px)_1fr_auto]">
+                <input
+                  className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                  placeholder="หัวข้อประกาศ"
+                  value={teamDraft.title}
+                  onChange={(e) => setTeamDraft((prev) => ({ ...prev, title: e.target.value }))}
+                />
+                <input
+                  className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
+                  placeholder="รายละเอียด"
+                  value={teamDraft.body}
+                  onChange={(e) => setTeamDraft((prev) => ({ ...prev, body: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === "Enter") void createTeamReminder(); }}
+                />
+                <button
+                  className="h-10 rounded-lg bg-brand-700 px-4 text-sm font-medium text-white disabled:opacity-50"
+                  disabled={!teamDraft.title.trim() || teamSaving}
+                  onClick={() => void createTeamReminder()}
+                >
+                  {teamSaving ? "..." : "ประกาศ"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {teamLoading ? (
+            <p className="text-sm text-slate-400">กำลังโหลด...</p>
+          ) : teamReminders.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-200 py-8 text-center text-sm text-slate-400">
+              ยังไม่มีประกาศทีม
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {teamReminders.map((item) => <TeamReminderCard key={item.id} item={item} />)}
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeTab === "mine" && (
+      <>
       <section>
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
           วันนี้ ({today.length})
@@ -193,6 +330,8 @@ export function RemindersTab({
           </div>
         )}
       </section>
+      </>
+      )}
     </div>
   );
 }

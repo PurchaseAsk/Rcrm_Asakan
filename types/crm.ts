@@ -133,6 +133,16 @@ export type Reminder = {
   leads?: { customer_name: string } | null;
 };
 
+export type TeamReminder = {
+  id: string;
+  title: string;
+  body: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  profiles?: { id: string; full_name: string | null; email: string } | null;
+};
+
 export type Conversation = {
   id: string;
   page_id: string;

@@ -73,6 +73,7 @@ export function ChatInbox({
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [selectedConvObj, setSelectedConvObj] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [replyText, setReplyText] = useState("");
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
@@ -362,6 +363,7 @@ export function ChatInbox({
 
   async function openConversation(conv: Conversation) {
     setSelectedConvId(conv.id);
+    setSelectedConvObj(conv);
     setShowTagPicker(false);
     setReplyTarget(null);
     setMessages([]);
@@ -726,7 +728,7 @@ export function ChatInbox({
     }
   }
 
-  const selectedConv = conversations.find((c) => c.id === selectedConvId) ?? null;
+  const selectedConv = conversations.find((c) => c.id === selectedConvId) ?? selectedConvObj;
 
   // Use pages prop for tabs so admin/multi-team users always see all page tabs
   // regardless of whether conversations exist yet
@@ -993,7 +995,7 @@ export function ChatInbox({
                 <div className="flex items-center gap-3">
                   <button
                     className="text-sm text-slate-500 hover:text-slate-800 md:hidden"
-                    onClick={() => setSelectedConvId(null)}
+                    onClick={() => { setSelectedConvId(null); setSelectedConvObj(null); }}
                   >
                     ← Back
                   </button>

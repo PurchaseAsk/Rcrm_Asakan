@@ -709,7 +709,7 @@ export default function HomePage() {
             />
           )}
           {activeTab === "reminders" && (
-            <RemindersTab userId={currentUserId} onOpenLead={openLead} onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)} />
+            <RemindersTab userId={currentUserId} userRole={profile?.role ?? "staff"} onOpenLead={openLead} onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)} />
           )}
           {activeTab === "website" && canManage && (
             <WebsiteSettingsTab
