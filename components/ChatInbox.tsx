@@ -113,7 +113,22 @@ export function ChatInbox({
 
   useEffect(() => {
     selectedConvIdRef.current = selectedConvId;
+    if (selectedConvId) {
+      sessionStorage.setItem("chat_selected_conv_id", selectedConvId);
+    } else {
+      sessionStorage.removeItem("chat_selected_conv_id");
+    }
   }, [selectedConvId]);
+
+  // Restore selected conversation after page reload (e.g. wake from sleep)
+  useEffect(() => {
+    if (loading || conversations.length === 0 || selectedConvId) return;
+    const savedId = sessionStorage.getItem("chat_selected_conv_id");
+    if (!savedId) return;
+    const conv = conversations.find((c) => c.id === savedId);
+    if (conv) void openConversation(conv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, conversations]);
 
   useEffect(() => {
     if (!openByLeadId) return;
