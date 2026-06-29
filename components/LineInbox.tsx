@@ -364,6 +364,17 @@ export function LineInbox({
       setLeadModal(null);
       toast("สร้างลีดสำเร็จ!");
       onLeadCreated?.(lead.id, leadDraft.pipeline_id);
+      void fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "lead",
+          name: leadDraft.customer_name.trim(),
+          phone: leadDraft.phone.trim() || undefined,
+          page_name: conv.line_oa_accounts?.name,
+          pipeline_name: pipelines.find((p) => p.id === leadDraft.pipeline_id)?.name,
+        }),
+      });
     } finally {
       setSubmittingLead(false);
     }
