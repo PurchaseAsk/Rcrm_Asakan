@@ -726,7 +726,7 @@ export default function HomePage() {
               onToast={showToast}
             />
           )}
-          {activeTab === "inbox" && (
+          <div className={activeTab !== "inbox" ? "hidden" : ""}>
             <ChatInbox
               pages={data.pages}
               profiles={data.profiles}
@@ -752,55 +752,53 @@ export default function HomePage() {
                 setSelectedLeadId(leadId);
               }}
             />
-          )}
-          {activeTab === "line" && (
-            <div className="flex h-full flex-col">
-              <div className="flex shrink-0 gap-1 border-b border-slate-200 bg-white px-4 pt-2">
-                <button
-                  onClick={() => setOtherInboxSubTab("line")}
-                  className={`flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium transition ${otherInboxSubTab === "line" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-800"}`}
-                >
-                  <MessageCircle size={15} />
-                  Line
-                </button>
-                <button
-                  onClick={() => setOtherInboxSubTab("comment")}
-                  className={`flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium transition ${otherInboxSubTab === "comment" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-800"}`}
-                >
-                  <MessageSquareText size={15} />
-                  Facebook Comment
-                </button>
-              </div>
+          </div>
+          <div className={`flex h-full flex-col ${activeTab !== "line" ? "hidden" : ""}`}>
+            <div className="flex shrink-0 gap-1 border-b border-slate-200 bg-white px-4 pt-2">
+              <button
+                onClick={() => setOtherInboxSubTab("line")}
+                className={`flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium transition ${otherInboxSubTab === "line" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-800"}`}
+              >
+                <MessageCircle size={15} />
+                Line
+              </button>
+              <button
+                onClick={() => setOtherInboxSubTab("comment")}
+                className={`flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium transition ${otherInboxSubTab === "comment" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-800"}`}
+              >
+                <MessageSquareText size={15} />
+                Facebook Comment
+              </button>
+            </div>
 
-              {otherInboxSubTab === "line" && (
-                <LineInbox
-                  userId={currentUserId}
-                  pipelines={data.pipelines}
-                  stages={data.stages}
-                  profiles={data.profiles}
-                  toast={showToast}
-                  onLeadCreated={(leadId, pipelineId) => {
-                    void loadCrmData(supabase).then((fresh) => {
-                      const createdLead = fresh.leads.find((lead) => lead.id === leadId);
-                      setData(fresh);
-                      setActivePipelineId(createdLead?.pipeline_id || pipelineId);
-                      setActiveTab("leads");
-                      setSelectedLeadId(leadId);
-                    });
-                  }}
-                  onLeadOpen={(leadId) => {
+            <div className={otherInboxSubTab !== "line" ? "hidden" : ""}>
+              <LineInbox
+                userId={currentUserId}
+                pipelines={data.pipelines}
+                stages={data.stages}
+                profiles={data.profiles}
+                toast={showToast}
+                onLeadCreated={(leadId, pipelineId) => {
+                  void loadCrmData(supabase).then((fresh) => {
+                    const createdLead = fresh.leads.find((lead) => lead.id === leadId);
+                    setData(fresh);
+                    setActivePipelineId(createdLead?.pipeline_id || pipelineId);
                     setActiveTab("leads");
                     setSelectedLeadId(leadId);
-                  }}
-                  onUnreadCountChange={setLineUnreadCount}
-                />
-              )}
-
-              {otherInboxSubTab === "comment" && (
-                <CommentCenter pages={data.pages} userId={currentUserId} toast={showToast} />
-              )}
+                  });
+                }}
+                onLeadOpen={(leadId) => {
+                  setActiveTab("leads");
+                  setSelectedLeadId(leadId);
+                }}
+                onUnreadCountChange={setLineUnreadCount}
+              />
             </div>
-          )}
+
+            <div className={otherInboxSubTab !== "comment" ? "hidden" : ""}>
+              <CommentCenter pages={data.pages} userId={currentUserId} toast={showToast} />
+            </div>
+          </div>
         </section>
       </div>
 
