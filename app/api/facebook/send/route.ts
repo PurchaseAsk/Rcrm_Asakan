@@ -40,20 +40,11 @@ export async function POST(request: NextRequest) {
   const senderPsid = (conv as unknown as { sender_psid: string }).sender_psid;
 
   const trimmedText = text.trim();
+  const quoteText = reply_to_text?.trim();
+  const quotePreview = quoteText && quoteText.length > 180 ? `${quoteText.slice(0, 180)}...` : quoteText;
+  const outboundText = quotePreview ? `ตอบกลับ: "${quotePreview}"\n\n${trimmedText}` : trimmedText;
 
-  // Look up fb_message_id for native reply bubble
-  let replyToMid: string | null = null;
-  if (reply_to_message_id) {
-    const { data: replyMsg } = await supabase
-      .from("messages")
-      .select("fb_message_id")
-      .eq("id", reply_to_message_id)
-      .single();
-    replyToMid = replyMsg?.fb_message_id ?? null;
-  }
-
-  const messagePayload: Record<string, unknown> = { text: trimmedText };
-  if (replyToMid) messagePayload.reply_to = { mid: replyToMid };
+  const messagePayload: Record<string, unknown> = { text: outboundText };
 
   const fbRes = await fetch(`https://graph.facebook.com/v20.0/${page.page_id}/messages`, {
     method: "POST",
