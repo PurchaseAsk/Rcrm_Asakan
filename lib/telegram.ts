@@ -1,3 +1,7 @@
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export async function sendTelegram(text: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -18,4 +22,8 @@ export async function sendTelegram(text: string): Promise<void> {
   } catch (e) {
     console.error("[telegram] fetch error", e);
   }
+}
+
+export function tg(s: string | null | undefined): string {
+  return escHtml(s ?? "");
 }

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { sendTelegram } from "@/lib/telegram";
+import { sendTelegram, tg } from "@/lib/telegram";
 
 interface WebsiteLeadPayload {
   secret: string;
@@ -90,11 +90,11 @@ export async function POST(request: NextRequest) {
       ]);
       const dupParts = [
         `🌐 <b>ลีดซ้ำ (เว็บไซต์)</b>`,
-        `👤 ${name}`,
-        phone ? `📞 ${phone}` : null,
-        email ? `📧 ${email}` : null,
-        message ? `💬 ${message}` : null,
-        `📂 ${project_slug}`,
+        `👤 ${tg(name)}`,
+        phone ? `📞 ${tg(phone)}` : null,
+        email ? `📧 ${tg(email)}` : null,
+        message ? `💬 ${tg(message)}` : null,
+        `📂 ${tg(project_slug)}`,
       ].filter(Boolean);
       await sendTelegram(dupParts.join("\n"));
       return NextResponse.json({ ok: true, lead_id: existingId, duplicate: true });
@@ -121,12 +121,12 @@ export async function POST(request: NextRequest) {
 
   const parts = [
     `🌐 <b>ลีดใหม่ (เว็บไซต์)</b>`,
-    `👤 ${name}`,
-    phone ? `📞 ${phone}` : null,
-    email ? `📧 ${email}` : null,
-    message ? `💬 ${message}` : null,
-    appointment_date ? `📅 นัด: ${appointment_date}` : null,
-    `📂 ${project_slug}`,
+    `👤 ${tg(name)}`,
+    phone ? `📞 ${tg(phone)}` : null,
+    email ? `📧 ${tg(email)}` : null,
+    message ? `💬 ${tg(message)}` : null,
+    appointment_date ? `📅 นัด: ${tg(appointment_date)}` : null,
+    `📂 ${tg(project_slug)}`,
   ].filter(Boolean);
   await sendTelegram(parts.join("\n"));
 

@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { sendTelegram } from "@/lib/telegram";
+import { sendTelegram, tg } from "@/lib/telegram";
 
 function adminSupabase() {
   return createClient(
@@ -234,9 +234,9 @@ export async function POST(request: NextRequest) {
 
       const isNewConversation = !isEcho && Date.now() - new Date(conv.created_at).getTime() < 15_000;
       if (isNewConversation) {
-        const senderLabel = conv.sender_name || senderPsid;
-        const msgPreview = text ? (text.length > 120 ? text.slice(0, 120) + "…" : text) : "[รูปภาพ]";
-        void sendTelegram(`💬 <b>แชทใหม่</b>\n👤 ${senderLabel}\n📄 ${page.name ?? ""}\n💬 ${msgPreview}`);
+        const senderLabel = tg(conv.sender_name || senderPsid);
+        const msgPreview = tg(text ? (text.length > 120 ? text.slice(0, 120) + "…" : text) : "[รูปภาพ]");
+        void sendTelegram(`💬 <b>แชทใหม่</b>\n👤 ${senderLabel}\n📄 ${tg(page.name)}\n💬 ${msgPreview}`);
       }
 
       await supabase.from("messages").upsert(
@@ -382,11 +382,11 @@ async function handleLeadgen(
     await supabase.rpc("distribute_lead", { p_lead_id: lead.id });
     const parts = [
       `🧲 <b>ลีดใหม่ (Lead Form)</b>`,
-      `👤 ${name ?? "ไม่ระบุชื่อ"}`,
-      rawPhone ? `📞 ${rawPhone}` : null,
-      email ? `📧 ${email}` : null,
-      campaignName ? `📢 ${campaignName}` : null,
-      pageName ? `📄 ${pageName}` : null,
+      `👤 ${tg(name ?? "ไม่ระบุชื่อ")}`,
+      rawPhone ? `📞 ${tg(rawPhone)}` : null,
+      email ? `📧 ${tg(email)}` : null,
+      campaignName ? `📢 ${tg(campaignName)}` : null,
+      pageName ? `📄 ${tg(pageName)}` : null,
     ].filter(Boolean);
     await sendTelegram(parts.join("\n"));
     return;
@@ -429,6 +429,7 @@ async function handleLeadgen(
           created_by: null,
         });
         await supabase.rpc("distribute_lead", { p_lead_id: newLead.id });
+        await sendTelegram([`🧲 <b>ลีดใหม่ (Lead Form)</b>`, `👤 ${tg(name ?? "ไม่ระบุชื่อ")}`, rawPhone ? `📞 ${tg(rawPhone)}` : null, campaignName ? `📢 ${tg(campaignName)}` : null, pageName ? `📄 ${tg(pageName)}` : null].filter(Boolean).join("\n"));
       }
     } else {
       // Lead still active — just bump to top
