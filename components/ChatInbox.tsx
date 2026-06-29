@@ -127,7 +127,20 @@ export function ChatInbox({
     const savedId = sessionStorage.getItem("chat_selected_conv_id");
     if (!savedId) return;
     const conv = conversations.find((c) => c.id === savedId);
-    if (conv) void openConversation(conv);
+    if (conv) {
+      void openConversation(conv);
+    } else {
+      // Conversation not in first page — fetch directly
+      void supabase
+        .from("conversations")
+        .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))")
+        .eq("id", savedId)
+        .single()
+        .then(({ data }) => {
+          if (data) void openConversation(data as Conversation);
+          else sessionStorage.removeItem("chat_selected_conv_id");
+        });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, conversations]);
 
