@@ -1110,21 +1110,21 @@ export function ChatInbox({
                       >
                         {repliedMessage && (
                           <div
-                            className={`mb-2 flex items-stretch gap-2 overflow-hidden rounded-xl px-2.5 py-2 text-xs ${
+                            className={`mb-2 flex items-stretch gap-0 overflow-hidden rounded-lg text-xs ${
                               msg.direction === "outbound"
-                                ? "bg-black/20"
-                                : "bg-white ring-1 ring-slate-200"
+                                ? "bg-white/20 ring-1 ring-white/25"
+                                : "bg-slate-200 ring-1 ring-slate-300"
                             }`}
                           >
                             <div
-                              className={`w-0.5 shrink-0 rounded-full ${
-                                msg.direction === "outbound" ? "bg-blue-200" : "bg-brand-500"
+                              className={`w-[3px] shrink-0 ${
+                                msg.direction === "outbound" ? "bg-white/70" : "bg-brand-500"
                               }`}
                             />
-                            <div className="min-w-0">
+                            <div className="min-w-0 px-2.5 py-1.5">
                               <div
-                                className={`mb-0.5 text-[10px] font-semibold ${
-                                  msg.direction === "outbound" ? "text-blue-100" : "text-brand-600"
+                                className={`mb-0.5 text-[10px] font-bold ${
+                                  msg.direction === "outbound" ? "text-white" : "text-brand-600"
                                 }`}
                               >
                                 {repliedMessage.direction === "inbound"
@@ -1133,7 +1133,7 @@ export function ChatInbox({
                               </div>
                               <div
                                 className={`line-clamp-2 leading-relaxed ${
-                                  msg.direction === "outbound" ? "text-white/75" : "text-slate-500"
+                                  msg.direction === "outbound" ? "text-white/85" : "text-slate-600"
                                 }`}
                               >
                                 {repliedMessage.attachment_type === "image" ? "📷 รูปภาพ" : messagePreview(repliedMessage)}
