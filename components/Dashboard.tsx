@@ -673,7 +673,16 @@ function ChatMetricsView({
         .lte("created_at", dateTo + "T23:59:59+00:00")
         .limit(5000);
 
-      const convList = (newConvs ?? []) as ChatConv[];
+      const rawConvList = (newConvs ?? []) as ChatConv[];
+      // Deduplicate by sender_psid — same customer counts as 1 regardless of message count
+      const seenPsids = new Set<string>();
+      const convList = rawConvList
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        .filter((c) => {
+          if (seenPsids.has(c.sender_psid)) return false;
+          seenPsids.add(c.sender_psid);
+          return true;
+        });
       const convIds = convList.map((c) => c.id);
 
       if (!convIds.length) {
@@ -685,7 +694,7 @@ function ChatMetricsView({
       }
 
       // Step 2: Check which sender_psids have an older conversation (= returning visitor)
-      const psids = [...new Set(convList.map((c) => c.sender_psid))];
+      const psids = [...seenPsids];
       const { data: olderConvs } = await supabase
         .from("conversations")
         .select("sender_psid")
