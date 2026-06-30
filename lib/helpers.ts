@@ -389,14 +389,18 @@ export async function updateLeadStage(
     created_by: userId,
   });
 
-  // Fire CAPI event if stage has one configured (fire-and-forget)
+  // Fire CAPI event if stage has one configured
   if (stage.capi_event) {
     void fetch("/api/facebook/capi", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lead_id: leadId, stage_id: stage.id }),
-    });
-  }
+    }).then(async (r) => {
+      const data = (await r.json()) as { ok?: boolean; skipped?: boolean; reason?: string; error?: string; event?: string };
+      if (data.skipped) toast(`⚠️ CAPI skipped: ${data.reason ?? "no pixel/token"}`);
+      else if (data.error) toast(`❌ CAPI error: ${data.error}`);
+      else if (data.ok) toast(`✅ CAPI sent: ${data.event}`);
+    }).catch(() => toast("❌ CAPI: ส่งไม่ได้ (network error)"));
 
   return true;
 }

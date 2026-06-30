@@ -44,6 +44,8 @@ export function PagesPanel({
   type StatusVal = "checking" | "valid" | "invalid" | "none";
   const [status, setStatus] = useState<Record<string, { token: StatusVal; pixel: StatusVal }>>({});
 
+  const pagesCacheKey = pages.map((p) => `${p.id}:${p.pixel_id ?? ""}:${p.capi_token ?? ""}:${(p as Page & { token?: string }).token ?? ""}`).join("|");
+
   useEffect(() => {
     pages.forEach((page) => {
       setStatus((prev) => ({ ...prev, [page.id]: { token: "checking", pixel: "checking" } }));
@@ -57,7 +59,7 @@ export function PagesPanel({
         });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages.length]);
+  }, [pagesCacheKey]);
 
   function StatusDot({ val }: { val: StatusVal }) {
     if (val === "checking") return <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-slate-300" />;
