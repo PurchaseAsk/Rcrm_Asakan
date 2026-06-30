@@ -318,79 +318,92 @@ export function LeadDrawer({
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto p-4 scrollbar-thin">
-          <section className="grid gap-3 md:grid-cols-2">
-            <Field
-              label="Customer name"
-              value={form.customer_name}
-              onChange={(value) => setForm({ ...form, customer_name: value })}
-              disabled={!editingInfo}
-            />
-            <div className="block">
-              <span className="text-xs font-medium text-slate-600">Phone</span>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
-                  type="tel"
-                  value={form.phone}
-                  maxLength={10}
-                  disabled={!editingInfo}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
-                {!editingInfo && form.phone && (
-                  <a
-                    href={`tel:${form.phone}`}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                    title="โทรออก"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </a>
-                )}
+          <section className="space-y-3">
+            {/* Row 1: Name + Phone */}
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field
+                label="Customer name"
+                value={form.customer_name}
+                onChange={(value) => setForm({ ...form, customer_name: value })}
+                disabled={!editingInfo}
+              />
+              <div className="block">
+                <span className="text-xs font-medium text-slate-600">Phone</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
+                    type="tel"
+                    value={form.phone}
+                    maxLength={10}
+                    disabled={!editingInfo}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  />
+                  {!editingInfo && form.phone && (
+                    <a
+                      href={`tel:${form.phone}`}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                      title="โทรออก"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
-            <Field
-              label="Email"
-              value={form.email}
-              onChange={(value) => setForm({ ...form, email: value })}
-              type="email"
-              disabled={!editingInfo}
-            />
-            <Select
-              label="Pipeline"
-              value={form.pipeline_id}
-              onChange={(value) => setForm({ ...form, pipeline_id: value })}
-              options={pipelines.map((p) => ({ value: p.id, label: p.name }))}
-              allowEmpty
-              emptyLabel="ไม่มี pipeline"
-              disabled={!editingInfo || !canChangePipeline}
-            />
-            <Select
-              label="Stage"
-              value={form.stage_id}
-              onChange={(value) => setForm({ ...form, stage_id: value })}
-              options={stages.map((stage) => ({ value: stage.id, label: stage.name }))}
-              allowEmpty
-            />
-            <Select
-              label="Assignee"
-              value={form.assigned_to}
-              onChange={(value) => setForm({ ...form, assigned_to: value })}
-              options={profiles.map((profile) => ({
-                value: profile.id,
-                label: profile.full_name || profile.email,
-              }))}
-              allowEmpty
-              emptyLabel="Pool"
-              disabled={!editingInfo || !canChangeAssignee}
-            />
-            <button
-              className="h-10 rounded-lg bg-brand-700 text-sm font-medium text-white disabled:opacity-50 md:col-span-2"
-              disabled={busy}
-              onClick={moveLeadStage}
-            >
-              {busy ? "Moving..." : "Move stage"}
-            </button>
+            {/* Row 2: Email + Pipeline + Assignee */}
+            <div className="grid gap-3 md:grid-cols-3">
+              <Field
+                label="Email"
+                value={form.email}
+                onChange={(value) => setForm({ ...form, email: value })}
+                type="email"
+                disabled={!editingInfo}
+              />
+              <Select
+                label="Pipeline"
+                value={form.pipeline_id}
+                onChange={(value) => setForm({ ...form, pipeline_id: value })}
+                options={pipelines.map((p) => ({ value: p.id, label: p.name }))}
+                allowEmpty
+                emptyLabel="ไม่มี pipeline"
+                disabled={!editingInfo || !canChangePipeline}
+              />
+              <Select
+                label="Assignee"
+                value={form.assigned_to}
+                onChange={(value) => setForm({ ...form, assigned_to: value })}
+                options={profiles.map((profile) => ({
+                  value: profile.id,
+                  label: profile.full_name || profile.email,
+                }))}
+                allowEmpty
+                emptyLabel="Pool"
+                disabled={!editingInfo || !canChangeAssignee}
+              />
+            </div>
+            {/* Row 3: Stage + Move stage button */}
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <Select
+                  label="Stage"
+                  value={form.stage_id}
+                  onChange={(value) => setForm({ ...form, stage_id: value })}
+                  options={stages.map((stage) => ({ value: stage.id, label: stage.name }))}
+                  allowEmpty
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  className="h-10 rounded-lg bg-brand-700 px-5 text-sm font-medium text-white disabled:opacity-50"
+                  disabled={busy}
+                  onClick={moveLeadStage}
+                >
+                  {busy ? "Moving..." : "Move stage"}
+                </button>
+              </div>
+            </div>
           </section>
 
           {lead.metadata && (lead.metadata.campaign_name || lead.metadata.ad_name || lead.metadata.adset_name) && (
