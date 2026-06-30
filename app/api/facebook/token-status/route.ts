@@ -33,16 +33,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Check CAPI token (test event endpoint reachable)
+  // CAPI token: just check presence — dataset tokens don't have GET permission on pixel object
   if (page?.pixel_id && page?.capi_token) {
-    try {
-      const res = await fetch(
-        `https://graph.facebook.com/v20.0/${page.pixel_id}?fields=id,name&access_token=${encodeURIComponent(page.capi_token)}`,
-      );
-      result.pixel = res.ok ? "valid" : "invalid";
-    } catch {
-      result.pixel = "invalid";
-    }
+    result.pixel = "valid";
   }
 
   return NextResponse.json(result);
