@@ -232,9 +232,15 @@ export async function POST(request: NextRequest) {
 
       if (!conv) continue;
 
+      // Enrich name first so Telegram notification gets the real name, not PSID
+      let senderName = conv.sender_name;
+      if (!isEcho && !senderName && msgToken) {
+        senderName = await enrichSenderName(supabase, conv.id, senderPsid, msgToken, fbPageId);
+      }
+
       const isNewConversation = !isEcho && Date.now() - new Date(conv.created_at).getTime() < 15_000;
       if (isNewConversation) {
-        const senderLabel = tg(conv.sender_name || senderPsid);
+        const senderLabel = tg(senderName || senderPsid);
         const msgPreview = tg(text ? (text.length > 120 ? text.slice(0, 120) + "…" : text) : "[รูปภาพ]");
         void sendTelegram(`💬 <b>แชทใหม่</b>\n👤 ${senderLabel}\n📄 ${tg(page.name)}\n💬 ${msgPreview}`);
       }
@@ -250,10 +256,6 @@ export async function POST(request: NextRequest) {
         },
         { onConflict: "fb_message_id", ignoreDuplicates: true },
       );
-
-      if (!isEcho && !conv.sender_name && msgToken) {
-        await enrichSenderName(supabase, conv.id, senderPsid, msgToken, fbPageId);
-      }
     }
   }
 
@@ -543,7 +545,7 @@ async function enrichSenderName(
   psid: string,
   token: string,
   fbPageId: string,
-) {
+): Promise<string | null> {
   try {
     // Use Conversations API — direct /{psid}?fields=name is no longer supported
     const res = await fetch(
@@ -552,7 +554,7 @@ async function enrichSenderName(
     if (!res.ok) {
       const errBody = (await res.json().catch(() => ({}))) as unknown;
       console.error("[enrichSenderName] Conversations API error psid=%s body=%s", psid, JSON.stringify(errBody));
-      return;
+      return null;
     }
     type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string }[] } }[] };
     const data = (await res.json()) as ConvApiResult;
@@ -560,8 +562,11 @@ async function enrichSenderName(
     const user = participants.find((p) => p.id !== fbPageId);
     if (user?.name) {
       await supabase.from("conversations").update({ sender_name: user.name }).eq("id", convId);
+      return user.name;
     }
+    return null;
   } catch (e) {
     console.error("[enrichSenderName] fetch error psid=%s", psid, e);
+    return null;
   }
 }
