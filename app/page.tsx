@@ -118,7 +118,6 @@ export default function HomePage() {
   const [stageNoteRequest, setStageNoteRequest] = useState<StageNoteRequest | null>(null);
   const [voucherStage, setVoucherStage] = useState<import("@/types/crm").Stage | null>(null);
   const [pendingVoucherLead, setPendingVoucherLead] = useState<import("@/types/crm").Lead | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatOpenLeadId, setChatOpenLeadId] = useState<string | null>(null);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
@@ -274,12 +273,6 @@ export default function HomePage() {
   const visibleSettingsTabs = settingsTabs.filter(
     (tab) => (!tab.managerOnly || canManage) && (!tab.adminOnly || profile?.role === "admin"),
   );
-  const isSettingsTab = visibleSettingsTabs.some((t) => t.id === activeTab);
-
-  // Close settings dropdown when navigating to a settings tab via direct click
-  useEffect(() => {
-    if (isSettingsTab) setSettingsOpen(false);
-  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const myTeamMemberIds = useMemo(() => {
     if (!currentUserId) return [];
@@ -508,42 +501,6 @@ export default function HomePage() {
             <Boxes size={16} />
             <span className="hidden xl:inline">Sales Hub</span>
           </Link>
-
-          {/* Gear dropdown */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setSettingsOpen((o) => !o)}
-              title="ตั้งค่า"
-              className={`flex h-9 w-9 items-center justify-center rounded-lg border transition ${
-                isSettingsTab ? "border-brand-300 bg-brand-50 text-brand-700" : settingsOpen ? "border-slate-300 bg-slate-100 text-slate-800" : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-              }`}
-            >
-              <Settings size={16} />
-            </button>
-            {settingsOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setSettingsOpen(false)} />
-                <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
-                  {visibleSettingsTabs.map((item) => {
-                    const Icon = item.icon;
-                    const active = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => { setActiveTab(item.id); setSettingsOpen(false); }}
-                        className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition ${
-                          active ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
-                        }`}
-                      >
-                        <Icon size={15} />
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
 
         </div>
       </header>
