@@ -14,6 +14,7 @@ import {
   Sparkles,
   Ticket,
   UserRound,
+  Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -48,6 +49,7 @@ const hubSections: { title: string; items: HubLink[] }[] = [
     items: [
       { title: "ลงทะเบียน Gift Card", subtitle: "Register Gift Card", href: "https://centralcard.vercel.app/", icon: Sparkles },
       { title: "Asakan CRM", subtitle: "Member Management", href: "https://asakancrm.pages.dev", icon: UserRound },
+      { title: "Assetcare", subtitle: "Asset Management", href: "https://asakanassetcare.pages.dev/", icon: Wrench },
     ],
   },
   {
