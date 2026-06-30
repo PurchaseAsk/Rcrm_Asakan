@@ -119,6 +119,7 @@ export type Activity = {
   lead_id: string;
   type: string;
   content: string | null;
+  attachment_url: string | null;
   created_by: string | null;
   created_at: string;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Pipeline, Profile, Stage, Tag } from "@/types/crm";
@@ -64,6 +64,8 @@ export function LeadDrawer({
     assigned_to: lead.assigned_to || "",
   });
   const [note, setNote] = useState("");
+  const [noteImage, setNoteImage] = useState<File | null>(null);
+  const noteImageInputRef = useRef<HTMLInputElement>(null);
   const [reminder, setReminder] = useState({ date: "", time: "09:00", note: "" });
   const [busy, setBusy] = useState(false);
   const [editingInfo, setEditingInfo] = useState(false);
@@ -228,20 +230,31 @@ export function LeadDrawer({
   }
 
   async function addNote() {
-    if (!note.trim()) return;
+    if (!note.trim() && !noteImage) return;
     setBusy(true);
     try {
+      let attachment_url: string | null = null;
+      if (noteImage) {
+        const ext = noteImage.name.split(".").pop() ?? "jpg";
+        const path = `${lead.id}/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("lead-attachments")
+          .upload(path, noteImage, { upsert: false });
+        if (uploadError) { toast(uploadError.message); return; }
+        const { data: urlData } = supabase.storage.from("lead-attachments").getPublicUrl(path);
+        attachment_url = urlData.publicUrl;
+      }
       const { error } = await supabase.from("lead_activities").insert({
         lead_id: lead.id,
         type: "note",
-        content: note.trim(),
+        content: note.trim() || null,
+        attachment_url,
         created_by: userId,
       });
-      if (error) {
-        toast(error.message);
-        return;
-      }
+      if (error) { toast(error.message); return; }
       setNote("");
+      setNoteImage(null);
+      if (noteImageInputRef.current) noteImageInputRef.current.value = "";
       await reload();
     } finally {
       setBusy(false);
@@ -433,15 +446,41 @@ export function LeadDrawer({
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
                 placeholder="Add note"
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void addNote(); } }}
+              />
+              <input
+                ref={noteImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => setNoteImage(e.target.files?.[0] ?? null)}
               />
               <button
-                className="rounded-lg bg-brand-700 px-3 text-sm font-medium text-white disabled:opacity-50"
+                type="button"
+                title="แนบรูป"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
                 disabled={busy}
+                onClick={() => noteImageInputRef.current?.click()}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
+              <button
+                className="rounded-lg bg-brand-700 px-3 text-sm font-medium text-white disabled:opacity-50"
+                disabled={busy || (!note.trim() && !noteImage)}
                 onClick={addNote}
               >
                 Add
               </button>
             </div>
+            {noteImage && (
+              <div className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <img src={URL.createObjectURL(noteImage)} alt="" className="h-12 w-12 rounded object-cover" />
+                <span className="flex-1 truncate text-xs text-slate-600">{noteImage.name}</span>
+                <button className="text-xs text-red-500 hover:underline" onClick={() => { setNoteImage(null); if (noteImageInputRef.current) noteImageInputRef.current.value = ""; }}>ลบ</button>
+              </div>
+            )}
           </section>
 
           <section>
@@ -552,7 +591,18 @@ export function LeadDrawer({
                         </div>
                       </div>
                     ) : (
-                      <div className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{activity.content || "-"}</div>
+                      <>
+                        {activity.content && (
+                          <div className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{activity.content}</div>
+                        )}
+                        {activity.attachment_url && (
+                          <a href={activity.attachment_url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={activity.attachment_url} alt="attachment" className="max-h-60 rounded-lg border border-slate-200 object-contain" />
+                          </a>
+                        )}
+                        {!activity.content && !activity.attachment_url && <div className="mt-1 text-sm text-slate-400">-</div>}
+                      </>
                     )}
                   </div>
                 );

@@ -380,6 +380,24 @@ function ConversionsView({
     return () => { cancelled = true; };
   }, [filteredLeads]);
 
+  // Expand stages: fill all non-unfollow stages from pos 1 up to the CURRENT stage position
+  const expandedStagesByLead = useMemo(() => {
+    const ordered = stages.filter((s) => !s.is_unfollow).sort((a, b) => a.position - b.position);
+    const positionOf = new Map(stages.map((s) => [s.id, s.position]));
+    const result = new Map<string, string[]>();
+    filteredLeads.forEach((lead) => {
+      const currentPos = lead.stage_id ? (positionOf.get(lead.stage_id) ?? -1) : -1;
+      const expanded = new Set<string>();
+      if (currentPos > -1) {
+        ordered.forEach((s) => { if (s.position <= currentPos) expanded.add(s.id); });
+      } else {
+        expanded.add(lead.stage_id ?? "__none__");
+      }
+      result.set(lead.id, [...expanded]);
+    });
+    return result;
+  }, [filteredLeads, stages]);
+
   const { days, series } = useMemo(() => {
     const dayList = buildDayRange(dateFrom, dateTo);
     const totalPerDay: Record<string, number> = {};
@@ -419,8 +437,7 @@ function ConversionsView({
       if (!m.has(uid)) m.set(uid, { total: 0, stages: new Map(), unfollowed: 0 });
       const row = m.get(uid)!;
       row.total++;
-      const hist = stagesByLead.get(lead.id);
-      const sids = hist && hist.size > 0 ? [...hist] : [lead.stage_id ?? "__none__"];
+      const sids = expandedStagesByLead.get(lead.id) ?? [lead.stage_id ?? "__none__"];
       sids.forEach((sid) => row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1));
       if (lead.status === "unfollowed") row.unfollowed++;
     });
@@ -438,13 +455,12 @@ function ConversionsView({
       .sort((a, b) => b.total - a.total);
     const st: Record<string, number> = {};
     filteredLeads.forEach((l) => {
-      const hist = stagesByLead.get(l.id);
-      const sids = hist && hist.size > 0 ? [...hist] : [l.stage_id ?? "__none__"];
+      const sids = expandedStagesByLead.get(l.id) ?? [l.stage_id ?? "__none__"];
       sids.forEach((sid) => { st[sid] = (st[sid] ?? 0) + 1; });
     });
     const uf = filteredLeads.filter((l) => l.status === "unfollowed").length;
     return { matrix: rows, stageTotals: st, totalUnfollowed: uf };
-  }, [filteredLeads, profileById, stagesByLead]);
+  }, [filteredLeads, profileById, expandedStagesByLead]);
 
   const { sourceMatrix, sourceStageTotals } = useMemo(() => {
     const m = new Map<string, { total: number; stages: Map<string, number>; unfollowed: number }>();
@@ -453,8 +469,7 @@ function ConversionsView({
       if (!m.has(key)) m.set(key, { total: 0, stages: new Map(), unfollowed: 0 });
       const row = m.get(key)!;
       row.total++;
-      const hist = stagesByLead.get(lead.id);
-      const sids = hist && hist.size > 0 ? [...hist] : [lead.stage_id ?? "__none__"];
+      const sids = expandedStagesByLead.get(lead.id) ?? [lead.stage_id ?? "__none__"];
       sids.forEach((sid) => row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1));
       if (lead.status === "unfollowed") row.unfollowed++;
     });
@@ -463,12 +478,11 @@ function ConversionsView({
       .sort((a, b) => b.total - a.total);
     const st: Record<string, number> = {};
     filteredLeads.forEach((l) => {
-      const hist = stagesByLead.get(l.id);
-      const sids = hist && hist.size > 0 ? [...hist] : [l.stage_id ?? "__none__"];
+      const sids = expandedStagesByLead.get(l.id) ?? [l.stage_id ?? "__none__"];
       sids.forEach((sid) => { st[sid] = (st[sid] ?? 0) + 1; });
     });
     return { sourceMatrix: rows, sourceStageTotals: st };
-  }, [filteredLeads, stagesByLead]);
+  }, [filteredLeads, expandedStagesByLead]);
 
   return (
     <div className="space-y-4">

@@ -467,8 +467,18 @@ export async function loadCrmData(
     }
   }
 
+  const rawTags = (tags.data || []) as Tag[];
+  const visibleTags = opts?.userId
+    ? rawTags.filter((tag) => tag.type === "global" || tag.created_by === opts.userId)
+    : rawTags.filter((tag) => tag.type === "global");
+  const visibleTagIds = new Set(visibleTags.map((tag) => tag.id));
+  const visibleLeads = ((leads.data || []) as Lead[]).map((lead) => ({
+    ...lead,
+    lead_tags: lead.lead_tags?.filter((item) => item.tags && visibleTagIds.has(item.tag_id)) ?? [],
+  }));
+
   return {
-    leads: (leads.data || []) as Lead[],
+    leads: visibleLeads,
     stages: (stages.data || []) as Stage[],
     pipelines: (pipelines.data || []) as Pipeline[],
     pages: (pages.data || []) as Page[],
@@ -476,7 +486,7 @@ export async function loadCrmData(
     profiles: (profiles.data || []) as Profile[],
     rules: (rules.data || []) as DistributionRule[],
     recallRules: (recallRules.data || []) as RecallRule[],
-    tags: (tags.data || []) as Tag[],
+    tags: visibleTags,
   };
 }
 
