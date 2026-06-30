@@ -1004,72 +1004,94 @@ export function ChatInbox({
 
           {selectedConv ? (
             <div className="flex min-h-0 flex-col overflow-hidden">
-              <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3">
-                <div className="flex items-center gap-3">
+              <div className="shrink-0 border-b border-slate-200">
+                {/* Main header row */}
+                <div className="flex items-center gap-1.5 px-3 py-2 md:gap-2 md:px-4 md:py-3">
+                  {/* Back — chevron icon on mobile */}
                   <button
-                    className="text-sm text-slate-500 hover:text-slate-800 md:hidden"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 md:hidden"
                     onClick={() => { setSelectedConvId(null); setSelectedConvObj(null); }}
                   >
-                    ← Back
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
                   </button>
-                  <div>
-                    <div className="font-semibold text-slate-950">
+
+                  {/* Name + page */}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold text-slate-950">
                       {selectedConv.sender_name || selectedConv.sender_psid}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <span>{selectedConv.facebook_pages?.name}</span>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <span className="truncate">{selectedConv.facebook_pages?.name}</span>
+                      {/* Ad name inline on desktop only */}
                       {selectedConv.ad_name && (
-                        <span className="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">
+                        <span className="hidden truncate rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700 md:inline-flex">
                           🎯 {selectedConv.ad_name}
                         </span>
                       )}
                     </div>
                   </div>
+
+                  {/* Action buttons */}
+                  <div className="flex flex-shrink-0 items-center gap-1">
+                    {/* จบแชท — icon-only on mobile, text on desktop */}
+                    {selectedConv.last_message_direction === "inbound" && (
+                      <button
+                        title="Mark as handled — ไม่นับเป็น overdue"
+                        onClick={() => void markHandled(selectedConv.id)}
+                        className="flex h-8 items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                      >
+                        <span className="text-sm leading-none">✓</span>
+                        <span className="hidden text-xs md:inline">จบแชท</span>
+                      </button>
+                    )}
+                    <button
+                      title="Mark as unread"
+                      onClick={() => void markUnread(selectedConv.id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    <button
+                      title={selectedConv.is_pinned ? "ยกเลิก pin" : "Pin การสนทนา"}
+                      onClick={() => void togglePin(selectedConv.id, selectedConv.is_pinned)}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg border text-slate-400 hover:bg-slate-50 hover:text-amber-500 ${selectedConv.is_pinned ? "border-amber-300 bg-amber-50 text-amber-500" : "border-slate-200"}`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill={selectedConv.is_pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth={selectedConv.is_pinned ? 0 : 2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 12V4h1a1 1 0 000-2H7a1 1 0 000 2h1v8l-2 2v2h5v5l1 1 1-1v-5h5v-2l-2-2z"/>
+                      </svg>
+                    </button>
+                    {selectedConv.lead_id ? (
+                      <button
+                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 md:px-3 md:text-sm"
+                        onClick={() => onLeadOpen?.(selectedConv.lead_id!)}
+                      >
+                        <span className="md:hidden">Lead ↗</span>
+                        <span className="hidden md:inline">Lead linked ↗</span>
+                      </button>
+                    ) : (
+                      <button
+                        className="rounded-lg bg-brand-700 px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-900 md:px-3 md:text-sm"
+                        onClick={() => openCreateLead(selectedConv)}
+                      >
+                        <span className="md:hidden">+ Lead</span>
+                        <span className="hidden md:inline">+ Create Lead</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {selectedConv.last_message_direction === "inbound" && (
-                    <button
-                      title="Mark as handled — ไม่นับเป็น overdue"
-                      onClick={() => void markHandled(selectedConv.id)}
-                      className="flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs text-slate-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                    >
-                      ✓ จบแชท
-                    </button>
-                  )}
-                  <button
-                    title="Mark as unread"
-                    onClick={() => void markUnread(selectedConv.id)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                  <button
-                    title={selectedConv.is_pinned ? "ยกเลิก pin" : "Pin การสนทนา"}
-                    onClick={() => void togglePin(selectedConv.id, selectedConv.is_pinned)}
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg border text-slate-400 hover:bg-slate-50 hover:text-amber-500 ${selectedConv.is_pinned ? "border-amber-300 bg-amber-50 text-amber-500" : "border-slate-200"}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill={selectedConv.is_pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth={selectedConv.is_pinned ? 0 : 2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 12V4h1a1 1 0 000-2H7a1 1 0 000 2h1v8l-2 2v2h5v5l1 1 1-1v-5h5v-2l-2-2z"/>
-                    </svg>
-                  </button>
-                  {selectedConv.lead_id ? (
-                    <button
-                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700 hover:bg-emerald-100"
-                      onClick={() => onLeadOpen?.(selectedConv.lead_id!)}
-                    >
-                      Lead linked ↗
-                    </button>
-                  ) : (
-                    <button
-                      className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-900"
-                      onClick={() => openCreateLead(selectedConv)}
-                    >
-                      + Create Lead
-                    </button>
-                  )}
-                </div>
+
+                {/* Mobile-only: ad name strip */}
+                {selectedConv.ad_name && (
+                  <div className="border-t border-slate-100 px-3 py-1.5 md:hidden">
+                    <span className="inline-block max-w-full truncate rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      🎯 {selectedConv.ad_name}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Tag bar */}
