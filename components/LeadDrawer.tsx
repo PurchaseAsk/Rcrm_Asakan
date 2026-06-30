@@ -498,38 +498,42 @@ export function LeadDrawer({
 
           <section>
             <h3 className="mb-2 font-semibold text-slate-950">Reminders</h3>
-            <div className="grid gap-2 md:grid-cols-[150px_110px_1fr_90px]">
-              <input
-                className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
-                type="date"
-                value={reminder.date}
-                onChange={(e) => setReminder({ ...reminder, date: e.target.value })}
-              />
-              <select
-                className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
-                value={reminder.time}
-                onChange={(e) => setReminder({ ...reminder, time: e.target.value })}
-              >
-                {Array.from({ length: 32 }, (_, i) => {
-                  const h = Math.floor(i / 2) + 7;
-                  const m = i % 2 === 0 ? "00" : "30";
-                  const val = `${String(h).padStart(2, "0")}:${m}`;
-                  return <option key={val} value={val}>{val}</option>;
-                })}
-              </select>
-              <input
-                className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
-                value={reminder.note}
-                onChange={(event) => setReminder({ ...reminder, note: event.target.value })}
-                placeholder="Reminder note"
-              />
-              <button
-                className="rounded-lg bg-brand-700 text-sm font-medium text-white disabled:opacity-50"
-                disabled={busy}
-                onClick={saveReminder}
-              >
-                Save
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <input
+                  className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
+                  type="date"
+                  value={reminder.date}
+                  onChange={(e) => setReminder({ ...reminder, date: e.target.value })}
+                />
+                <select
+                  className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
+                  value={reminder.time}
+                  onChange={(e) => setReminder({ ...reminder, time: e.target.value })}
+                >
+                  {Array.from({ length: 32 }, (_, i) => {
+                    const h = Math.floor(i / 2) + 7;
+                    const m = i % 2 === 0 ? "00" : "30";
+                    const val = `${String(h).padStart(2, "0")}:${m}`;
+                    return <option key={val} value={val}>{val}</option>;
+                  })}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
+                  value={reminder.note}
+                  onChange={(event) => setReminder({ ...reminder, note: event.target.value })}
+                  placeholder="Reminder note"
+                />
+                <button
+                  className="rounded-lg bg-brand-700 px-4 text-sm font-medium text-white disabled:opacity-50"
+                  disabled={busy}
+                  onClick={saveReminder}
+                >
+                  Save
+                </button>
+              </div>
             </div>
             <div className="mt-2 space-y-2">
               {detail.reminders.map((item) => (
