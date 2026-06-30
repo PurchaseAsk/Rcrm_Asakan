@@ -25,10 +25,12 @@ export function CommentCenter({
   pages: _pages,
   userId,
   toast,
+  onActiveCountChange,
 }: {
   pages: Page[];
   userId: string;
   toast: (msg: string) => void;
+  onActiveCountChange?: (count: number) => void;
 }) {
   const [subTab, setSubTab] = useState<"active" | "archived">("active");
   const [comments, setComments] = useState<CommentWithRelations[]>([]);
@@ -147,6 +149,8 @@ export function CommentCenter({
   }
 
   const activeCount = comments.filter((c) => c.status === "active").length;
+
+  useEffect(() => { onActiveCountChange?.(activeCount); }, [activeCount, onActiveCountChange]);
 
   function timeAgo(dateStr: string | null) {
     if (!dateStr) return "";

@@ -122,6 +122,7 @@ export default function HomePage() {
   const [chatOpenLeadId, setChatOpenLeadId] = useState<string | null>(null);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [lineUnreadCount, setLineUnreadCount] = useState(0);
+  const [commentActiveCount, setCommentActiveCount] = useState(0);
   const [showChangePw, setShowChangePw] = useState(false);
   const [changePwDraft, setChangePwDraft] = useState({ current: "", pw: "", confirm: "" });
   const [visiblePwFields, setVisiblePwFields] = useState({ current: false, pw: false, confirm: false });
@@ -483,9 +484,9 @@ export default function HomePage() {
                       {inboxUnreadCount}
                     </span>
                   )}
-                  {item.id === "line" && lineUnreadCount > 0 && (
-                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-[#06C755] text-white"}`}>
-                      {lineUnreadCount}
+                  {item.id === "line" && (lineUnreadCount + commentActiveCount) > 0 && (
+                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-rose-500 text-white"}`}>
+                      {lineUnreadCount + commentActiveCount}
                     </span>
                   )}
                 </button>
@@ -753,7 +754,7 @@ export default function HomePage() {
             </div>
 
             <div className={otherInboxSubTab !== "comment" ? "hidden" : ""}>
-              <CommentCenter pages={data.pages} userId={currentUserId} toast={showToast} />
+              <CommentCenter pages={data.pages} userId={currentUserId} toast={showToast} onActiveCountChange={setCommentActiveCount} />
             </div>
           </div>
         </section>
@@ -849,9 +850,9 @@ export default function HomePage() {
                         {inboxUnreadCount}
                       </span>
                     )}
-                    {item.id === "line" && lineUnreadCount > 0 && (
-                      <span className={`ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-[#06C755] text-white"}`}>
-                        {lineUnreadCount}
+                    {item.id === "line" && (lineUnreadCount + commentActiveCount) > 0 && (
+                      <span className={`ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-rose-500 text-white"}`}>
+                        {lineUnreadCount + commentActiveCount}
                       </span>
                     )}
                   </button>
