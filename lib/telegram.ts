@@ -9,11 +9,13 @@ export async function sendTelegram(text: string): Promise<void> {
     console.error("[telegram] missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID");
     return;
   }
+  const appUrl = process.env.APP_URL;
+  const fullText = appUrl ? `${text}\n\n🔗 <a href="${appUrl}">เปิด CRM</a>` : text;
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+      body: JSON.stringify({ chat_id: chatId, text: fullText, parse_mode: "HTML" }),
     });
     if (!res.ok) {
       const err = await res.json();

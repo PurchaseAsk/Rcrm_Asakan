@@ -634,6 +634,7 @@ export function ChatInbox({
   async function submitCreateLead() {
     if (!leadModal) return;
     if (!leadDraft.customer_name.trim()) return toast("กรุณากรอกชื่อลูกค้า");
+    if (!leadDraft.phone.trim()) return toast("กรุณากรอกเบอร์โทร");
     if (!leadDraft.pipeline_id) return toast("กรุณาเลือก Pipeline");
     setSubmitting(true);
     try {
@@ -1632,7 +1633,7 @@ export function ChatInbox({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">เบอร์โทร</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">เบอร์โทร *</label>
                   <input
                     className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
                     value={leadDraft.phone}
@@ -1726,7 +1727,7 @@ export function ChatInbox({
               </button>
               <button
                 onClick={() => void submitCreateLead()}
-                disabled={submitting || !leadDraft.customer_name.trim()}
+                disabled={submitting || !leadDraft.customer_name.trim() || !leadDraft.phone.trim()}
                 className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {submitting ? "กำลังสร้าง…" : "สร้างลีด"}
