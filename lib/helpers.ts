@@ -401,6 +401,7 @@ export async function updateLeadStage(
       else if (data.error) toast(`❌ CAPI error: ${data.error}`);
       else if (data.ok) toast(`✅ CAPI sent: ${data.event}`);
     }).catch(() => toast("❌ CAPI: ส่งไม่ได้ (network error)"));
+  }
 
   return true;
 }
