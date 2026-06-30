@@ -32,10 +32,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, recalled: 0 });
   }
 
-  // Parse "🔄 ดึงลีดกลับจาก <name> หลังไม่มีกิจกรรม X วัน"
+  // Parse "🔄 ดึงลีดกลับเข้าส่วนกลางจาก <name> หลังอยู่ใน stage ..."
   const counts = new Map<string, number>();
   for (const { content } of activities) {
-    const match = content?.match(/ดึงลีดกลับจาก (.+?) หลังไม่มีกิจกรรม/);
+    const match = content?.match(/ดึงลีดกลับเข้าส่วนกลางจาก (.+?) หลังอยู่ใน stage/);
     const name = match?.[1] ?? "ไม่ระบุ";
     counts.set(name, (counts.get(name) ?? 0) + 1);
   }
