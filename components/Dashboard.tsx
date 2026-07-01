@@ -15,11 +15,11 @@ const CHART_COLORS = [
 ];
 
 function isoDay(s: string) {
-  return s.slice(0, 10);
+  return new Date(s).toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
 }
 
 function todayStr() {
-  return isoDay(new Date().toISOString());
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
 }
 
 function firstOfMonthStr() {
