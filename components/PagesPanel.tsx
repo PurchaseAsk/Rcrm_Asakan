@@ -218,6 +218,29 @@ export function PagesPanel({
           </button>
         </div>
       </div>
+      {pages.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {pages.map((page) => (
+            <button
+              key={page.id}
+              onClick={() => void syncLeads(page)}
+              disabled={syncingPageId === page.id}
+              className="flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50"
+            >
+              {syncingPageId === page.id ? (
+                "กำลัง sync…"
+              ) : (
+                <>
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Sync ลีด — {page.name}
+                </>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
       <DataTable
         headers={["Name", "Page ID", "Status", "Inbox Teams", "Token", "Pixel / CAPI", "Actions"]}
         rows={pages.map((page) => [
@@ -249,21 +272,12 @@ export function PagesPanel({
               {page.pixel_id ? `Pixel: ${page.pixel_id.slice(0, 8)}…` : "ตั้ง Pixel"}
             </button>
           </div>,
-          <div key={`act-${page.id}`} className="flex items-center gap-2">
-            <button
-              onClick={() => void syncLeads(page)}
-              disabled={syncingPageId === page.id}
-              className="rounded px-2 py-1 text-xs text-sky-700 underline hover:text-sky-900 disabled:opacity-40"
-              title="ดึงลีดทั้งหมดจาก Facebook มา sync"
-            >
-              {syncingPageId === page.id ? "กำลัง sync…" : "Sync ลีด"}
-            </button>
-            <RowActions
-              isActive={page.is_active}
-              onToggle={() => toggleBoolean("facebook_pages", page.id, "is_active", !page.is_active, reload, toast)}
-              onDelete={() => deleteRow("facebook_pages", page.id, reload, toast)}
-            />
-          </div>,
+          <RowActions
+            key={`act-${page.id}`}
+            isActive={page.is_active}
+            onToggle={() => toggleBoolean("facebook_pages", page.id, "is_active", !page.is_active, reload, toast)}
+            onDelete={() => deleteRow("facebook_pages", page.id, reload, toast)}
+          />,
         ])}
       />
 
