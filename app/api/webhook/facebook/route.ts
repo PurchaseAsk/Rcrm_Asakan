@@ -111,9 +111,14 @@ export async function POST(request: NextRequest) {
       if (change.field === "leadgen") {
         console.log("[webhook] leadgen event received", { fbPageId, leadgen_id: (change.value as LeadgenWebhookValue).leadgen_id, hasToken: !!leadgenToken });
         if (leadgenToken) {
-          await handleLeadgen(supabase, page.id, page.name ?? "", change.value as LeadgenWebhookValue, leadgenToken);
+          await handleLeadgen(supabase, page.id, page.name ?? "", change.value as LeadgenWebhookValue, leadgenToken, fbPageId);
         } else {
           console.error("[webhook] leadgen skipped — no token for page", fbPageId);
+          await wlog(supabase, "leadgen_skipped", {
+            fb_page_id: fbPageId,
+            leadgen_id: (change.value as LeadgenWebhookValue).leadgen_id ?? null,
+            detail: { reason: "no_token" },
+          });
         }
         continue;
       }
@@ -262,19 +267,49 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ status: "ok" });
 }
 
+async function wlog(
+  supabase: SupabaseClient,
+  event_type: string,
+  fields: {
+    fb_page_id?: string | null;
+    leadgen_id?: string | null;
+    lead_id?: string | null;
+    phone?: string | null;
+    name?: string | null;
+    detail?: Record<string, unknown> | null;
+  },
+) {
+  await supabase.from("webhook_logs").insert({ event_type, ...fields }).catch(() => {});
+}
+
 async function handleLeadgen(
   supabase: SupabaseClient,
   pageId: string,
   pageName: string,
   webhookValue: LeadgenWebhookValue,
   pageToken: string,
+  fbPageId: string,
 ) {
   const { leadgen_id } = webhookValue;
   if (!leadgen_id) return;
 
+  // Log receipt immediately — before any Graph API calls that could fail
+  await wlog(supabase, "leadgen_received", {
+    fb_page_id: fbPageId,
+    leadgen_id,
+    detail: { webhook_value: webhookValue },
+  });
+
   // Fetch full field data from Graph API (webhook only sends the ID)
   const leadData = await fetchLeadgenData(leadgen_id, pageToken);
-  if (!leadData) return;
+  if (!leadData) {
+    await wlog(supabase, "leadgen_error", {
+      fb_page_id: fbPageId,
+      leadgen_id,
+      detail: { reason: "fetchLeadgenData returned null", webhook_value: webhookValue },
+    });
+    return;
+  }
 
   const fields = leadData.field_data ?? [];
   const get = (name: string) => fields.find((f) => f.name === name)?.values[0] ?? null;
@@ -351,6 +386,14 @@ async function handleLeadgen(
         content: `Facebook Lead Form received — merged with existing lead (same phone)${activitySuffix}`,
         created_by: null,
       });
+      await wlog(supabase, "leadgen_merged", {
+        fb_page_id: fbPageId,
+        leadgen_id,
+        lead_id: existing.id,
+        phone: rawPhone,
+        name,
+        detail: { reason: "phone_dedupe", existing_lead_id: existing.id, pipeline_id: targetPipelineId },
+      });
       return;
     }
   }
@@ -382,6 +425,14 @@ async function handleLeadgen(
       created_by: null,
     });
     await supabase.rpc("distribute_lead", { p_lead_id: lead.id });
+    await wlog(supabase, "leadgen", {
+      fb_page_id: fbPageId,
+      leadgen_id,
+      lead_id: lead.id,
+      phone: rawPhone,
+      name,
+      detail: { pipeline_id: targetPipelineId, campaign: campaignName },
+    });
     const parts = [
       `🧲 <b>ลีดใหม่ (Lead Form)</b>`,
       `👤 ${tg(name ?? "ไม่ระบุชื่อ")}`,
@@ -445,9 +496,26 @@ async function handleLeadgen(
         content: `ส่ง Lead Form ซ้ำอีกครั้ง${activitySuffix}`,
         created_by: null,
       });
+      await wlog(supabase, "leadgen_merged", {
+        fb_page_id: fbPageId,
+        leadgen_id,
+        lead_id: existingLead.id,
+        phone: rawPhone,
+        name,
+        detail: { reason: "duplicate_leadgen_id_active" },
+      });
     }
     return;
   }
+
+  // Insert failed for unknown reason (not fb_id dup, not phone dup) — log it
+  await wlog(supabase, "leadgen_error", {
+    fb_page_id: fbPageId,
+    leadgen_id,
+    phone: rawPhone,
+    name,
+    detail: { reason: "insert_failed_unknown", pipeline_id: targetPipelineId },
+  });
 
   // Not duplicate — find existing lead by phone and merge
   if (!rawPhone) return;

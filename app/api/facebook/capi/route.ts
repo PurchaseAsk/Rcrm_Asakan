@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       {
         event_name: stage.capi_event,
         event_time: Math.floor(Date.now() / 1000),
-        action_source: "crm",
+        action_source: "system_generated",
         user_data: userData,
         custom_data: {
           lead_id,
@@ -87,10 +87,14 @@ export async function POST(request: NextRequest) {
     },
   );
 
-  if (!res.ok) {
-    const err = (await res.json()) as { error?: { message?: string } };
-    return NextResponse.json({ error: err.error?.message ?? "CAPI error" }, { status: 500 });
+  const fbBody = (await res.json()) as { events_received?: number; error?: { message?: string; code?: number } };
+  console.log("[capi] fb response", JSON.stringify(fbBody));
+
+  if (!res.ok || fbBody.error) {
+    const msg = fbBody.error?.message ?? "CAPI error";
+    console.error("[capi] error", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, event: stage.capi_event });
+  return NextResponse.json({ ok: true, event: stage.capi_event, events_received: fbBody.events_received });
 }
