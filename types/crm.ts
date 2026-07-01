@@ -59,6 +59,7 @@ export type Lead = {
   customer_name: string;
   facebook_id: string | null;
   facebook_lead_id: string | null;
+  facebook_conversions: number;
   phone: string | null;
   email: string | null;
   value: number | null;

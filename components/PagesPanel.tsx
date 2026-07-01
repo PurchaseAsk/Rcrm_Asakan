@@ -34,6 +34,7 @@ export function PagesPanel({
   const [savingToken, setSavingToken] = useState(false);
   const [pixelModal, setPixelModal] = useState<{ pageId: string; pixelId: string; capiToken: string } | null>(null);
   const [savingPixel, setSavingPixel] = useState(false);
+  const [syncingPageId, setSyncingPageId] = useState<string | null>(null);
 
   // PIN gate
   const [pinModal, setPinModal] = useState<{ type: "token" | "pixel"; page: Page } | null>(null);
@@ -168,6 +169,33 @@ export function PagesPanel({
     }
   }
 
+  async function syncLeads(page: Page) {
+    setSyncingPageId(page.id);
+    try {
+      const res = await fetch("/api/facebook/sync-leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page_id: page.id }),
+      });
+      const data = (await res.json()) as { created?: number; merged?: number; skipped?: number; errors?: number; error?: string };
+      if (!res.ok || data.error) {
+        toast(`❌ Sync ล้มเหลว: ${data.error ?? "unknown error"}`);
+      } else {
+        const parts = [
+          data.created ? `✅ สร้างใหม่ ${data.created} ลีด` : null,
+          data.merged ? `🔗 รวมซ้ำ ${data.merged} ลีด` : null,
+          !data.created && !data.merged ? "ไม่มีลีดใหม่" : null,
+        ].filter(Boolean);
+        toast(parts.join(" · "));
+        if ((data.created ?? 0) > 0) await reload();
+      }
+    } catch {
+      toast("❌ Sync: network error");
+    } finally {
+      setSyncingPageId(null);
+    }
+  }
+
   function toggleTeam(teamId: string) {
     setAssignedTeamIds((prev) =>
       prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId],
@@ -221,12 +249,21 @@ export function PagesPanel({
               {page.pixel_id ? `Pixel: ${page.pixel_id.slice(0, 8)}…` : "ตั้ง Pixel"}
             </button>
           </div>,
-          <RowActions
-            key={page.id}
-            isActive={page.is_active}
-            onToggle={() => toggleBoolean("facebook_pages", page.id, "is_active", !page.is_active, reload, toast)}
-            onDelete={() => deleteRow("facebook_pages", page.id, reload, toast)}
-          />,
+          <div key={`act-${page.id}`} className="flex items-center gap-2">
+            <button
+              onClick={() => void syncLeads(page)}
+              disabled={syncingPageId === page.id}
+              className="rounded px-2 py-1 text-xs text-sky-700 underline hover:text-sky-900 disabled:opacity-40"
+              title="ดึงลีดทั้งหมดจาก Facebook มา sync"
+            >
+              {syncingPageId === page.id ? "กำลัง sync…" : "Sync ลีด"}
+            </button>
+            <RowActions
+              isActive={page.is_active}
+              onToggle={() => toggleBoolean("facebook_pages", page.id, "is_active", !page.is_active, reload, toast)}
+              onDelete={() => deleteRow("facebook_pages", page.id, reload, toast)}
+            />
+          </div>,
         ])}
       />
 

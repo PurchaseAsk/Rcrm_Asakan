@@ -371,6 +371,7 @@ async function handleLeadgen(
     };
     const existing = dups?.[0];
     if (existing) {
+      await supabase.rpc("increment_lead_conversions", { p_lead_id: existing.id });
       await supabase
         .from("leads")
         .update({
@@ -383,7 +384,7 @@ async function handleLeadgen(
       await supabase.from("lead_activities").insert({
         lead_id: existing.id,
         type: "note",
-        content: `Facebook Lead Form received — merged with existing lead (same phone)${activitySuffix}`,
+        content: `ส่ง Lead Form ใหม่อีกครั้ง (เบอร์ซ้ำกับลีดเดิม)${activitySuffix}`,
         created_by: null,
       });
       await wlog(supabase, "leadgen_merged", {
@@ -394,6 +395,14 @@ async function handleLeadgen(
         name,
         detail: { reason: "phone_dedupe", existing_lead_id: existing.id, pipeline_id: targetPipelineId },
       });
+      const mergedParts = [
+        `🔄 <b>ลีดส่งฟอร์มซ้ำ</b>`,
+        `👤 ${tg(name ?? existing.customer_name)}`,
+        rawPhone ? `📞 ${tg(rawPhone)}` : null,
+        campaignName ? `📢 ${tg(campaignName)}` : null,
+        pageName ? `📄 ${tg(pageName)}` : null,
+      ].filter(Boolean);
+      void sendTelegram(mergedParts.join("\n"));
       return;
     }
   }
@@ -485,7 +494,8 @@ async function handleLeadgen(
         await sendTelegram([`🧲 <b>ลีดใหม่ (Lead Form)</b>`, `👤 ${tg(name ?? "ไม่ระบุชื่อ")}`, rawPhone ? `📞 ${tg(rawPhone)}` : null, campaignName ? `📢 ${tg(campaignName)}` : null, pageName ? `📄 ${tg(pageName)}` : null].filter(Boolean).join("\n"));
       }
     } else {
-      // Lead still active — just bump to top
+      // Lead still active — bump to top and count as new conversion
+      await supabase.rpc("increment_lead_conversions", { p_lead_id: existingLead.id });
       await supabase
         .from("leads")
         .update({ last_activity_at: new Date().toISOString() })
@@ -504,6 +514,14 @@ async function handleLeadgen(
         name,
         detail: { reason: "duplicate_leadgen_id_active" },
       });
+      const mergedParts = [
+        `🔄 <b>ลีดส่งฟอร์มซ้ำ</b>`,
+        `👤 ${tg(name ?? "ไม่ระบุชื่อ")}`,
+        rawPhone ? `📞 ${tg(rawPhone)}` : null,
+        campaignName ? `📢 ${tg(campaignName)}` : null,
+        pageName ? `📄 ${tg(pageName)}` : null,
+      ].filter(Boolean);
+      void sendTelegram(mergedParts.join("\n"));
     }
     return;
   }

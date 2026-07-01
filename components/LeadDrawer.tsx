@@ -420,23 +420,32 @@ export function LeadDrawer({
             </div>
           </section>
 
-          {lead.metadata && (lead.metadata.campaign_name || lead.metadata.ad_name || lead.metadata.adset_name) && (
+          {(lead.source === "facebook" || lead.metadata?.campaign_name || lead.metadata?.ad_name || lead.metadata?.adset_name) && (
             <section className="rounded-lg border border-blue-100 bg-blue-50 p-3">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600">ข้อมูลโฆษณา</h3>
               <dl className="space-y-1 text-sm">
-                {lead.metadata.campaign_name && (
+                {lead.facebook_conversions > 1 && (
+                  <div className="flex gap-2">
+                    <dt className="w-24 shrink-0 text-slate-400">Conversions</dt>
+                    <dd className="font-medium text-blue-700">
+                      {lead.facebook_conversions} ครั้ง
+                      <span className="ml-1 text-xs text-slate-400">(ส่งฟอร์มซ้ำ)</span>
+                    </dd>
+                  </div>
+                )}
+                {lead.metadata?.campaign_name && (
                   <div className="flex gap-2">
                     <dt className="w-24 shrink-0 text-slate-400">Campaign</dt>
                     <dd className="font-medium text-slate-800">{lead.metadata.campaign_name}</dd>
                   </div>
                 )}
-                {lead.metadata.adset_name && (
+                {lead.metadata?.adset_name && (
                   <div className="flex gap-2">
                     <dt className="w-24 shrink-0 text-slate-400">Ad Set</dt>
                     <dd className="font-medium text-slate-800">{lead.metadata.adset_name}</dd>
                   </div>
                 )}
-                {lead.metadata.ad_name && (
+                {lead.metadata?.ad_name && (
                   <div className="flex gap-2">
                     <dt className="w-24 shrink-0 text-slate-400">Ad</dt>
                     <dd className="font-medium text-slate-800">{lead.metadata.ad_name}</dd>
