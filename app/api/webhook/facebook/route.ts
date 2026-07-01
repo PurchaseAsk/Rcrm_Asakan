@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
   if (payload.object !== "page") return NextResponse.json({ status: "ignored" });
 
   const supabase = adminSupabase();
+  let hasLeadgenFailure = false;
 
   for (const entry of payload.entry ?? []) {
     const fbPageId = entry.id;
@@ -111,7 +112,8 @@ export async function POST(request: NextRequest) {
       if (change.field === "leadgen") {
         console.log("[webhook] leadgen event received", { fbPageId, leadgen_id: (change.value as LeadgenWebhookValue).leadgen_id, hasToken: !!leadgenToken });
         if (leadgenToken) {
-          await handleLeadgen(supabase, page.id, page.name ?? "", change.value as LeadgenWebhookValue, leadgenToken, fbPageId);
+          const ok = await handleLeadgen(supabase, page.id, page.name ?? "", change.value as LeadgenWebhookValue, leadgenToken, fbPageId);
+          if (!ok) hasLeadgenFailure = true;
         } else {
           console.error("[webhook] leadgen skipped — no token for page", fbPageId);
           await wlog(supabase, "leadgen_skipped", {
@@ -264,6 +266,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // If any leadgen fetch failed, return 500 so Facebook retries the whole batch.
+  // Leads already processed will be skipped by the facebook_lead_id UNIQUE constraint.
+  if (hasLeadgenFailure) {
+    return NextResponse.json({ status: "retry" }, { status: 500 });
+  }
   return NextResponse.json({ status: "ok" });
 }
 
@@ -282,6 +289,7 @@ async function wlog(
   await supabase.from("webhook_logs").insert({ event_type, ...fields }).catch(() => {});
 }
 
+// Returns true on success (or non-retryable skip), false if Facebook should retry
 async function handleLeadgen(
   supabase: SupabaseClient,
   pageId: string,
@@ -289,9 +297,9 @@ async function handleLeadgen(
   webhookValue: LeadgenWebhookValue,
   pageToken: string,
   fbPageId: string,
-) {
+): Promise<boolean> {
   const { leadgen_id } = webhookValue;
-  if (!leadgen_id) return;
+  if (!leadgen_id) return true;
 
   // Log receipt immediately — before any Graph API calls that could fail
   await wlog(supabase, "leadgen_received", {
@@ -300,15 +308,19 @@ async function handleLeadgen(
     detail: { webhook_value: webhookValue },
   });
 
-  // Fetch full field data from Graph API (webhook only sends the ID)
-  const leadData = await fetchLeadgenData(leadgen_id, pageToken);
+  // Fetch full field data from Graph API — retry once after 2s to handle transient errors
+  let leadData = await fetchLeadgenData(leadgen_id, pageToken);
+  if (!leadData) {
+    await new Promise((r) => setTimeout(r, 2000));
+    leadData = await fetchLeadgenData(leadgen_id, pageToken);
+  }
   if (!leadData) {
     await wlog(supabase, "leadgen_error", {
       fb_page_id: fbPageId,
       leadgen_id,
-      detail: { reason: "fetchLeadgenData returned null", webhook_value: webhookValue },
+      detail: { reason: "fetchLeadgenData failed after retry", webhook_value: webhookValue },
     });
-    return;
+    return false; // signal caller to return 500 so Facebook retries
   }
 
   const fields = leadData.field_data ?? [];
@@ -403,7 +415,7 @@ async function handleLeadgen(
         pageName ? `📄 ${tg(pageName)}` : null,
       ].filter(Boolean);
       void sendTelegram(mergedParts.join("\n"));
-      return;
+      return true;
     }
   }
 
@@ -451,7 +463,7 @@ async function handleLeadgen(
       pageName ? `📄 ${tg(pageName)}` : null,
     ].filter(Boolean);
     await sendTelegram(parts.join("\n"));
-    return;
+    return true;
   }
 
   // Insert failed — check if it's a duplicate facebook_lead_id (re-submission)
@@ -523,7 +535,7 @@ async function handleLeadgen(
       ].filter(Boolean);
       void sendTelegram(mergedParts.join("\n"));
     }
-    return;
+    return true;
   }
 
   // Insert failed for unknown reason (not fb_id dup, not phone dup) — log it
@@ -536,7 +548,7 @@ async function handleLeadgen(
   });
 
   // Not duplicate — find existing lead by phone and merge
-  if (!rawPhone) return;
+  if (!rawPhone) return true;
   const { data: dups } = await supabase.rpc("find_lead_by_phone", {
     p_phone: rawPhone,
     p_pipeline_id: targetPipelineId,
@@ -544,7 +556,7 @@ async function handleLeadgen(
     data: { id: string; customer_name: string }[] | null;
   };
   const existing = dups?.[0];
-  if (!existing) return;
+  if (!existing) return true;
 
   await supabase
     .from("leads")
@@ -561,6 +573,7 @@ async function handleLeadgen(
     content: `Facebook Lead Form received — merged with existing lead (same phone)${activitySuffix}`,
     created_by: null,
   });
+  return true;
 }
 
 async function fetchLeadgenData(leadgenId: string, token: string): Promise<LeadgenApiResult | null> {
