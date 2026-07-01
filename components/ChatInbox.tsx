@@ -11,20 +11,24 @@ const CONVERSATION_PAGE_SIZE = 30;
 function playPing() {
   try {
     const ctx = new AudioContext();
-    const gain = ctx.createGain();
-    gain.connect(ctx.destination);
-    [0, 0.12].forEach((delay, i) => {
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.12, ctx.currentTime);
+    master.connect(ctx.destination);
+
+    [0, 0.16].forEach((delay, i) => {
       const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.connect(gain);
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(i === 0 ? 880 : 1100, ctx.currentTime + delay);
-      osc.frequency.exponentialRampToValueAtTime(i === 0 ? 660 : 880, ctx.currentTime + delay + 0.18);
+      gain.connect(master);
+      osc.type = i === 0 ? "triangle" : "sine";
+      osc.frequency.setValueAtTime(i === 0 ? 523.25 : 659.25, ctx.currentTime + delay);
       gain.gain.setValueAtTime(0, ctx.currentTime + delay);
-      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + delay + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.22);
+      gain.gain.linearRampToValueAtTime(i === 0 ? 0.16 : 0.1, ctx.currentTime + delay + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.36);
       osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.22);
+      osc.stop(ctx.currentTime + delay + 0.38);
     });
+    window.setTimeout(() => void ctx.close(), 700);
   } catch { /* browser blocked autoplay — ignore */ }
 }
 
