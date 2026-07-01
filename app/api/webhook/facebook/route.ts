@@ -286,7 +286,7 @@ async function wlog(
     detail?: Record<string, unknown> | null;
   },
 ) {
-  await supabase.from("webhook_logs").insert({ event_type, ...fields }).catch(() => {});
+  try { await supabase.from("webhook_logs").insert({ event_type, ...fields }); } catch { /* non-critical */ }
 }
 
 // Returns true on success (or non-retryable skip), false if Facebook should retry
