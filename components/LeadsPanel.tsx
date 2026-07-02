@@ -145,7 +145,10 @@ export function LeadsPanel({
   const [importPipelineId, setImportPipelineId] = useState("");
   const [importRows, setImportRows] = useState<Record<string, string>[]>([]);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ ok: number; skip: number; err: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ ok: number; skip: number; updated: number; err: string[] } | null>(null);
+  const [unmatchedStages, setUnmatchedStages] = useState<string[]>([]);
+  const [stageMapping, setStageMapping] = useState<Record<string, string>>({});
+  const [updateExistingStage, setUpdateExistingStage] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ── Date helpers ─────────────────────────────────────────────────────────
@@ -294,6 +297,9 @@ export function LeadsPanel({
     setImportPipelineId(pipelines[0]?.id ?? "");
     setImportRows([]);
     setImportResult(null);
+    setUnmatchedStages([]);
+    setStageMapping({});
+    setUpdateExistingStage(false);
     setShowImport(true);
   }
 
@@ -303,8 +309,20 @@ export function LeadsPanel({
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      setImportRows(parseCSV(text));
+      const rows = parseCSV(text);
+      setImportRows(rows);
       setImportResult(null);
+      // Detect stage names in CSV that don't match any CRM stage
+      const csvStageNames = new Set<string>();
+      for (const row of rows) {
+        const s = getField(row, "stage", "ขั้นตอน").toLowerCase().trim();
+        if (s) csvStageNames.add(s);
+      }
+      const unmatched = [...csvStageNames].filter(
+        (s) => !stages.some((st) => st.name.toLowerCase() === s),
+      );
+      setUnmatchedStages(unmatched);
+      setStageMapping({});
     };
     reader.readAsText(file, "utf-8");
   }
@@ -352,10 +370,14 @@ export function LeadsPanel({
       const csvStage = getField(row, "stage", "ขั้นตอน").toLowerCase();
       let resolvedStageId: string | null = null;
       if (csvStage) {
-        const matched =
-          stages.find((s) => s.name.toLowerCase() === csvStage && s.pipeline_id === resolvedPipelineId) ??
-          stages.find((s) => s.name.toLowerCase() === csvStage && !s.pipeline_id);
-        resolvedStageId = matched?.id ?? null;
+        if (stageMapping[csvStage]) {
+          resolvedStageId = stageMapping[csvStage];
+        } else {
+          const matched =
+            stages.find((s) => s.name.toLowerCase() === csvStage && s.pipeline_id === resolvedPipelineId) ??
+            stages.find((s) => s.name.toLowerCase() === csvStage && !s.pipeline_id);
+          resolvedStageId = matched?.id ?? null;
+        }
       }
       if (!resolvedStageId) resolvedStageId = firstStageOf(resolvedPipelineId)?.id ?? null;
 
@@ -381,25 +403,34 @@ export function LeadsPanel({
     };
 
     // Step 2: fetch existing phones in bulk (one query per pipeline group)
-    const existingSet = new Set<string>(); // normalized_phone|pipeline_id
+    const existingMap = new Map<string, string>(); // "normPhone|pipeline_id" → lead_id
     const pipelineIds = [...new Set(candidates.map((c) => c.pipeline_id))];
     if (pipelineIds.length > 0) {
       const { data: existing } = await supabase
-        .from("leads").select("phone, pipeline_id")
+        .from("leads").select("id, phone, pipeline_id")
         .in("pipeline_id", pipelineIds)
         .not("phone", "is", null);
       (existing ?? []).forEach((r) => {
         const norm = normPhone(r.phone as string);
-        if (norm) existingSet.add(`${norm}|${r.pipeline_id}`);
+        if (norm) existingMap.set(`${norm}|${r.pipeline_id}`, r.id as string);
       });
     }
 
-    // Step 3: filter duplicates using normalized phone
-    const toInsert = candidates.filter((c) => {
-      if (!c.phone) return true;
+    // Step 3: separate into new inserts vs existing-lead updates
+    type UpdateRow = { lead_id: string; stage_id: string | null };
+    const toInsert: Candidate[] = [];
+    const toUpdate: UpdateRow[] = [];
+    for (const c of candidates) {
+      if (!c.phone) { toInsert.push(c); continue; }
       const norm = normPhone(c.phone);
-      return !norm || !existingSet.has(`${norm}|${c.pipeline_id}`);
-    });
+      const key = `${norm}|${c.pipeline_id}`;
+      if (norm && existingMap.has(key)) {
+        if (updateExistingStage) toUpdate.push({ lead_id: existingMap.get(key)!, stage_id: c.stage_id });
+        // else skip duplicate silently
+      } else {
+        toInsert.push(c);
+      }
+    }
 
     // Step 4: batch insert in chunks of 500
     let ok = 0;
@@ -413,7 +444,7 @@ export function LeadsPanel({
           if (!n) return null;
           return { lead_id: ins.id, type: "note", content: n, stage_id: chunkRows[idx]?.stage_id ?? null, created_by: currentUserId };
         })
-        .filter(Boolean);
+        .filter((x): x is NonNullable<typeof x> => x !== null);
       if (acts.length > 0) await supabase.from("lead_activities").insert(acts);
     }
 
@@ -438,10 +469,32 @@ export function LeadsPanel({
       }
     }
 
-    const totalSkip = skipNoName + (candidates.length - toInsert.length) + (toInsert.length - ok);
-    setImportResult({ ok, skip: totalSkip, err: errs });
+    // Step 5: batch update stage for existing leads
+    let updatedCount = 0;
+    if (toUpdate.length > 0) {
+      const byStage = new Map<string, string[]>();
+      for (const u of toUpdate) {
+        const key = u.stage_id ?? "__null__";
+        if (!byStage.has(key)) byStage.set(key, []);
+        byStage.get(key)!.push(u.lead_id);
+      }
+      for (const [sid, ids] of byStage) {
+        const stageId = sid === "__null__" ? null : sid;
+        const CHUNK_UP = 500;
+        for (let i = 0; i < ids.length; i += CHUNK_UP) {
+          await supabase.from("leads")
+            .update({ stage_id: stageId, stage_entered_at: stageId ? now : null })
+            .in("id", ids.slice(i, i + CHUNK_UP));
+        }
+        updatedCount += ids.length;
+      }
+    }
+
+    const skippedDups = candidates.length - toInsert.length - toUpdate.length;
+    const totalSkip = skipNoName + skippedDups + (toInsert.length - ok);
+    setImportResult({ ok, updated: updatedCount, skip: totalSkip, err: errs });
     setImporting(false);
-    if (ok > 0) void reload();
+    if (ok > 0 || updatedCount > 0) void reload();
   }
 
   // ── UI helpers ────────────────────────────────────────────────────────────
@@ -796,6 +849,55 @@ export function LeadsPanel({
                 })()}
               </div>
 
+              {/* Stage mapping for unrecognized stage names */}
+              {importRows.length > 0 && unmatchedStages.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
+                  <p className="text-xs font-medium text-amber-800">
+                    Stage ต่อไปนี้ไม่พบใน CRM — เลือก stage ปลายทาง:
+                  </p>
+                  {unmatchedStages.map((csvStage) => (
+                    <div key={csvStage} className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 rounded border border-amber-200 bg-white px-2 py-1 font-mono text-xs text-amber-700">
+                        {csvStage}
+                      </span>
+                      <span className="text-xs text-slate-400">→</span>
+                      <select
+                        className="h-8 flex-1 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-brand-600"
+                        value={stageMapping[csvStage] ?? ""}
+                        onChange={(e) =>
+                          setStageMapping((prev) => ({ ...prev, [csvStage]: e.target.value }))
+                        }
+                      >
+                        <option value="">— ข้าม (ใช้ stage แรก) —</option>
+                        {stages
+                          .filter((s) => !s.is_unfollow)
+                          .map((s) => {
+                            const pl = pipelines.find((p) => p.id === s.pipeline_id);
+                            return (
+                              <option key={s.id} value={s.id}>
+                                {s.name}{pl ? ` (${pl.name})` : " (global)"}
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Update existing stage option */}
+              {importRows.length > 0 && (
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={updateExistingStage}
+                    onChange={(e) => setUpdateExistingStage(e.target.checked)}
+                    className="rounded"
+                  />
+                  อัปเดต stage ของลีดที่มีอยู่แล้ว (เบอร์+pipeline ซ้ำ) ด้วย
+                </label>
+              )}
+
               {/* Preview */}
               {importRows.length > 0 && !importResult && (
                 <div>
@@ -827,7 +929,9 @@ export function LeadsPanel({
               {importResult && (
                 <div className={`rounded-lg px-4 py-3 text-sm ${importResult.err.length ? "bg-yellow-50" : "bg-green-50"}`}>
                   <p className="font-medium text-slate-800">
-                    นำเข้าสำเร็จ {importResult.ok} ลีด · ข้าม {importResult.skip} (เบอร์ซ้ำหรือไม่มีชื่อ)
+                    นำเข้าสำเร็จ {importResult.ok} ลีด
+                    {importResult.updated > 0 && ` · อัปเดต stage ${importResult.updated} ลีด`}
+                    {` · ข้าม ${importResult.skip}`}
                     {importResult.err.length > 0 && ` · Error ${importResult.err.length}`}
                   </p>
                   {importResult.err.length > 0 && (
