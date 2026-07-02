@@ -443,7 +443,7 @@ export async function loadCrmData(
       "*, stage:funnel_stages(*), page:facebook_pages(id,page_id,name,is_active), assigned:profiles!leads_assigned_to_fkey(id,email,full_name,role), lead_tags(tag_id, tags(id,name,color,type,created_by))",
     )
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(3000);
 
   if (opts?.role === "staff" && opts?.userId) {
     leadsQuery = leadsQuery.or(`assigned_to.eq.${opts.userId},assigned_to.is.null`);
