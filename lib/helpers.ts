@@ -88,11 +88,12 @@ export function recallCountdownText(lead: Lead, stages: Stage[]) {
 
 // ── Table / row types ────────────────────────────────────────────────────────
 
-export type ToggleableTable = "distribution_rules" | "auto_recall_rules" | "facebook_pages";
+export type ToggleableTable = "distribution_rules" | "auto_recall_rules" | "facebook_pages" | "line_oa_accounts";
 export type DeletableTable =
   | "distribution_rules"
   | "auto_recall_rules"
   | "facebook_pages"
+  | "line_oa_accounts"
   | "lead_reminders"
   | "tags"
   | "pipelines"
@@ -462,7 +463,7 @@ export async function loadCrmData(
   client: SupabaseClient,
   opts?: { role?: Role; userId?: string },
 ): Promise<AppData> {
-  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags] = await Promise.all([
+  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts] = await Promise.all([
     fetchAllLeads(client, opts),
     client.from("funnel_stages").select("*").order("position"),
     client
@@ -479,9 +480,10 @@ export async function loadCrmData(
       .order("created_at", { ascending: false }),
     client.from("auto_recall_rules").select("*, funnel_stages(name)").order("created_at", { ascending: false }),
     client.from("tags").select("*").order("created_at"),
+    client.from("line_oa_accounts").select("id,name,channel_id,is_active,bot_user_id").order("created_at"),
   ]);
 
-  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags };
+  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts };
   for (const [name, result] of Object.entries(queryResults)) {
     if (result.error) {
       throw new Error(`Load ${name} failed: ${result.error.message}`);
@@ -508,6 +510,7 @@ export async function loadCrmData(
     rules: (rules.data || []) as DistributionRule[],
     recallRules: (recallRules.data || []) as RecallRule[],
     tags: visibleTags,
+    lineOaAccounts: (lineOaAccounts.data || []) as import("@/types/crm").LineOaAccount[],
   };
 }
 

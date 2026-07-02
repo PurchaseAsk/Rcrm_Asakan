@@ -2,6 +2,7 @@ import type {
   Activity,
   DistributionRule,
   Lead,
+  LineOaAccount,
   Page,
   Pipeline,
   Profile,
@@ -22,6 +23,7 @@ export type AppData = {
   rules: DistributionRule[];
   recallRules: RecallRule[];
   tags: Tag[];
+  lineOaAccounts: LineOaAccount[];
 };
 
 export const emptyData: AppData = {
@@ -34,6 +36,7 @@ export const emptyData: AppData = {
   rules: [],
   recallRules: [],
   tags: [],
+  lineOaAccounts: [],
 };
 
 export type LeadDetail = {
@@ -72,4 +75,5 @@ export type TabId =
   | "customers"
   | "website"
   | "line"
+  | "line-oa"
   | "users";

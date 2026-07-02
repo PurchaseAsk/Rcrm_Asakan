@@ -54,6 +54,7 @@ import { FunnelBoard } from "@/components/FunnelBoard";
 import { LeadDrawer } from "@/components/LeadDrawer";
 import { LeadsPanel } from "@/components/LeadsPanel";
 import { LoginScreen } from "@/components/LoginScreen";
+import { LineOaPanel } from "@/components/LineOaPanel";
 import { PagesPanel } from "@/components/PagesPanel";
 import { PipelineBar } from "@/components/PipelineBar";
 import { PipelineManagementModal } from "@/components/PipelineManagementModal";
@@ -91,6 +92,7 @@ const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: 
   { id: "rules", label: "Rules", icon: Settings, managerOnly: true },
   { id: "tags", label: "Global Tags", icon: Tags, managerOnly: true },
   { id: "pages", label: "Pages", icon: Bell, managerOnly: true },
+  { id: "line-oa", label: "LINE OA", icon: MessageSquareText, managerOnly: true },
   { id: "website", label: "Website Leads", icon: Globe, managerOnly: true },
   { id: "users", label: "จัดการ Users", icon: UserCog, adminOnly: true },
 ];
@@ -653,6 +655,13 @@ export default function HomePage() {
               pages={data.pages}
               teams={data.teams}
               userId={currentUserId}
+              reload={reload}
+              toast={showToast}
+            />
+          )}
+          {activeTab === "line-oa" && canManage && (
+            <LineOaPanel
+              accounts={data.lineOaAccounts}
               reload={reload}
               toast={showToast}
             />
