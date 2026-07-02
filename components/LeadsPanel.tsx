@@ -382,17 +382,21 @@ export function LeadsPanel({
     );
     const skip = skipNoName + (candidates.length - toInsert.length);
 
-    // Step 4: batch insert in chunks of 500
+    // Step 4: batch insert in chunks of 500 — DB handles remaining duplicates silently
     let ok = 0;
     const errs: string[] = [];
     const CHUNK = 500;
     for (let i = 0; i < toInsert.length; i += CHUNK) {
-      const { error: insErr } = await supabase.from("leads").insert(toInsert.slice(i, i + CHUNK));
+      const { data: inserted, error: insErr } = await supabase
+        .from("leads")
+        .insert(toInsert.slice(i, i + CHUNK), { ignoreDuplicates: true })
+        .select("id");
       if (insErr) errs.push(insErr.message);
-      else ok += Math.min(CHUNK, toInsert.length - i);
+      else ok += inserted?.length ?? 0;
     }
 
-    setImportResult({ ok, skip, err: errs });
+    const totalSkip = skipNoName + (candidates.length - toInsert.length) + (toInsert.length - ok);
+    setImportResult({ ok, skip: totalSkip, err: errs });
     setImporting(false);
     if (ok > 0) void reload();
   }
