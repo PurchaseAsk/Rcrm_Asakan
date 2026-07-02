@@ -365,34 +365,56 @@ export function LeadsPanel({
       });
     }
 
-    // Step 2: fetch existing phones in bulk (one query)
-    const existingSet = new Set<string>();
-    const phonesInCSV = [...new Set(candidates.map((c) => c.phone).filter(Boolean))] as string[];
-    if (phonesInCSV.length > 0) {
-      const pipelineIds = [...new Set(candidates.map((c) => c.pipeline_id))];
+    // normalize phone the same way as the DB function normalize_phone()
+    const normPhone = (p: string | null): string | null => {
+      if (!p) return null;
+      const d = p.replace(/\D/g, "");
+      if (!d.length) return null;
+      if (d.length === 11 && d.startsWith("66")) return "0" + d.slice(2);
+      return d;
+    };
+
+    // Step 2: fetch existing phones in bulk (one query per pipeline group)
+    const existingSet = new Set<string>(); // normalized_phone|pipeline_id
+    const pipelineIds = [...new Set(candidates.map((c) => c.pipeline_id))];
+    if (pipelineIds.length > 0) {
       const { data: existing } = await supabase
         .from("leads").select("phone, pipeline_id")
-        .in("phone", phonesInCSV).in("pipeline_id", pipelineIds);
-      (existing ?? []).forEach((r) => existingSet.add(`${r.phone}|${r.pipeline_id}`));
+        .in("pipeline_id", pipelineIds)
+        .not("phone", "is", null);
+      (existing ?? []).forEach((r) => {
+        const norm = normPhone(r.phone as string);
+        if (norm) existingSet.add(`${norm}|${r.pipeline_id}`);
+      });
     }
 
-    // Step 3: filter duplicates in memory
-    const toInsert = candidates.filter((c) =>
-      !c.phone || !existingSet.has(`${c.phone}|${c.pipeline_id}`),
-    );
-    const skip = skipNoName + (candidates.length - toInsert.length);
+    // Step 3: filter duplicates using normalized phone
+    const toInsert = candidates.filter((c) => {
+      if (!c.phone) return true;
+      const norm = normPhone(c.phone);
+      return !norm || !existingSet.has(`${norm}|${c.pipeline_id}`);
+    });
 
-    // Step 4: batch insert in chunks of 500 — DB handles remaining duplicates silently
+    // Step 4: batch insert in chunks of 500
     let ok = 0;
     const errs: string[] = [];
     const CHUNK = 500;
     for (let i = 0; i < toInsert.length; i += CHUNK) {
+      const chunk = toInsert.slice(i, i + CHUNK);
       const { data: inserted, error: insErr } = await supabase
-        .from("leads")
-        .insert(toInsert.slice(i, i + CHUNK), { ignoreDuplicates: true })
-        .select("id");
-      if (insErr) errs.push(insErr.message);
-      else ok += inserted?.length ?? 0;
+        .from("leads").insert(chunk).select("id");
+      if (!insErr) {
+        ok += inserted?.length ?? 0;
+      } else if (insErr.code === "23505") {
+        // Fallback: insert row-by-row, skip actual duplicates silently
+        for (const row of chunk) {
+          const { data: one, error: oneErr } = await supabase.from("leads").insert(row).select("id");
+          if (!oneErr) ok += one?.length ?? 0;
+          else if (oneErr.code !== "23505") errs.push(`${row.customer_name}: ${oneErr.message}`);
+        }
+      } else {
+        errs.push(insErr.message);
+      }
     }
 
     const totalSkip = skipNoName + (candidates.length - toInsert.length) + (toInsert.length - ok);
