@@ -446,13 +446,30 @@ async function handleLeadgen(
       created_by: null,
     });
     await supabase.rpc("distribute_lead", { p_lead_id: lead.id });
+
+    // Resolve assignee name after distribution
+    let assigneeName: string | null = null;
+    const { data: assigned } = await supabase
+      .from("leads")
+      .select("assigned_to")
+      .eq("id", lead.id)
+      .single();
+    if (assigned?.assigned_to) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", assigned.assigned_to)
+        .single();
+      assigneeName = prof?.full_name ?? prof?.email ?? null;
+    }
+
     await wlog(supabase, "leadgen", {
       fb_page_id: fbPageId,
       leadgen_id,
       lead_id: lead.id,
       phone: rawPhone,
       name,
-      detail: { pipeline_id: targetPipelineId, campaign: campaignName },
+      detail: { pipeline_id: targetPipelineId, campaign: campaignName, assignee: assigneeName },
     });
     const parts = [
       `🧲 <b>ลีดใหม่ (Lead Form)</b>`,
@@ -461,6 +478,7 @@ async function handleLeadgen(
       email ? `📧 ${tg(email)}` : null,
       campaignName ? `📢 ${tg(campaignName)}` : null,
       pageName ? `📄 ${tg(pageName)}` : null,
+      `🙋 ${assigneeName ? tg(assigneeName) : "กองกลาง"}`,
     ].filter(Boolean);
     await sendTelegram(parts.join("\n"));
     return true;
@@ -503,7 +521,13 @@ async function handleLeadgen(
           created_by: null,
         });
         await supabase.rpc("distribute_lead", { p_lead_id: newLead.id });
-        await sendTelegram([`🧲 <b>ลีดใหม่ (Lead Form)</b>`, `👤 ${tg(name ?? "ไม่ระบุชื่อ")}`, rawPhone ? `📞 ${tg(rawPhone)}` : null, campaignName ? `📢 ${tg(campaignName)}` : null, pageName ? `📄 ${tg(pageName)}` : null].filter(Boolean).join("\n"));
+        let reAssigneeName: string | null = null;
+        const { data: reAssigned } = await supabase.from("leads").select("assigned_to").eq("id", newLead.id).single();
+        if (reAssigned?.assigned_to) {
+          const { data: reProf } = await supabase.from("profiles").select("full_name, email").eq("id", reAssigned.assigned_to).single();
+          reAssigneeName = reProf?.full_name ?? reProf?.email ?? null;
+        }
+        await sendTelegram([`🧲 <b>ลีดใหม่ (Lead Form)</b>`, `👤 ${tg(name ?? "ไม่ระบุชื่อ")}`, rawPhone ? `📞 ${tg(rawPhone)}` : null, campaignName ? `📢 ${tg(campaignName)}` : null, pageName ? `📄 ${tg(pageName)}` : null, `🙋 ${reAssigneeName ? tg(reAssigneeName) : "กองกลาง"}`].filter(Boolean).join("\n"));
       }
     } else {
       // Lead still active — bump to top and count as new conversion
