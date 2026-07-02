@@ -310,7 +310,7 @@ export function LeadsPanel({
   }
 
   async function runImport() {
-    if (!importRows.length || !importPipelineId) return;
+    if (!importRows.length) return;
     setImporting(true);
     setImportResult(null);
     const now = new Date().toISOString();
@@ -341,7 +341,8 @@ export function LeadsPanel({
       const source = knownSources.includes(rawSource) ? rawSource : "other";
 
       const csvPipeline = getField(row, "pipeline").toLowerCase();
-      const resolvedPipelineId = (csvPipeline && pipelineMap.get(csvPipeline)) || importPipelineId;
+      const resolvedPipelineId = (csvPipeline && pipelineMap.get(csvPipeline)) || importPipelineId || "";
+      if (!resolvedPipelineId) { skipNoName++; continue; }
 
       const csvStage = getField(row, "stage", "ขั้นตอน").toLowerCase();
       let resolvedStageId: string | null = null;
@@ -729,13 +730,15 @@ export function LeadsPanel({
 
               {/* Pipeline selector */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">Pipeline *</label>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Pipeline <span className="font-normal text-slate-400">(fallback ถ้าไม่มีใน CSV)</span>
+                </label>
                 <select
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
                   value={importPipelineId}
                   onChange={(e) => setImportPipelineId(e.target.value)}
                 >
-                  <option value="">— เลือก Pipeline —</option>
+                  <option value="">— ใช้ pipeline จาก CSV —</option>
                   {pipelines.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -799,7 +802,7 @@ export function LeadsPanel({
               {!importResult && (
                 <button
                   onClick={() => void runImport()}
-                  disabled={importing || !importRows.length || !importPipelineId}
+                  disabled={importing || !importRows.length}
                   className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-brand-900"
                 >
                   {importing ? `กำลัง Import…` : `Import ${importRows.length} ลีด`}
