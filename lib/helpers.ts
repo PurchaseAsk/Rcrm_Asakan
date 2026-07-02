@@ -433,24 +433,37 @@ export async function bootstrap(
   }
 }
 
+async function fetchAllLeads(
+  client: SupabaseClient,
+  opts?: { role?: Role; userId?: string },
+) {
+  const SELECT = "*, stage:funnel_stages(*), page:facebook_pages(id,page_id,name,is_active), assigned:profiles!leads_assigned_to_fkey(id,email,full_name,role), lead_tags(tag_id, tags(id,name,color,type,created_by))";
+  const PAGE = 1000;
+  let all: Lead[] = [];
+  let from = 0;
+  while (true) {
+    let q = client.from("leads").select(SELECT)
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (opts?.role === "staff" && opts?.userId) {
+      q = q.or(`assigned_to.eq.${opts.userId},assigned_to.is.null`);
+    }
+    const { data, error } = await q;
+    if (error) throw new Error(`Load leads failed: ${error.message}`);
+    if (!data?.length) break;
+    all = all.concat(data as Lead[]);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return { data: all, error: null };
+}
+
 export async function loadCrmData(
   client: SupabaseClient,
   opts?: { role?: Role; userId?: string },
 ): Promise<AppData> {
-  let leadsQuery = client
-    .from("leads")
-    .select(
-      "*, stage:funnel_stages(*), page:facebook_pages(id,page_id,name,is_active), assigned:profiles!leads_assigned_to_fkey(id,email,full_name,role), lead_tags(tag_id, tags(id,name,color,type,created_by))",
-    )
-    .order("created_at", { ascending: false })
-    .limit(3000);
-
-  if (opts?.role === "staff" && opts?.userId) {
-    leadsQuery = leadsQuery.or(`assigned_to.eq.${opts.userId},assigned_to.is.null`);
-  }
-
   const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags] = await Promise.all([
-    leadsQuery,
+    fetchAllLeads(client, opts),
     client.from("funnel_stages").select("*").order("position"),
     client
       .from("pipelines")
