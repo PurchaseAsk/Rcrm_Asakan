@@ -327,8 +327,12 @@ export function LeadsPanel({
       stage_id: string | null; stage_entered_at: string | null;
       assigned_to: string | null; status: "active"; last_activity_at: string;
     };
-    const candidates: InsertRow[] = [];
+    type Candidate = InsertRow & { note: string | null };
+    const candidates: Candidate[] = [];
     let skipNoName = 0;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUserId = session?.user.id ?? null;
 
     for (const row of importRows) {
       const name = getField(row, "ชื่อลูกค้า", "customer_name", "ชื่อ", "name");
@@ -337,6 +341,7 @@ export function LeadsPanel({
       const phone = getField(row, "เบอร์โทร", "phone", "เบอร์", "phone_number") || null;
       const email = getField(row, "email", "อีเมล") || null;
       const lineId = getField(row, "lineid", "line_id", "LineID", "line id") || null;
+      const note = getField(row, "note", "หมายเหตุ", "notes", "โน้ต") || null;
       const rawSource = getField(row, "แหล่งที่มา", "source").toLowerCase();
       const source = knownSources.includes(rawSource) ? rawSource : "other";
 
@@ -362,6 +367,7 @@ export function LeadsPanel({
         pipeline_id: resolvedPipelineId, stage_id: resolvedStageId,
         stage_entered_at: resolvedStageId ? now : null,
         assigned_to: resolvedAssignedTo, status: "active", last_activity_at: now,
+        note,
       });
     }
 
@@ -399,20 +405,35 @@ export function LeadsPanel({
     let ok = 0;
     const errs: string[] = [];
     const CHUNK = 500;
+
+    async function insertActivities(ids: { id: string }[], chunkRows: Candidate[]) {
+      const acts = ids
+        .map((ins, idx) => {
+          const n = chunkRows[idx]?.note;
+          if (!n) return null;
+          return { lead_id: ins.id, type: "note", content: n, stage_id: chunkRows[idx]?.stage_id ?? null, created_by: currentUserId };
+        })
+        .filter(Boolean);
+      if (acts.length > 0) await supabase.from("lead_activities").insert(acts);
+    }
+
     for (let i = 0; i < toInsert.length; i += CHUNK) {
       const chunk = toInsert.slice(i, i + CHUNK);
+      const leadPayload = chunk.map(({ note: _n, ...rest }) => rest);
       const { data: inserted, error: insErr } = await supabase
-        .from("leads").insert(chunk).select("id");
-      if (!insErr) {
-        ok += inserted?.length ?? 0;
-      } else if (insErr.code === "23505") {
+        .from("leads").insert(leadPayload).select("id");
+      if (!insErr && inserted) {
+        ok += inserted.length;
+        await insertActivities(inserted, chunk);
+      } else if (insErr?.code === "23505") {
         // Fallback: insert row-by-row, skip actual duplicates silently
         for (const row of chunk) {
-          const { data: one, error: oneErr } = await supabase.from("leads").insert(row).select("id");
-          if (!oneErr) ok += one?.length ?? 0;
-          else if (oneErr.code !== "23505") errs.push(`${row.customer_name}: ${oneErr.message}`);
+          const { note: _n, ...leadRow } = row;
+          const { data: one, error: oneErr } = await supabase.from("leads").insert(leadRow).select("id");
+          if (!oneErr && one) { ok += one.length; await insertActivities(one, [row]); }
+          else if (oneErr?.code !== "23505") errs.push(`${row.customer_name}: ${oneErr?.message}`);
         }
-      } else {
+      } else if (insErr) {
         errs.push(insErr.message);
       }
     }
