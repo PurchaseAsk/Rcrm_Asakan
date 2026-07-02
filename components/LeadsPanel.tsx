@@ -265,11 +265,12 @@ export function LeadsPanel({
 
   // ── Export CSV ────────────────────────────────────────────────────────────
   function exportCSV() {
-    const header = ["ชื่อลูกค้า", "เบอร์โทร", "Email", "แหล่งที่มา", "Pipeline", "Stage", "มอบหมายให้", "วันที่สร้าง"];
+    const header = ["ชื่อลูกค้า", "เบอร์โทร", "Email", "LineID", "แหล่งที่มา", "Pipeline", "Stage", "มอบหมายให้", "วันที่สร้าง"];
     const rows = dateFilteredLeads.map((lead) => [
       lead.customer_name,
       lead.phone ?? "",
       lead.email ?? "",
+      lead.line_id ?? "",
       sourceLabel(lead.source, lead.metadata),
       pipelineName(lead),
       stageName(lead),
@@ -315,8 +316,13 @@ export function LeadsPanel({
     let ok = 0;
     let skip = 0;
     const errs: string[] = [];
-    const stage = firstStageOf(importPipelineId);
     const now = new Date().toISOString();
+
+    // Pre-build lookup maps (case-insensitive)
+    const pipelineMap = new Map(pipelines.map((p) => [p.name.toLowerCase(), p.id]));
+    const profileMap = new Map(
+      profiles.map((p) => [(p.full_name ?? p.email ?? "").toLowerCase(), p.id]),
+    );
 
     for (const row of importRows) {
       const name = getField(row, "ชื่อลูกค้า", "customer_name", "ชื่อ", "name");
@@ -324,14 +330,34 @@ export function LeadsPanel({
 
       const phone = getField(row, "เบอร์โทร", "phone", "เบอร์", "phone_number") || null;
       const email = getField(row, "email", "อีเมล") || null;
+      const lineId = getField(row, "lineid", "line_id", "LineID", "line id") || null;
       const rawSource = getField(row, "แหล่งที่มา", "source").toLowerCase();
       const knownSources = MANUAL_SOURCES.map((s) => s.value);
       const source = knownSources.includes(rawSource) ? rawSource : "other";
 
+      // Pipeline lookup (fallback: dropdown)
+      const csvPipeline = getField(row, "pipeline").toLowerCase();
+      const resolvedPipelineId = (csvPipeline && pipelineMap.get(csvPipeline)) || importPipelineId;
+
+      // Stage lookup — prefer pipeline-specific, then global
+      const csvStage = getField(row, "stage", "ขั้นตอน").toLowerCase();
+      let resolvedStageId: string | null = null;
+      if (csvStage) {
+        const matched =
+          stages.find((s) => s.name.toLowerCase() === csvStage && s.pipeline_id === resolvedPipelineId) ??
+          stages.find((s) => s.name.toLowerCase() === csvStage && !s.pipeline_id);
+        resolvedStageId = matched?.id ?? null;
+      }
+      if (!resolvedStageId) resolvedStageId = firstStageOf(resolvedPipelineId)?.id ?? null;
+
+      // Assignee lookup (fallback: pool)
+      const csvAssignee = getField(row, "มอบหมายให้", "assigned_to", "sales").toLowerCase();
+      const resolvedAssignedTo = (csvAssignee && profileMap.get(csvAssignee)) || null;
+
       if (phone) {
         const { data: dups } = (await supabase.rpc("find_lead_by_phone", {
           p_phone: phone,
-          p_pipeline_id: importPipelineId || null,
+          p_pipeline_id: resolvedPipelineId || null,
         })) as {
           data: { id: string }[] | null;
         };
@@ -342,10 +368,12 @@ export function LeadsPanel({
         customer_name: name,
         phone,
         email,
+        line_id: lineId,
         source,
-        pipeline_id: importPipelineId,
-        stage_id: stage?.id ?? null,
-        stage_entered_at: stage?.id ? now : null,
+        pipeline_id: resolvedPipelineId,
+        stage_id: resolvedStageId,
+        stage_entered_at: resolvedStageId ? now : null,
+        assigned_to: resolvedAssignedTo,
         status: "active",
         last_activity_at: now,
       });

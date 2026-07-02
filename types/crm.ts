@@ -62,6 +62,7 @@ export type Lead = {
   facebook_conversions: number;
   phone: string | null;
   email: string | null;
+  line_id: string | null;
   value: number | null;
   page_id: string | null;
   stage_id: string | null;
