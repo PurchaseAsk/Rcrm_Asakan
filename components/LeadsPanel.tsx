@@ -313,33 +313,36 @@ export function LeadsPanel({
     if (!importRows.length || !importPipelineId) return;
     setImporting(true);
     setImportResult(null);
-    let ok = 0;
-    let skip = 0;
-    const errs: string[] = [];
     const now = new Date().toISOString();
-
-    // Pre-build lookup maps (case-insensitive)
+    const knownSources = MANUAL_SOURCES.map((s) => s.value);
     const pipelineMap = new Map(pipelines.map((p) => [p.name.toLowerCase(), p.id]));
     const profileMap = new Map(
       profiles.map((p) => [(p.full_name ?? p.email ?? "").toLowerCase(), p.id]),
     );
 
+    // Step 1: parse all rows synchronously
+    type InsertRow = {
+      customer_name: string; phone: string | null; email: string | null;
+      line_id: string | null; source: string; pipeline_id: string;
+      stage_id: string | null; stage_entered_at: string | null;
+      assigned_to: string | null; status: "active"; last_activity_at: string;
+    };
+    const candidates: InsertRow[] = [];
+    let skipNoName = 0;
+
     for (const row of importRows) {
       const name = getField(row, "ชื่อลูกค้า", "customer_name", "ชื่อ", "name");
-      if (!name) { skip++; continue; }
+      if (!name) { skipNoName++; continue; }
 
       const phone = getField(row, "เบอร์โทร", "phone", "เบอร์", "phone_number") || null;
       const email = getField(row, "email", "อีเมล") || null;
       const lineId = getField(row, "lineid", "line_id", "LineID", "line id") || null;
       const rawSource = getField(row, "แหล่งที่มา", "source").toLowerCase();
-      const knownSources = MANUAL_SOURCES.map((s) => s.value);
       const source = knownSources.includes(rawSource) ? rawSource : "other";
 
-      // Pipeline lookup (fallback: dropdown)
       const csvPipeline = getField(row, "pipeline").toLowerCase();
       const resolvedPipelineId = (csvPipeline && pipelineMap.get(csvPipeline)) || importPipelineId;
 
-      // Stage lookup — prefer pipeline-specific, then global
       const csvStage = getField(row, "stage", "ขั้นตอน").toLowerCase();
       let resolvedStageId: string | null = null;
       if (csvStage) {
@@ -350,36 +353,42 @@ export function LeadsPanel({
       }
       if (!resolvedStageId) resolvedStageId = firstStageOf(resolvedPipelineId)?.id ?? null;
 
-      // Assignee lookup (fallback: pool)
       const csvAssignee = getField(row, "มอบหมายให้", "assigned_to", "sales").toLowerCase();
       const resolvedAssignedTo = (csvAssignee && profileMap.get(csvAssignee)) || null;
 
-      if (phone) {
-        const { data: dups } = (await supabase.rpc("find_lead_by_phone", {
-          p_phone: phone,
-          p_pipeline_id: resolvedPipelineId || null,
-        })) as {
-          data: { id: string }[] | null;
-        };
-        if (dups?.[0]) { skip++; continue; }
-      }
-
-      const { error: insErr } = await supabase.from("leads").insert({
-        customer_name: name,
-        phone,
-        email,
-        line_id: lineId,
-        source,
-        pipeline_id: resolvedPipelineId,
-        stage_id: resolvedStageId,
+      candidates.push({
+        customer_name: name, phone, email, line_id: lineId, source,
+        pipeline_id: resolvedPipelineId, stage_id: resolvedStageId,
         stage_entered_at: resolvedStageId ? now : null,
-        assigned_to: resolvedAssignedTo,
-        status: "active",
-        last_activity_at: now,
+        assigned_to: resolvedAssignedTo, status: "active", last_activity_at: now,
       });
+    }
 
-      if (insErr) { errs.push(`${name}: ${insErr.message}`); }
-      else { ok++; }
+    // Step 2: fetch existing phones in bulk (one query)
+    const existingSet = new Set<string>();
+    const phonesInCSV = [...new Set(candidates.map((c) => c.phone).filter(Boolean))] as string[];
+    if (phonesInCSV.length > 0) {
+      const pipelineIds = [...new Set(candidates.map((c) => c.pipeline_id))];
+      const { data: existing } = await supabase
+        .from("leads").select("phone, pipeline_id")
+        .in("phone", phonesInCSV).in("pipeline_id", pipelineIds);
+      (existing ?? []).forEach((r) => existingSet.add(`${r.phone}|${r.pipeline_id}`));
+    }
+
+    // Step 3: filter duplicates in memory
+    const toInsert = candidates.filter((c) =>
+      !c.phone || !existingSet.has(`${c.phone}|${c.pipeline_id}`),
+    );
+    const skip = skipNoName + (candidates.length - toInsert.length);
+
+    // Step 4: batch insert in chunks of 500
+    let ok = 0;
+    const errs: string[] = [];
+    const CHUNK = 500;
+    for (let i = 0; i < toInsert.length; i += CHUNK) {
+      const { error: insErr } = await supabase.from("leads").insert(toInsert.slice(i, i + CHUNK));
+      if (insErr) errs.push(insErr.message);
+      else ok += Math.min(CHUNK, toInsert.length - i);
     }
 
     setImportResult({ ok, skip, err: errs });

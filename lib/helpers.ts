@@ -37,6 +37,8 @@ export function formatMoney(value: number) {
 }
 
 export const MANUAL_SOURCES: { value: string; label: string }[] = [
+  { value: "facebook", label: "Facebook" },
+  { value: "tiktok", label: "TikTok" },
   { value: "website", label: "Website" },
   { value: "walk_in", label: "Walk-in (เดินเข้ามา)" },
   { value: "cold_call", label: "Cold Call" },
@@ -47,7 +49,8 @@ export const MANUAL_SOURCES: { value: string; label: string }[] = [
 ];
 
 export function sourceLabel(source: string | null, meta?: { form_name?: string | null; campaign_name?: string | null } | null): string {
-  if (source === "facebook") return meta?.form_name ?? meta?.campaign_name ?? "Facebook Lead Form";
+  if (source === "facebook") return meta?.form_name ?? meta?.campaign_name ?? "Facebook";
+  if (source === "tiktok") return "TikTok";
   if (source === "chat") return "Chat (Inbox)";
   if (source === "website") return "Website";
   if (source === "walk_in") return "Walk-in";
