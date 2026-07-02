@@ -145,6 +145,7 @@ export function LeadsPanel({
   const [importPipelineId, setImportPipelineId] = useState("");
   const [importRows, setImportRows] = useState<Record<string, string>[]>([]);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState("");
   const [importResult, setImportResult] = useState<{ ok: number; skip: number; updated: number; err: string[] } | null>(null);
   const [unmatchedStages, setUnmatchedStages] = useState<string[]>([]);
   const [stageMapping, setStageMapping] = useState<Record<string, string>>({});
@@ -297,6 +298,7 @@ export function LeadsPanel({
     setImportPipelineId(pipelines[0]?.id ?? "");
     setImportRows([]);
     setImportResult(null);
+    setImportProgress("");
     setUnmatchedStages([]);
     setStageMapping({});
     setUpdateExistingStage(false);
@@ -402,18 +404,27 @@ export function LeadsPanel({
       return d;
     };
 
-    // Step 2: fetch existing phones in bulk (one query per pipeline group)
+    // Step 2: fetch ALL existing leads with pagination (Supabase caps at 1000/page)
+    setImportProgress("กำลังดึงข้อมูลลีดเดิม…");
     const existingMap = new Map<string, string>(); // "normPhone|pipeline_id" → lead_id
     const pipelineIds = [...new Set(candidates.map((c) => c.pipeline_id))];
     if (pipelineIds.length > 0) {
-      const { data: existing } = await supabase
-        .from("leads").select("id, phone, pipeline_id")
-        .in("pipeline_id", pipelineIds)
-        .not("phone", "is", null);
-      (existing ?? []).forEach((r) => {
-        const norm = normPhone(r.phone as string);
-        if (norm) existingMap.set(`${norm}|${r.pipeline_id}`, r.id as string);
-      });
+      let from = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data: existing } = await supabase
+          .from("leads").select("id, phone, pipeline_id")
+          .in("pipeline_id", pipelineIds)
+          .not("phone", "is", null)
+          .range(from, from + PAGE - 1);
+        if (!existing?.length) break;
+        existing.forEach((r) => {
+          const norm = normPhone(r.phone as string);
+          if (norm) existingMap.set(`${norm}|${r.pipeline_id}`, r.id as string);
+        });
+        if (existing.length < PAGE) break;
+        from += PAGE;
+      }
     }
 
     // Step 3: separate into new inserts vs existing-lead updates
@@ -433,6 +444,7 @@ export function LeadsPanel({
     }
 
     // Step 4: batch insert in chunks of 500
+    setImportProgress(`กำลัง insert ${toInsert.length} ลีดใหม่…`);
     let ok = 0;
     const errs: string[] = [];
     const CHUNK = 500;
@@ -470,6 +482,7 @@ export function LeadsPanel({
     }
 
     // Step 5: batch update stage for existing leads
+    if (toUpdate.length > 0) setImportProgress(`กำลัง update stage ${toUpdate.length} ลีด…`);
     let updatedCount = 0;
     if (toUpdate.length > 0) {
       const byStage = new Map<string, string[]>();
@@ -492,6 +505,7 @@ export function LeadsPanel({
 
     const skippedDups = candidates.length - toInsert.length - toUpdate.length;
     const totalSkip = skipNoName + skippedDups + (toInsert.length - ok);
+    setImportProgress("");
     setImportResult({ ok, updated: updatedCount, skip: totalSkip, err: errs });
     setImporting(false);
     if (ok > 0 || updatedCount > 0) void reload();
@@ -951,13 +965,18 @@ export function LeadsPanel({
                 ปิด
               </button>
               {!importResult && (
-                <button
-                  onClick={() => void runImport()}
-                  disabled={importing || !importRows.length}
-                  className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-brand-900"
-                >
-                  {importing ? `กำลัง Import…` : `Import ${importRows.length} ลีด`}
-                </button>
+                <div className="flex items-center gap-3">
+                  {importing && importProgress && (
+                    <span className="text-xs text-slate-500 animate-pulse">{importProgress}</span>
+                  )}
+                  <button
+                    onClick={() => void runImport()}
+                    disabled={importing || !importRows.length}
+                    className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-brand-900"
+                  >
+                    {importing ? "กำลัง Import…" : `Import ${importRows.length} ลีด`}
+                  </button>
+                </div>
               )}
             </div>
           </div>
