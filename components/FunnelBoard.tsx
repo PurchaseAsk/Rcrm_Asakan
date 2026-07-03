@@ -1,6 +1,7 @@
 "use client";
 
-import { GripVertical } from "lucide-react";
+import { useState } from "react";
+import { GripVertical, X } from "lucide-react";
 import type { Lead, Profile, RecallRule, Stage } from "@/types/crm";
 import { EmptyLine } from "@/components/ui/EmptyLine";
 
@@ -30,6 +31,7 @@ export function FunnelBoard({
   const canFilterByMember = !!filterableProfiles?.length && !!setAssigneeFilter;
   const activeRules = (recallRules ?? []).filter((r) => r.is_active);
   const now = Date.now();
+  const [moveModal, setMoveModal] = useState<{ lead: Lead } | null>(null);
 
   function isNearRecall(lead: Lead): boolean {
     const rule = activeRules.find((r) => r.stage_id === lead.stage_id);
@@ -89,21 +91,34 @@ export function FunnelBoard({
                 </div>
                 <div className="grid grid-cols-3 gap-2 p-2 max-[360px]:grid-cols-2 md:block md:space-y-1.5 md:p-1.5">
                   {stageLeads.map((lead) => (
-                    <button
+                    <div
                       key={lead.id}
                       draggable
                       onDragStart={() => setDraggedLeadId(lead.id)}
-                      onClick={() => onOpenLead(lead)}
-                      className={`w-full min-w-0 rounded-md border px-2 py-1.5 text-left shadow-sm hover:border-brand-600 ${isNearRecall(lead) ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}
+                      className={`w-full min-w-0 rounded-md border shadow-sm ${isNearRecall(lead) ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}
                     >
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <GripVertical size={13} className="shrink-0 text-slate-300" />
-                        <div className="truncate text-[13px] font-medium text-slate-900">{lead.customer_name}</div>
+                      <div className="flex min-w-0 items-stretch">
+                        {/* Grip — desktop: drag handle / mobile: tap to open stage picker */}
+                        <button
+                          className="flex shrink-0 cursor-grab items-center px-1.5 text-slate-300 active:cursor-grabbing md:touch-none"
+                          onClick={(e) => { e.stopPropagation(); setMoveModal({ lead }); }}
+                          onTouchEnd={(e) => { e.preventDefault(); setMoveModal({ lead }); }}
+                          aria-label="ย้าย stage"
+                        >
+                          <GripVertical size={13} />
+                        </button>
+                        {/* Card body — click to open lead */}
+                        <button
+                          className="min-w-0 flex-1 py-1.5 pr-2 text-left hover:opacity-80"
+                          onClick={() => onOpenLead(lead)}
+                        >
+                          <div className="truncate text-[13px] font-medium text-slate-900">{lead.customer_name}</div>
+                          <div className="truncate text-[11px] text-slate-500">
+                            {lead.phone || lead.email || "No contact"}
+                          </div>
+                        </button>
                       </div>
-                      <div className="mt-0.5 truncate pl-5 text-[11px] text-slate-500">
-                        {lead.phone || lead.email || "No contact"}
-                      </div>
-                    </button>
+                    </div>
                   ))}
                   {!stageLeads.length ? (
                     <div className="col-span-full">
@@ -117,6 +132,37 @@ export function FunnelBoard({
           })()}
         </div>
       </div>
+      {/* Stage picker — mobile move modal */}
+      {moveModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+          <div className="w-full max-w-sm rounded-t-2xl bg-white pb-safe sm:rounded-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div>
+                <p className="text-xs text-slate-400">ย้ายลีด</p>
+                <p className="font-medium text-slate-900 truncate max-w-[220px]">{moveModal.lead.customer_name}</p>
+              </div>
+              <button onClick={() => setMoveModal(null)} className="text-slate-400 hover:text-slate-700">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="max-h-72 overflow-y-auto p-2">
+              {stages.filter((s) => s.id !== moveModal.lead.stage_id).map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    setMoveModal(null);
+                    void onMoveLead(moveModal.lead.id, s);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left hover:bg-slate-50 active:bg-slate-100"
+                >
+                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                  <span className="text-sm font-medium text-slate-800">{s.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
