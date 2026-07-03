@@ -230,6 +230,8 @@ export type PageComment = {
   status: "active" | "archived";
   archive_reason: "chat" | "done" | null;
   private_reply_sent: boolean;
+  post_message: string | null;
+  permalink_url: string | null;
   created_at: string;
   page?: { id: string; page_id: string; name: string } | null;
   replies?: PageCommentReply[];

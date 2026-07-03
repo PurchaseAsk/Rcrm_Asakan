@@ -5,6 +5,7 @@ import { createBrowserSupabase } from "@/lib/supabase";
 import {
   Archive,
   CheckCheck,
+  ExternalLink,
   MessageSquareReply,
   RefreshCcw,
   Send,
@@ -245,6 +246,23 @@ export function CommentCenter({
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">
                         {pageName}
                       </span>
+                      {comment.post_message && (
+                        <span className="max-w-[180px] truncate rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700" title={comment.post_message}>
+                          📌 {comment.post_message}
+                        </span>
+                      )}
+                      {comment.permalink_url && (
+                        <a
+                          href={comment.permalink_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-0.5 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-200"
+                          title="ดูโพสบน Facebook"
+                        >
+                          <ExternalLink size={10} />
+                          โพส
+                        </a>
+                      )}
                       {comment.status === "archived" && comment.archive_reason && (
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${

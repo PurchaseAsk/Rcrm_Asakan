@@ -129,14 +129,46 @@ export async function POST(request: NextRequest) {
         if (val.item === "comment" && val.verb === "add" && val.comment_id) {
           // Skip our own replies echoed back
           if (val.from?.id !== fbPageId && (!val.parent_id || !val.post_id || val.parent_id === val.post_id)) {
+            const postId = val.post_id ?? "";
+            let postMessage: string | null = null;
+            let permalinkUrl: string | null = null;
+
+            if (postId && msgToken) {
+              // Check cache first to avoid redundant Graph API calls
+              const { data: cached } = await supabase
+                .from("fb_post_cache")
+                .select("post_message, permalink_url")
+                .eq("fb_post_id", postId)
+                .single();
+
+              if (cached) {
+                postMessage = cached.post_message ?? null;
+                permalinkUrl = cached.permalink_url ?? null;
+              } else {
+                const postInfo = await fetchPostInfo(postId, msgToken);
+                if (postInfo) {
+                  postMessage = postInfo.message ?? postInfo.story ?? null;
+                  permalinkUrl = postInfo.permalink_url ?? null;
+                  await supabase.from("fb_post_cache").upsert({
+                    fb_post_id: postId,
+                    page_id: page.id,
+                    post_message: postMessage,
+                    permalink_url: permalinkUrl,
+                  }, { onConflict: "fb_post_id" });
+                }
+              }
+            }
+
             await supabase.from("page_comments").upsert({
               page_id: page.id,
               fb_comment_id: val.comment_id,
-              fb_post_id: val.post_id ?? "",
+              fb_post_id: postId,
               from_user_id: val.from?.id ?? null,
               from_user_name: val.from?.name ?? null,
               message: val.message ?? null,
               fb_created_time: val.created_time ? new Date(val.created_time * 1000).toISOString() : null,
+              post_message: postMessage,
+              permalink_url: permalinkUrl,
             }, { onConflict: "fb_comment_id", ignoreDuplicates: true });
           }
         }
@@ -657,6 +689,21 @@ async function fetchFormName(formId: string, token: string): Promise<string | nu
     if (!res.ok) return null;
     const data = (await res.json()) as { name?: string };
     return data.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPostInfo(
+  postId: string,
+  token: string,
+): Promise<{ message?: string; story?: string; permalink_url?: string } | null> {
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v20.0/${postId}?fields=message,story,permalink_url&access_token=${encodeURIComponent(token)}`,
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as { message?: string; story?: string; permalink_url?: string };
   } catch {
     return null;
   }
