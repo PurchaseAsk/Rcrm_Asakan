@@ -55,6 +55,7 @@ function buildPresets(): Preset[] {
   const m3 = new Date(y, m - 2, 1);
   const m6 = new Date(y, m - 5, 1);
   return [
+    { label: "วันนี้",            from: today,             to: today },
     { label: "สัปดาห์นี้",       from: fmt(weekStart),    to: today },
     { label: "สัปดาห์ที่แล้ว",   from: fmt(lastWeekStart), to: fmt(lastWeekEnd) },
     { label: "เดือนนี้",          from: `${y}-${String(m + 1).padStart(2, "0")}-01`, to: today },
