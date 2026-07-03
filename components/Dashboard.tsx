@@ -71,15 +71,18 @@ function DateRangePicker({
   dateTo,
   setDateFrom,
   setDateTo,
+  showToday,
   suffix,
 }: {
   dateFrom: string;
   dateTo: string;
   setDateFrom: (v: string) => void;
   setDateTo: (v: string) => void;
+  showToday?: boolean;
   suffix?: React.ReactNode;
 }) {
-  const presets = useMemo(() => buildPresets(), []);
+  const allPresets = useMemo(() => buildPresets(), []);
+  const presets = showToday ? allPresets : allPresets.filter((p) => p.label !== "วันนี้");
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -492,6 +495,7 @@ function ConversionsView({
         dateTo={dateTo}
         setDateFrom={setDateFrom}
         setDateTo={setDateTo}
+        showToday
         suffix={<span className="text-sm text-slate-500">· ลีดใหม่ {filteredLeads.length} ราย</span>}
       />
 

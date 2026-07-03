@@ -1,8 +1,6 @@
--- Migration 48: Fix distribute_lead() — stable ORDER BY for team members and user_ids
--- team_members had no ORDER BY so PostgreSQL could return rows in any order,
--- causing round-robin to assign to random people instead of cycling correctly.
--- NOTE: This migration had a bug (ORDER BY created_at should be joined_at).
--- Fixed by migration 49.
+-- Migration 49: Fix distribute_lead() — team_members uses joined_at not created_at
+-- Migration 48 incorrectly used ORDER BY created_at which does not exist in team_members.
+-- The correct column is joined_at, causing the function to throw on every team-based rule.
 
 CREATE OR REPLACE FUNCTION distribute_lead(p_lead_id uuid)
 RETURNS void
@@ -64,7 +62,7 @@ BEGIN
     FROM   jsonb_array_elements_text(v_rule.config -> 'user_ids') WITH ORDINALITY AS t(user_id, ordinality);
   ELSIF v_rule.team_id IS NOT NULL THEN
     -- stable order by join date so round-robin cycle is deterministic
-    SELECT array_agg(user_id ORDER BY created_at)  -- BUG: should be joined_at, fixed in migration 49
+    SELECT array_agg(user_id ORDER BY joined_at)
     INTO   v_members
     FROM   team_members
     WHERE  team_id = v_rule.team_id;
