@@ -1,8 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/recall-summary",
-      "schedule": "0 10 * * *"
-    }
-  ]
+  "crons": []
 }
