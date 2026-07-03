@@ -510,9 +510,9 @@ export default function HomePage() {
 
       <div className={activeTab === "inbox" || activeTab === "line" ? "w-full" : "w-full px-3 py-4 sm:px-4 xl:px-6"}>
         <section className={`min-w-0 ${activeTab === "inbox" || activeTab === "line" ? "" : "space-y-4"}`}>
-          {activeTab !== "inbox" && activeTab !== "line" && activeTab !== "reminders" && data.leads.length >= 3000 && (
+          {activeTab !== "inbox" && activeTab !== "line" && activeTab !== "reminders" && data.leads.length >= 8000 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              แสดง 3,000 ลีดล่าสุด — ลีดที่เก่ากว่าอาจไม่แสดงในหน้านี้
+              แสดง 8,000 ลีดล่าสุด — ลีดที่เก่ากว่าอาจไม่แสดงในหน้านี้
             </div>
           )}
 

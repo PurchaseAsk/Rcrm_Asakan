@@ -440,6 +440,7 @@ async function fetchAllLeads(
 ) {
   const SELECT = "*, stage:funnel_stages(*), page:facebook_pages(id,page_id,name,is_active), assigned:profiles!leads_assigned_to_fkey(id,email,full_name,role), lead_tags(tag_id, tags(id,name,color,type,created_by))";
   const PAGE = 1000;
+  const MAX = 8000;
   let all: Lead[] = [];
   let from = 0;
   while (true) {
@@ -453,7 +454,7 @@ async function fetchAllLeads(
     if (error) throw new Error(`Load leads failed: ${error.message}`);
     if (!data?.length) break;
     all = all.concat(data as Lead[]);
-    if (data.length < PAGE) break;
+    if (data.length < PAGE || all.length >= MAX) break;
     from += PAGE;
   }
   return { data: all, error: null };
