@@ -811,11 +811,31 @@ export function LeadsPanel({
             </div>
 
             <div className="space-y-4 p-5">
-              {/* Format hint */}
-              <div className="rounded-lg bg-slate-50 px-4 py-3 text-xs text-slate-600 space-y-1">
-                <p className="font-medium text-slate-700">รูปแบบ CSV (row แรกต้องเป็น header):</p>
-                <p className="font-mono">ชื่อลูกค้า, เบอร์โทร, Email, แหล่งที่มา</p>
-                <p className="text-slate-400">• ชื่อลูกค้า = บังคับ · เบอร์ซ้ำจะถูกข้าม · แหล่งที่มา: website, walk_in, cold_call, referral, event, line, other</p>
+              {/* Format hint + template download */}
+              <div className="rounded-lg bg-slate-50 px-4 py-3 text-xs text-slate-600 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium text-slate-700">รูปแบบ CSV (row แรกต้องเป็น header):</p>
+                  <button
+                    onClick={() => {
+                      const headers = ["ชื่อลูกค้า","เบอร์โทร","Email","LineID","แหล่งที่มา","Pipeline","Stage","มอบหมายให้","หมายเหตุ"];
+                      const example = ["สมชาย ใจดี","0812345678","somchai@email.com","@somchai","referral","Wela Pipeline","โทรติดต่อ","ชื่อ Sales","หมายเหตุเพิ่มเติม"];
+                      const csv = [headers, example].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+                      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = "import_template.csv";
+                      a.click();
+                    }}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    <Download size={12} />
+                    โหลด Template
+                  </button>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="font-mono text-slate-500">ชื่อลูกค้า · เบอร์โทร · Email · LineID · แหล่งที่มา · Pipeline · Stage · มอบหมายให้ · หมายเหตุ</p>
+                  <p className="text-slate-400">• ชื่อลูกค้า = บังคับ · เบอร์ซ้ำจะถูกข้าม · แหล่งที่มา: website, walk_in, cold_call, referral, event, line, facebook, tiktok, other</p>
+                </div>
               </div>
 
               {/* File upload */}
