@@ -32,7 +32,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Profile } from "@/types/crm";
+import type { Profile, StageRule } from "@/types/crm";
 import type { AppData, LeadDetail, StageNoteRequest, TabId } from "@/types/app";
 import { emptyData } from "@/types/app";
 import {
@@ -395,9 +395,10 @@ export default function HomePage() {
     setLeadDetail(await loadLeadDetail(lead.id));
   }
 
-  function requestStageChangeNote(stageName: string) {
+  function requestStageChangeNote(stageName: string, stageId: string) {
+    const stageRule = (data.stageRules ?? []).find((r: StageRule) => r.stage_id === stageId) ?? null;
     return new Promise<string | null>((resolve) => {
-      setStageNoteRequest({ stageName, resolve });
+      setStageNoteRequest({ stageName, stageRule, resolve });
     });
   }
 
@@ -919,6 +920,7 @@ export default function HomePage() {
       {stageNoteRequest ? (
         <StageChangeNoteModal
           stageName={stageNoteRequest.stageName}
+          stageRule={stageNoteRequest.stageRule}
           onCancel={() => {
             stageNoteRequest.resolve(null);
             setStageNoteRequest(null);

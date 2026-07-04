@@ -2,7 +2,7 @@
 
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { AppData, LeadDetail } from "@/types/app";
-import type { Activity, DistributionRule, Lead, Page, Pipeline, Profile, RecallRule, Reminder, Role, Stage, Tag, Team } from "@/types/crm";
+import type { Activity, DistributionRule, Lead, Page, Pipeline, Profile, RecallRule, Reminder, Role, Stage, StageRule, Tag, Team } from "@/types/crm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const supabase = createBrowserSupabase();
@@ -367,10 +367,10 @@ export async function updateLeadStage(
   stage: Stage,
   userId: string,
   actorLabel: string,
-  requestStageChangeNote: (stageName: string) => Promise<string | null>,
+  requestStageChangeNote: (stageName: string, stageId: string) => Promise<string | null>,
   toast: (message: string) => void,
 ) {
-  const note = await requestStageChangeNote(stage.name);
+  const note = await requestStageChangeNote(stage.name, stage.id);
   if (!note) return false;
   const { error } = await supabase
     .from("leads")
@@ -464,7 +464,7 @@ export async function loadCrmData(
   client: SupabaseClient,
   opts?: { role?: Role; userId?: string },
 ): Promise<AppData> {
-  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts] = await Promise.all([
+  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules] = await Promise.all([
     fetchAllLeads(client, opts),
     client.from("funnel_stages").select("*").order("position"),
     client
@@ -482,9 +482,10 @@ export async function loadCrmData(
     client.from("auto_recall_rules").select("*, funnel_stages(name)").order("created_at", { ascending: false }),
     client.from("tags").select("*").order("created_at"),
     client.from("line_oa_accounts").select("id,name,channel_id,is_active,bot_user_id").order("created_at"),
+    client.from("stage_rules").select("id, stage_id, questions"),
   ]);
 
-  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts };
+  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules };
   for (const [name, result] of Object.entries(queryResults)) {
     if (result.error) {
       throw new Error(`Load ${name} failed: ${result.error.message}`);
@@ -512,6 +513,7 @@ export async function loadCrmData(
     recallRules: (recallRules.data || []) as RecallRule[],
     tags: visibleTags,
     lineOaAccounts: (lineOaAccounts.data || []) as import("@/types/crm").LineOaAccount[],
+    stageRules: (stageRules.data || []) as StageRule[],
   };
 }
 

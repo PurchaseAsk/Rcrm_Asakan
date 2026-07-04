@@ -48,7 +48,7 @@ export function LeadDrawer({
   tags: Tag[];
   userId: string;
   userRole: "admin" | "team_lead" | "staff";
-  requestStageChangeNote: (stageName: string) => Promise<string | null>;
+  requestStageChangeNote: (stageName: string, stageId: string) => Promise<string | null>;
   onVoucherStage?: (stage: Stage) => void;
   onClose: () => void;
   reload: () => Promise<void>;
@@ -198,7 +198,7 @@ export function LeadDrawer({
         return;
       }
 
-      const stageChangeNote = await requestStageChangeNote(stage.name);
+      const stageChangeNote = await requestStageChangeNote(stage.name, stage.id);
       if (!stageChangeNote) return;
 
       const { error } = await supabase

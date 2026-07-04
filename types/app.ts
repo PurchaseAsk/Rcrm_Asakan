@@ -9,6 +9,7 @@ import type {
   RecallRule,
   Reminder,
   Stage,
+  StageRule,
   Tag,
   Team,
 } from "@/types/crm";
@@ -24,6 +25,7 @@ export type AppData = {
   recallRules: RecallRule[];
   tags: Tag[];
   lineOaAccounts: LineOaAccount[];
+  stageRules: StageRule[];
 };
 
 export const emptyData: AppData = {
@@ -37,6 +39,7 @@ export const emptyData: AppData = {
   recallRules: [],
   tags: [],
   lineOaAccounts: [],
+  stageRules: [],
 };
 
 export type LeadDetail = {
@@ -46,6 +49,7 @@ export type LeadDetail = {
 
 export type StageNoteRequest = {
   stageName: string;
+  stageRule: StageRule | null;
   resolve: (note: string | null) => void;
 };
 

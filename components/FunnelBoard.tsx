@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, GripVertical, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, GripVertical, X } from "lucide-react";
 import type { Lead, Profile, RecallRule, Stage } from "@/types/crm";
 import { EmptyLine } from "@/components/ui/EmptyLine";
 
@@ -131,7 +131,11 @@ export function FunnelBoard({
                     setDraggedLeadId(null);
                   }}
                 >
-                  <div className="flex items-center justify-between border-b border-slate-200 px-2 py-1.5">
+                  {/* Header — mobile: tap to accordion, desktop: shows collapse button */}
+                  <button
+                    className="flex w-full items-center justify-between border-b border-slate-200 px-2 py-1.5 text-left md:cursor-default"
+                    onClick={() => toggleCollapse(stage.id)}
+                  >
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stage.color }} />
                       <span className="truncate text-sm font-semibold text-slate-900">{stage.name}</span>
@@ -140,17 +144,19 @@ export function FunnelBoard({
                       <span className="rounded-full bg-white px-1.5 py-0.5 text-[11px] text-slate-600">
                         {stageLeads.length}
                       </span>
-                      <button
-                        onClick={() => toggleCollapse(stage.id)}
-                        className="hidden rounded p-0.5 text-slate-300 transition hover:bg-slate-200 hover:text-slate-600 md:flex"
-                        title="ย่อ column"
-                      >
+                      {/* Mobile: chevron rotates to show open/closed */}
+                      <ChevronDown
+                        size={14}
+                        className={`text-slate-400 transition-transform md:hidden ${collapsed ? "" : "rotate-180"}`}
+                      />
+                      {/* Desktop: collapse-to-strip button */}
+                      <span className="hidden rounded p-0.5 text-slate-300 transition hover:bg-slate-200 hover:text-slate-600 md:flex">
                         <ChevronLeft size={13} />
-                      </button>
+                      </span>
                     </div>
-                  </div>
+                  </button>
 
-                  <div className="grid grid-cols-3 gap-2 p-2 max-[360px]:grid-cols-2 md:block md:space-y-1.5 md:p-1.5">
+                  <div className={`grid grid-cols-3 gap-2 p-2 max-[360px]:grid-cols-2 md:block md:space-y-1.5 md:p-1.5 ${collapsed ? "hidden md:block" : ""}`}>
                     {stageLeads.map((lead) => (
                       <div
                         key={lead.id}

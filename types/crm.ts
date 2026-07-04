@@ -245,3 +245,18 @@ export type PageCommentReply = {
   created_by: string | null;
   created_at: string;
 };
+
+export type StageQuestionType = "text" | "radio" | "date" | "checkbox";
+
+export type StageQuestion = {
+  id: string;
+  label: string;
+  type: StageQuestionType;
+  options?: string[]; // for radio and checkbox
+};
+
+export type StageRule = {
+  id: string;
+  stage_id: string;
+  questions: StageQuestion[];
+};
