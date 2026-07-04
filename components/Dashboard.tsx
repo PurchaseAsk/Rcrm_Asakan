@@ -7,7 +7,7 @@ import { sourceLabel } from "@/lib/helpers";
 
 const supabase = createBrowserSupabase();
 
-type DashTab = "pipeline" | "conversions" | "chat";
+type DashTab = "pipeline" | "conversions" | "chat" | "heatmap";
 
 const CHART_COLORS = [
   "#ef4444", "#3b82f6", "#10b981", "#f59e0b",
@@ -942,6 +942,220 @@ function ChatMetricsView({
   );
 }
 
+// ─── Dashboard 4: Voucher Heatmap ────────────────────────────────────────────
+const HEATMAP_COLORS = ["#f8fafc", "#fef3c7", "#fde68a", "#fbbf24", "#d97706", "#92400e"];
+
+function heatColor(count: number, max: number): string {
+  if (count === 0 || max === 0) return HEATMAP_COLORS[0];
+  const ratio = count / max;
+  if (ratio < 0.1) return HEATMAP_COLORS[1];
+  if (ratio < 0.3) return HEATMAP_COLORS[2];
+  if (ratio < 0.55) return HEATMAP_COLORS[3];
+  if (ratio < 0.8) return HEATMAP_COLORS[4];
+  return HEATMAP_COLORS[5];
+}
+
+function heatTextColor(count: number, max: number): string {
+  const ratio = max > 0 ? count / max : 0;
+  return ratio >= 0.55 ? "#ffffff" : "#78350f";
+}
+
+function VoucherHeatmap({
+  stages,
+  dateFrom,
+  dateTo,
+  setDateFrom,
+  setDateTo,
+}: {
+  stages: Stage[];
+  dateFrom: string;
+  dateTo: string;
+  setDateFrom: (v: string) => void;
+  setDateTo: (v: string) => void;
+}) {
+  const voucherStages = useMemo(() => stages.filter((s) => s.is_voucher_stage), [stages]);
+  const voucherStageIds = useMemo(() => voucherStages.map((s) => s.id), [voucherStages]);
+
+  const [hourCounts, setHourCounts] = useState<number[]>(Array(24).fill(0));
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    if (!voucherStageIds.length) return;
+    setLoading(true);
+    void (async () => {
+      // Query stage_change activities into voucher stages within date range
+      const { data } = await supabase
+        .from("lead_activities")
+        .select("created_at")
+        .in("stage_id", voucherStageIds)
+        .eq("type", "stage_change")
+        .gte("created_at", `${dateFrom}T00:00:00+07:00`)
+        .lte("created_at", `${dateTo}T23:59:59+07:00`);
+
+      const counts = Array(24).fill(0) as number[];
+      for (const row of (data ?? []) as { created_at: string }[]) {
+        const h = parseInt(
+          new Date(row.created_at).toLocaleString("en-US", {
+            hour: "2-digit",
+            hour12: false,
+            timeZone: "Asia/Bangkok",
+          }),
+        );
+        if (!isNaN(h) && h >= 0 && h < 24) counts[h]++;
+      }
+      setHourCounts(counts);
+      setTotal(counts.reduce((a, b) => a + b, 0));
+      setLoading(false);
+    })();
+  }, [voucherStageIds, dateFrom, dateTo]);
+
+  const maxCount = Math.max(...hourCounts, 1);
+  const peakHour = hourCounts.indexOf(Math.max(...hourCounts));
+  const topHours = [...hourCounts.map((c, h) => ({ h, c }))]
+    .sort((a, b) => b.c - a.c)
+    .filter(({ c }) => c > 0)
+    .slice(0, 5);
+
+  if (!voucherStages.length) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400 shadow-sm">
+        ยังไม่มี stage ที่ตั้งค่าเป็น Voucher Stage ใน pipeline นี้
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <DateRangePicker
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        setDateFrom={setDateFrom}
+        setDateTo={setDateTo}
+        showToday
+        suffix={
+          <span className="text-sm text-slate-500">
+            · {loading ? "กำลังโหลด…" : `${total} ครั้งที่เข้า voucher stage`}
+          </span>
+        }
+      />
+
+      {/* Voucher stage badges */}
+      <div className="flex flex-wrap gap-2">
+        {voucherStages.map((s) => (
+          <span
+            key={s.id}
+            className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700"
+          >
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+            {s.name}
+          </span>
+        ))}
+      </div>
+
+      {/* Heatmap grid */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-800">ช่วงเวลาที่ออกคูปองได้มากสุด</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {dateFrom} — {dateTo} · Bangkok time (GMT+7)
+              {!loading && total > 0 && ` · Peak: ${String(peakHour).padStart(2, "0")}:00–${String(peakHour + 1).padStart(2, "0")}:00 น.`}
+            </p>
+          </div>
+          {!loading && total > 0 && (
+            <div className="text-right">
+              <p className="text-2xl font-bold text-amber-600">{hourCounts[peakHour]}</p>
+              <p className="text-xs text-slate-400">ในช่วง {String(peakHour).padStart(2, "0")}:00 น.</p>
+            </div>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="py-10 text-center text-sm text-slate-400">กำลังโหลด…</div>
+        ) : total === 0 ? (
+          <div className="py-10 text-center text-sm text-slate-400">
+            ไม่มีข้อมูล voucher stage ในช่วงวันที่นี้
+          </div>
+        ) : (
+          <>
+            {/* 24 cells — split into 3 rows of 8 for readability */}
+            <div className="grid grid-cols-8 gap-1.5">
+              {hourCounts.map((count, h) => (
+                <div
+                  key={h}
+                  className="flex flex-col items-center rounded-lg px-1 py-2"
+                  style={{ backgroundColor: heatColor(count, maxCount) }}
+                  title={`${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 น. · ${count} ครั้ง`}
+                >
+                  <span className="text-[10px] font-medium leading-none" style={{ color: heatTextColor(count, maxCount) }}>
+                    {String(h).padStart(2, "0")}
+                  </span>
+                  <span className="mt-1 text-sm font-bold leading-none" style={{ color: heatTextColor(count, maxCount) }}>
+                    {count > 0 ? count : <span style={{ color: "#cbd5e1" }}>-</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Color scale legend */}
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-[11px] text-slate-400">น้อย</span>
+              <div className="flex gap-0.5">
+                {HEATMAP_COLORS.slice(1).map((c) => (
+                  <div key={c} className="h-3 w-7 rounded-sm" style={{ backgroundColor: c }} />
+                ))}
+              </div>
+              <span className="text-[11px] text-slate-400">มาก</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Top 5 hours breakdown */}
+      {!loading && topHours.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h3 className="font-semibold text-slate-800">Top 5 ช่วงเวลา</h3>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">ช่วงเวลา</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide text-amber-600">จำนวน</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">สัดส่วน</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topHours.map(({ h, c }) => (
+                <tr key={h} className="border-b border-slate-100">
+                  <td className="px-4 py-2.5 font-medium text-slate-800">
+                    {String(h).padStart(2, "0")}:00 – {String(h + 1).padStart(2, "0")}:00 น.
+                  </td>
+                  <td className="px-4 py-2.5 text-center font-bold text-amber-600">{c}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 flex-1 rounded-full bg-slate-100">
+                        <div
+                          className="h-2 rounded-full bg-amber-400"
+                          style={{ width: `${Math.round((c / maxCount) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="w-8 text-right text-xs text-slate-500 tabular-nums">
+                        {Math.round((c / total) * 100)}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 export function Dashboard({
   leads,
@@ -957,6 +1171,8 @@ export function Dashboard({
   const [dateTo, setDateTo] = useState(todayStr());
   const [chatDateFrom, setChatDateFrom] = useState(firstOfMonthStr());
   const [chatDateTo, setChatDateTo] = useState(todayStr());
+  const [heatDateFrom, setHeatDateFrom] = useState(firstOfMonthStr());
+  const [heatDateTo, setHeatDateTo] = useState(todayStr());
 
   const activeStages = useMemo(() => pipelineStages.filter((s) => !s.is_unfollow), [pipelineStages]);
 
@@ -975,7 +1191,7 @@ export function Dashboard({
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button className={tabCls("pipeline")} onClick={() => setTab("pipeline")}>
           Pipeline
         </button>
@@ -984,6 +1200,9 @@ export function Dashboard({
         </button>
         <button className={tabCls("chat")} onClick={() => setTab("chat")}>
           Chat Metrics
+        </button>
+        <button className={tabCls("heatmap")} onClick={() => setTab("heatmap")}>
+          🎟 Voucher Heatmap
         </button>
       </div>
 
@@ -1007,6 +1226,15 @@ export function Dashboard({
           dateTo={chatDateTo}
           setDateFrom={setChatDateFrom}
           setDateTo={setChatDateTo}
+        />
+      )}
+      {tab === "heatmap" && (
+        <VoucherHeatmap
+          stages={pipelineStages}
+          dateFrom={heatDateFrom}
+          dateTo={heatDateTo}
+          setDateFrom={setHeatDateFrom}
+          setDateTo={setHeatDateTo}
         />
       )}
     </div>
