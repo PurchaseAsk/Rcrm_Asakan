@@ -110,6 +110,13 @@ export function ChatInbox({
   const [filterOverdue, setFilterOverdue] = useState(false);
   const [, setMinuteTick] = useState(0);
 
+  type ConvNote = { id: string; content: string; created_by: string | null; created_at: string };
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [notes, setNotes] = useState<ConvNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
+
   function messagePreview(msg: Message | null) {
     if (!msg) return "";
     if (msg.attachment_type === "image") return "[รูปภาพ]";
@@ -384,7 +391,10 @@ export function ChatInbox({
     setShowTagPicker(false);
     setReplyTarget(null);
     setMessages([]);
+    setNotes([]);
+    setShowNotesModal(false);
     await refreshMessages(conv.id);
+    void loadNotes(conv.id);
     void markRead(conv.id);
 
     if (!conv.sender_name) {
@@ -613,6 +623,36 @@ export function ChatInbox({
   async function deleteQuickReply(id: string) {
     await supabase.from("quick_replies").delete().eq("id", id);
     setQuickReplies((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  async function loadNotes(convId: string) {
+    setNotesLoading(true);
+    const { data } = await supabase
+      .from("conversation_notes")
+      .select("id, content, created_by, created_at")
+      .eq("conversation_id", convId)
+      .order("created_at", { ascending: true });
+    setNotes((data ?? []) as ConvNote[]);
+    setNotesLoading(false);
+  }
+
+  async function saveNote() {
+    if (!selectedConvId || !noteDraft.trim()) return;
+    setNoteSaving(true);
+    await supabase.from("conversation_notes").insert({
+      conversation_id: selectedConvId,
+      content: noteDraft.trim(),
+      created_by: userId,
+    });
+    setNoteDraft("");
+    await loadNotes(selectedConvId);
+    setNoteSaving(false);
+  }
+
+  async function deleteNote(noteId: string) {
+    if (!selectedConvId) return;
+    await supabase.from("conversation_notes").delete().eq("id", noteId);
+    setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }
 
   // stages for the currently selected pipeline in the draft
@@ -1058,6 +1098,15 @@ export function ChatInbox({
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    <button
+                      title="บันทึกภายใน"
+                      onClick={() => { setShowNotesModal(true); void loadNotes(selectedConv.id); }}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg border text-slate-400 hover:bg-amber-50 hover:text-amber-600 ${notes.length > 0 ? "border-amber-300 bg-amber-50 text-amber-500" : "border-slate-200"}`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
                     <button
@@ -1736,6 +1785,88 @@ export function ChatInbox({
               >
                 {submitting ? "กำลังสร้าง…" : "สร้างลีด"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Internal Notes Modal */}
+      {showNotesModal && selectedConv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl" style={{ maxHeight: "80vh" }}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h3 className="font-semibold text-slate-900">บันทึกภายใน</h3>
+                <p className="text-xs text-slate-400">{selectedConv.sender_name || selectedConv.sender_psid} · ลูกค้าไม่เห็นข้อความเหล่านี้</p>
+              </div>
+              <button
+                onClick={() => setShowNotesModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Notes list */}
+            <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+              {notesLoading ? (
+                <p className="text-center text-sm text-slate-400">กำลังโหลด…</p>
+              ) : notes.length === 0 ? (
+                <p className="text-center text-sm text-slate-400">ยังไม่มีบันทึก</p>
+              ) : (
+                notes.map((note) => {
+                  const author = profiles.find((p) => p.id === note.created_by);
+                  const authorName = author?.full_name ?? author?.email ?? "ผู้ใช้งาน";
+                  const createdAt = new Date(note.created_at).toLocaleString("th-TH", {
+                    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                  });
+                  const isOwn = note.created_by === userId;
+                  return (
+                    <div key={note.id} className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-amber-700">{authorName}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-400">{createdAt}</span>
+                          {isOwn && (
+                            <button
+                              onClick={() => void deleteNote(note.id)}
+                              className="text-[11px] text-slate-400 hover:text-rose-500"
+                              title="ลบบันทึก"
+                            >
+                              ลบ
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{note.content}</p>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* New note input */}
+            <div className="border-t border-slate-200 px-5 py-4">
+              <textarea
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-amber-400 resize-none"
+                rows={3}
+                placeholder="พิมพ์บันทึกภายใน…"
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void saveNote();
+                }}
+              />
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">Ctrl+Enter เพื่อบันทึก</span>
+                <button
+                  onClick={() => void saveNote()}
+                  disabled={noteSaving || !noteDraft.trim()}
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                >
+                  {noteSaving ? "กำลังบันทึก…" : "บันทึก"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
