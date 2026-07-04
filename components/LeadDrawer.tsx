@@ -522,15 +522,37 @@ export function LeadDrawer({
           <section>
             <h3 className="mb-2 font-semibold text-slate-950">Reminders</h3>
             <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { label: "วันนี้", offset: 0 },
+                  { label: "พรุ่งนี้", offset: 1 },
+                ].map(({ label, offset }) => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + offset);
+                  const val = d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setReminder({ ...reminder, date: val })}
+                      className={`h-8 rounded-lg border px-2.5 text-xs font-medium transition ${
+                        reminder.date === val
+                          ? "border-brand-600 bg-brand-600 text-white"
+                          : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
                 <input
-                  className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
+                  className="h-8 w-36 rounded-lg border border-slate-200 px-2 text-sm"
                   type="date"
                   value={reminder.date}
                   onChange={(e) => setReminder({ ...reminder, date: e.target.value })}
                 />
                 <select
-                  className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
+                  className="h-8 rounded-lg border border-slate-200 px-2 text-sm"
                   value={reminder.time}
                   onChange={(e) => setReminder({ ...reminder, time: e.target.value })}
                 >
