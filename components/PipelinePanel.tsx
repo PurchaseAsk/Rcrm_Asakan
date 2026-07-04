@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Pipeline } from "@/types/crm";
-import { deleteRow } from "@/lib/helpers";
+import { deleteRow, updatePipeline } from "@/lib/helpers";
 import { Field } from "@/components/ui/Field";
 import { InlineCreate } from "@/components/ui/InlineCreate";
 
@@ -73,38 +73,83 @@ export function PipelinePanel({
         />
       ) : null}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {pipelines.map((pipeline) => (
-          <section key={pipeline.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: pipeline.color }} />
-                  <h2 className="font-semibold text-slate-950">{pipeline.name}</h2>
+        {pipelines.map((pipeline) => {
+          const leadCount = leads.filter((l) => l.pipeline_id === pipeline.id).length;
+          return (
+            <section key={pipeline.id} className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
+              {/* Color strip header */}
+              <div className="flex items-center gap-3 rounded-t-xl px-4 py-3" style={{ backgroundColor: pipeline.color + "18" }}>
+                {canManage ? (
+                  <label className="relative cursor-pointer" title="เปลี่ยนสี">
+                    <span
+                      className="block h-7 w-7 rounded-full border-2 border-white shadow transition-transform hover:scale-110"
+                      style={{ backgroundColor: pipeline.color }}
+                    />
+                    <input
+                      type="color"
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      defaultValue={pipeline.color}
+                      onChange={(e) => void updatePipeline(pipeline.id, { color: e.target.value }, reload, toast)}
+                    />
+                  </label>
+                ) : (
+                  <span className="h-7 w-7 rounded-full" style={{ backgroundColor: pipeline.color }} />
+                )}
+                <div className="min-w-0 flex-1">
+                  {canManage ? (
+                    <input
+                      className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:underline"
+                      defaultValue={pipeline.name}
+                      onBlur={(e) => {
+                        if (e.target.value.trim() && e.target.value.trim() !== pipeline.name)
+                          void updatePipeline(pipeline.id, { name: e.target.value.trim() }, reload, toast);
+                      }}
+                    />
+                  ) : (
+                    <p className="text-sm font-semibold text-slate-900">{pipeline.name}</p>
+                  )}
                 </div>
-                <p className="mt-1 text-sm text-slate-500">{pipeline.description || "No description"}</p>
+                <span className="shrink-0 rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-medium text-slate-600 shadow-sm">
+                  {leadCount} leads
+                </span>
               </div>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
-                {leads.filter((lead) => lead.pipeline_id === pipeline.id).length} leads
-              </span>
-            </div>
-            {canManage ? (
-              <div className="mt-4 flex gap-2">
-                <button
-                  className="h-10 flex-1 rounded-lg border border-slate-200 text-sm font-medium text-slate-700"
-                  onClick={() => onManage(pipeline.id)}
-                >
-                  Manage
-                </button>
-                <button
-                  className="h-10 rounded-lg px-3 text-sm font-medium text-rose-600"
-                  onClick={() => deleteRow("pipelines", pipeline.id, reload, toast)}
-                >
-                  Delete
-                </button>
+
+              {/* Body */}
+              <div className="flex flex-1 flex-col gap-3 p-4">
+                {canManage ? (
+                  <input
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-brand-400 focus:bg-white"
+                    defaultValue={pipeline.description ?? ""}
+                    placeholder="คำอธิบาย pipeline..."
+                    onBlur={(e) => {
+                      if (e.target.value !== (pipeline.description ?? ""))
+                        void updatePipeline(pipeline.id, { description: e.target.value }, reload, toast);
+                    }}
+                  />
+                ) : (
+                  <p className="text-sm text-slate-500">{pipeline.description || "No description"}</p>
+                )}
+
+                {canManage && (
+                  <div className="flex gap-2">
+                    <button
+                      className="h-9 flex-1 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      onClick={() => onManage(pipeline.id)}
+                    >
+                      Manage
+                    </button>
+                    <button
+                      className="h-9 rounded-lg px-3 text-sm font-medium text-rose-500 hover:bg-rose-50"
+                      onClick={() => deleteRow("pipelines", pipeline.id, reload, toast)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
-            ) : null}
-          </section>
-        ))}
+            </section>
+          );
+        })}
       </div>
     </div>
   );

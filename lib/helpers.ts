@@ -175,6 +175,17 @@ export async function toggleLeadTag(
   await reload();
 }
 
+export async function updatePipeline(
+  id: string,
+  patch: Partial<import("@/types/crm").Pipeline>,
+  reload: () => Promise<void>,
+  toast: (message: string) => void,
+) {
+  const { error } = await supabase.from("pipelines").update(patch).eq("id", id);
+  if (error) return toast(error.message);
+  await reload();
+}
+
 export async function updateStage(
   id: string,
   patch: Partial<Stage>,
