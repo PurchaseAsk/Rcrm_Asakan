@@ -5,7 +5,7 @@ import { MessageSquareText } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import type { LeadDetail } from "@/types/app";
-import { actorName, deleteRow, recallCountdownText, toggleLeadTag } from "@/lib/helpers";
+import { actorName, deleteRow, leadAge, recallCountdownText, toggleLeadTag } from "@/lib/helpers";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
 
@@ -304,7 +304,7 @@ export function LeadDrawer({
           <div>
             <h2 className="text-lg font-semibold text-slate-950">{lead.customer_name}</h2>
             <p className="text-sm text-slate-500">
-              {lead.page?.name || "No page"} · {recallCountdownText(lead, stages)}
+              {lead.page?.name || "No page"} · อายุ {leadAge(lead.created_at)} · {recallCountdownText(lead, stages)}
             </p>
           </div>
           <div className="flex items-center gap-2">

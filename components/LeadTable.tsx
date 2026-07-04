@@ -2,7 +2,7 @@
 
 import type { Lead, Profile } from "@/types/crm";
 import { EmptyLine } from "@/components/ui/EmptyLine";
-import { formatMoney } from "@/lib/helpers";
+import { formatMoney, leadAge } from "@/lib/helpers";
 
 const THAI_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
@@ -42,7 +42,7 @@ export function LeadTable({
             <th className="px-3 py-3">Assignee</th>
             <th className="px-3 py-3">Value</th>
             <th className="px-3 py-3">Status</th>
-            <th className="px-3 py-3">วันที่เข้า</th>
+            <th className="px-3 py-3">อายุ Lead</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 bg-white">
@@ -73,8 +73,8 @@ export function LeadTable({
                   </span>
                 </td>
                 <td className="px-3 py-3 tabular-nums">
-                  <div className="text-xs font-medium text-slate-700">{line1}</div>
-                  <div className="text-xs text-slate-400">{line2}</div>
+                  <div className="text-xs font-medium text-slate-700">{leadAge(lead.created_at)}</div>
+                  <div className="text-xs text-slate-400">{line1} {line2}</div>
                 </td>
               </tr>
             );

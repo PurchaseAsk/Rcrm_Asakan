@@ -36,6 +36,16 @@ export function formatMoney(value: number) {
   return new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 0 }).format(value);
 }
 
+export function leadAge(createdAt: string): string {
+  const ms = Date.now() - new Date(createdAt).getTime();
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor((ms % 86400000) / 3600000);
+  const mins = Math.floor((ms % 3600000) / 60000);
+  if (days > 0) return `${days} วัน ${hours} ชม.`;
+  if (hours > 0) return `${hours} ชม. ${mins} นาที`;
+  return `${mins} นาที`;
+}
+
 export const MANUAL_SOURCES: { value: string; label: string }[] = [
   { value: "facebook", label: "Facebook" },
   { value: "tiktok", label: "TikTok" },
