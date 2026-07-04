@@ -176,7 +176,7 @@ export function StageChangeNoteModal({
                   )}
                 </div>
               ))}
-              <p className="text-xs text-slate-400">กรอกอย่างน้อย 1 ช่อง แล้วกด "ยืนยัน"</p>
+              <p className="text-xs text-slate-400">กรอกอย่างน้อย 1 ช่อง แล้วกด &quot;ยืนยัน&quot;</p>
             </div>
           ) : (
             <div>
