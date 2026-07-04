@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MessageSquareText } from "lucide-react";
+import { MapPin, MessageSquareText } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import type { LeadDetail } from "@/types/app";
-import { actorName, deleteRow, leadAge, recallCountdownText, toggleLeadTag } from "@/lib/helpers";
+import { actorName, deleteRow, isPinned, leadAge, pinDaysLeft, pinLead, recallCountdownText, toggleLeadTag, unpinLead } from "@/lib/helpers";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
 
@@ -308,6 +308,23 @@ export function LeadDrawer({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Pin button */}
+            <button
+              title={isPinned(lead) ? `Pin หมดอายุใน ${pinDaysLeft(lead)} วัน — คลิกเพื่อ unpin` : "Pin lead 3 วัน (กัน recall)"}
+              onClick={() =>
+                isPinned(lead)
+                  ? void unpinLead(lead.id, reload, toast)
+                  : void pinLead(lead.id, reload, toast)
+              }
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                isPinned(lead)
+                  ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  : "border-slate-200 text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              <MapPin size={14} />
+              {isPinned(lead) ? `${pinDaysLeft(lead)} วัน` : "Pin"}
+            </button>
             <button
               className={
                 editingInfo

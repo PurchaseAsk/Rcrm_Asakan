@@ -36,6 +36,29 @@ export function formatMoney(value: number) {
   return new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 0 }).format(value);
 }
 
+export function isPinned(lead: import("@/types/crm").Lead): boolean {
+  return !!lead.pinned_until && new Date(lead.pinned_until) > new Date();
+}
+
+export function pinDaysLeft(lead: import("@/types/crm").Lead): number {
+  if (!lead.pinned_until) return 0;
+  return Math.max(0, Math.ceil((new Date(lead.pinned_until).getTime() - Date.now()) / 86400000));
+}
+
+export async function pinLead(leadId: string, reload: () => Promise<void>, toast: (msg: string) => void) {
+  const until = new Date(Date.now() + 3 * 86400 * 1000).toISOString();
+  const { error } = await supabase.from("leads").update({ pinned_until: until }).eq("id", leadId);
+  if (error) return toast(error.message);
+  await reload();
+  toast("📌 Pin lead แล้ว (3 วัน)");
+}
+
+export async function unpinLead(leadId: string, reload: () => Promise<void>, toast: (msg: string) => void) {
+  const { error } = await supabase.from("leads").update({ pinned_until: null }).eq("id", leadId);
+  if (error) return toast(error.message);
+  await reload();
+}
+
 export function leadAge(createdAt: string): string {
   const ms = Date.now() - new Date(createdAt).getTime();
   const days = Math.floor(ms / 86400000);

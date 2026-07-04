@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronLeft, GripVertical, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, GripVertical, MapPin, X } from "lucide-react";
 import type { Lead, Profile, RecallRule, Stage } from "@/types/crm";
+import { isPinned, pinDaysLeft } from "@/lib/helpers";
 import { EmptyLine } from "@/components/ui/EmptyLine";
 
 export function FunnelBoard({
@@ -84,10 +85,16 @@ export function FunnelBoard({
             const knownStageIds = new Set(stages.map((s) => s.id));
             return stages.map((stage, stageIndex) => {
               const collapsed = collapsedStages.has(stage.id);
-              const stageLeads = leads.filter((lead) =>
-                lead.stage_id === stage.id ||
-                (stageIndex === 0 && (!lead.stage_id || !knownStageIds.has(lead.stage_id))),
-              );
+              const stageLeads = leads
+                .filter((lead) =>
+                  lead.stage_id === stage.id ||
+                  (stageIndex === 0 && (!lead.stage_id || !knownStageIds.has(lead.stage_id))),
+                )
+                .sort((a, b) => {
+                  const aPin = isPinned(a) ? 1 : 0;
+                  const bPin = isPinned(b) ? 1 : 0;
+                  return bPin - aPin;
+                });
 
               if (collapsed) {
                 return (
@@ -162,7 +169,13 @@ export function FunnelBoard({
                         key={lead.id}
                         draggable
                         onDragStart={() => setDraggedLeadId(lead.id)}
-                        className={`w-full min-w-0 rounded-md border shadow-sm ${isNearRecall(lead) ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}
+                        className={`w-full min-w-0 rounded-md border shadow-sm ${
+                          isPinned(lead)
+                            ? "border-amber-300 bg-amber-50"
+                            : isNearRecall(lead)
+                            ? "border-rose-200 bg-rose-50"
+                            : "border-slate-200 bg-white"
+                        }`}
                       >
                         <div className="flex min-w-0 items-stretch">
                           <button
@@ -177,9 +190,16 @@ export function FunnelBoard({
                             className="min-w-0 flex-1 py-1.5 pr-2 text-left hover:opacity-80"
                             onClick={() => onOpenLead(lead)}
                           >
-                            <div className="truncate text-[13px] font-medium text-slate-900">{lead.customer_name}</div>
+                            <div className="flex min-w-0 items-center gap-1">
+                              {isPinned(lead) && (
+                                <MapPin size={10} className="shrink-0 text-amber-500" />
+                              )}
+                              <span className="truncate text-[13px] font-medium text-slate-900">{lead.customer_name}</span>
+                            </div>
                             <div className="truncate text-[11px] text-slate-500">
-                              {lead.phone || lead.email || "No contact"}
+                              {isPinned(lead)
+                                ? `Pin ${pinDaysLeft(lead)} วัน · ${lead.phone || lead.email || "No contact"}`
+                                : lead.phone || lead.email || "No contact"}
                             </div>
                           </button>
                         </div>

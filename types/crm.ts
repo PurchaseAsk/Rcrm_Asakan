@@ -73,6 +73,7 @@ export type Lead = {
   metadata: LeadMeta | null;
   last_activity_at: string;
   stage_entered_at: string | null;
+  pinned_until: string | null;
   created_at: string;
   stage?: Stage | null;
   page?: Page | null;
