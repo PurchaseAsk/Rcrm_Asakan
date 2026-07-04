@@ -12,23 +12,27 @@ function playPing() {
   try {
     const ctx = new AudioContext();
     const master = ctx.createGain();
-    master.gain.setValueAtTime(0.12, ctx.currentTime);
+    master.gain.setValueAtTime(0.18, ctx.currentTime);
     master.connect(ctx.destination);
 
-    [0, 0.16].forEach((delay, i) => {
+    // C4 + E4 — warm major-third ding, one octave below the original high-pitched pair
+    ([
+      { delay: 0,    freq: 261.63, type: "triangle" as OscillatorType, peak: 0.85 },
+      { delay: 0.18, freq: 329.63, type: "sine"     as OscillatorType, peak: 0.55 },
+    ] as const).forEach(({ delay, freq, type, peak }) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(master);
-      osc.type = i === 0 ? "triangle" : "sine";
-      osc.frequency.setValueAtTime(i === 0 ? 523.25 : 659.25, ctx.currentTime + delay);
-      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
-      gain.gain.linearRampToValueAtTime(i === 0 ? 0.16 : 0.1, ctx.currentTime + delay + 0.025);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.36);
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(peak, ctx.currentTime + delay + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + 0.5);
       osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.38);
+      osc.stop(ctx.currentTime + delay + 0.52);
     });
-    window.setTimeout(() => void ctx.close(), 700);
+    window.setTimeout(() => void ctx.close(), 900);
   } catch { /* browser blocked autoplay — ignore */ }
 }
 
