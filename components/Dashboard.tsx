@@ -1219,6 +1219,7 @@ function SalesActivityView({
   const [activities, setActivities] = useState<ActRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [workHoursOnly, setWorkHoursOnly] = useState(true);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -1261,18 +1262,53 @@ function SalesActivityView({
 
   const activeProfiles = useMemo(() => {
     const ids = new Set(matrix.keys());
+    // Keep stable order matching profiles prop
     return profiles.filter((p) => ids.has(p.id));
   }, [profiles, matrix]);
 
-  const globalMax = useMemo(() => {
-    let max = 1;
-    for (const [, um] of matrix)
-      for (const [, s] of um)
-        if (s.size > max) max = s.size;
-    return max;
-  }, [matrix]);
+  // Assign a stable color per user
+  const userColor = useMemo(() => {
+    const m = new Map<string, string>();
+    activeProfiles.forEach((p, i) => m.set(p.id, CHART_COLORS[i % CHART_COLORS.length]));
+    return m;
+  }, [activeProfiles]);
 
-  // Row totals: distinct leads touched over the whole period
+  const visibleProfiles = useMemo(
+    () => activeProfiles.filter((p) => !hiddenIds.has(p.id)),
+    [activeProfiles, hiddenIds],
+  );
+
+  function toggleUser(id: string) {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  // Stacked data per hour: [{h, segments:[{uid,count}], stackTotal}]
+  const stackedData = useMemo(() =>
+    hours.map((h) => {
+      const segments = visibleProfiles.map((p) => ({
+        uid: p.id,
+        count: matrix.get(p.id)?.get(h)?.size ?? 0,
+      }));
+      return { h, segments, stackTotal: segments.reduce((s, seg) => s + seg.count, 0) };
+    }),
+  [hours, visibleProfiles, matrix]);
+
+  const globalMax = useMemo(
+    () => Math.max(...stackedData.map((d) => d.stackTotal), 1),
+    [stackedData],
+  );
+
+  const totalLeads = useMemo(() => {
+    const all = new Set<string>();
+    for (const act of activities) all.add(act.lead_id);
+    return all.size;
+  }, [activities]);
+
+  // Row totals for legend labels
   const rowTotals = useMemo(() => {
     const t = new Map<string, number>();
     for (const [uid, um] of matrix) {
@@ -1283,20 +1319,15 @@ function SalesActivityView({
     return t;
   }, [matrix]);
 
-  // Column totals: sum of distinct-per-user counts per hour
-  const colSums = useMemo(() => {
-    const t = new Map<number, number>();
-    for (const [, um] of matrix)
-      for (const [h, s] of um)
-        t.set(h, (t.get(h) ?? 0) + s.size);
-    return t;
-  }, [matrix]);
-
-  const totalLeads = useMemo(() => {
-    const all = new Set<string>();
-    for (const act of activities) all.add(act.lead_id);
-    return all.size;
-  }, [activities]);
+  // SVG chart dimensions
+  const svgW = 900, svgH = 260, pL = 28, pR = 8, pT = 20, pB = 44;
+  const cW = svgW - pL - pR;
+  const cH = svgH - pT - pB;
+  const n = hours.length;
+  const barW = cW / n;
+  const gap = Math.max(barW * 0.18, 2);
+  const bw = barW - gap;
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
 
   return (
     <div className="space-y-4">
@@ -1308,7 +1339,7 @@ function SalesActivityView({
         showToday
         suffix={
           <span className="text-sm text-slate-500">
-            · {loading ? "กำลังโหลด…" : `${totalLeads} distinct leads · ${activities.length} activities`}
+            · {loading ? "กำลังโหลด…" : `${totalLeads} distinct leads`}
           </span>
         }
       />
@@ -1336,95 +1367,106 @@ function SalesActivityView({
           ไม่มีข้อมูล activity ในช่วงวันที่นี้
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
-          <div className="border-b border-slate-200 px-4 py-3">
-            <h3 className="font-semibold text-slate-800">Sales Activity — distinct leads ที่แตะต่อชั่วโมง</h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {dateFrom} — {dateTo} · Bangkok time · 1 lead = นับ 1 ต่อชั่วโมงต่อคน ไม่ว่าจะทำกี่ activity
-            </p>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+          {/* User filter tags */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-slate-500">เลือกผู้ใช้</span>
+            {activeProfiles.map((p) => {
+              const hidden = hiddenIds.has(p.id);
+              const color = userColor.get(p.id)!;
+              const total = rowTotals.get(p.id) ?? 0;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => toggleUser(p.id)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-white transition-opacity"
+                  style={{ backgroundColor: hidden ? "#cbd5e1" : color }}
+                  title={`${total} leads รวม`}
+                >
+                  {p.full_name ?? p.email.split("@")[0]}
+                  <span className="opacity-70">{hidden ? "+" : "×"}</span>
+                </button>
+              );
+            })}
           </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                <th className="sticky left-0 z-10 bg-slate-50 px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap min-w-[120px]">
-                  Sales
-                </th>
-                {hours.map((h) => (
-                  <th key={h} className="px-1.5 py-2.5 text-center text-xs font-semibold text-slate-500 whitespace-nowrap min-w-[36px]">
-                    {String(h).padStart(2, "0")}
-                  </th>
-                ))}
-                <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
-                  รวม
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeProfiles
-                .sort((a, b) => (rowTotals.get(b.id) ?? 0) - (rowTotals.get(a.id) ?? 0))
-                .map((profile) => {
-                  const um = matrix.get(profile.id) ?? new Map<number, Set<string>>();
-                  const total = rowTotals.get(profile.id) ?? 0;
-                  return (
-                    <tr key={profile.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="sticky left-0 z-10 bg-white px-4 py-2 font-medium text-slate-800 whitespace-nowrap">
-                        {profile.full_name ?? profile.email.split("@")[0]}
-                      </td>
-                      {hours.map((h) => {
-                        const count = um.get(h)?.size ?? 0;
-                        return (
-                          <td
-                            key={h}
-                            className="px-0.5 py-1 text-center"
-                            title={`${profile.full_name ?? profile.email} · ${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 · ${count} leads`}
-                          >
-                            <div
-                              className="mx-auto flex h-7 w-7 items-center justify-center rounded text-[11px] font-semibold"
-                              style={{
-                                backgroundColor: heatColor(count, globalMax),
-                                color: heatTextColor(count, globalMax),
-                              }}
-                            >
-                              {count > 0 ? count : ""}
-                            </div>
-                          </td>
-                        );
-                      })}
-                      <td className="px-3 py-2 text-center font-bold tabular-nums text-brand-700">
-                        {total}
-                      </td>
-                    </tr>
-                  );
-                })}
 
-              {/* Column totals */}
-              <tr className="border-t-2 border-slate-200 bg-slate-50">
-                <td className="sticky left-0 z-10 bg-slate-50 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  รวมต่อชั่วโมง
-                </td>
-                {hours.map((h) => {
-                  const s = colSums.get(h) ?? 0;
-                  return (
-                    <td key={h} className="px-0.5 py-2 text-center text-xs font-semibold tabular-nums text-slate-600">
-                      {s > 0 ? s : <span className="text-slate-300">-</span>}
-                    </td>
-                  );
-                })}
-                <td className="px-3 py-2 text-center" />
-              </tr>
-            </tbody>
-          </table>
+          {/* Stacked bar chart */}
+          <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: svgH }}>
+            {/* Y grid + labels */}
+            {yTicks.map((t) => {
+              const y = pT + (1 - t) * cH;
+              const val = Math.round(t * globalMax);
+              return (
+                <g key={t}>
+                  <line x1={pL} y1={y} x2={svgW - pR} y2={y} stroke="#e2e8f0" strokeWidth={1} />
+                  <text x={pL - 4} y={y + 4} textAnchor="end" fontSize={9} fill="#94a3b8">{val}</text>
+                </g>
+              );
+            })}
 
-          {/* Color scale */}
-          <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-2.5">
-            <span className="text-[11px] text-slate-400">น้อย</span>
-            <div className="flex gap-0.5">
-              {HEATMAP_COLORS.slice(1).map((c) => (
-                <div key={c} className="h-3 w-7 rounded-sm" style={{ backgroundColor: c }} />
-              ))}
-            </div>
-            <span className="text-[11px] text-slate-400">มาก</span>
-          </div>
+            {/* Bars */}
+            {stackedData.map(({ h, segments, stackTotal }, idx) => {
+              const x = pL + idx * barW + gap / 2;
+              const barBottom = pT + cH;
+              let currentY = barBottom;
+
+              // Build segment rects bottom-to-top
+              const rects = segments
+                .filter((s) => s.count > 0)
+                .map((seg) => {
+                  const segH = Math.max(2, (seg.count / globalMax) * cH);
+                  currentY -= segH;
+                  return { uid: seg.uid, y: currentY, h: segH, count: seg.count };
+                });
+
+              const totalBarH = stackTotal > 0 ? (stackTotal / globalMax) * cH : 0;
+              const labelY = barBottom - totalBarH - 5;
+
+              return (
+                <g key={h}>
+                  {rects.map((r) => (
+                    <rect
+                      key={r.uid}
+                      x={x}
+                      y={r.y}
+                      width={bw}
+                      height={r.h}
+                      fill={userColor.get(r.uid) ?? "#94a3b8"}
+                      rx={1}
+                    >
+                      <title>{`${activeProfiles.find((p) => p.id === r.uid)?.full_name ?? r.uid} · ${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 · ${r.count} leads`}</title>
+                    </rect>
+                  ))}
+
+                  {/* Total label above bar */}
+                  {stackTotal > 0 && (
+                    <text
+                      x={x + bw / 2}
+                      y={labelY}
+                      textAnchor="middle"
+                      fontSize={9}
+                      fontWeight="600"
+                      fill="#475569"
+                    >
+                      {stackTotal}
+                    </text>
+                  )}
+
+                  {/* X-axis label — rotated for readability */}
+                  <text
+                    x={x + bw / 2}
+                    y={svgH - 2}
+                    textAnchor="end"
+                    fontSize={8.5}
+                    fill="#94a3b8"
+                    transform={`rotate(-40, ${x + bw / 2}, ${svgH - 2})`}
+                  >
+                    {`${String(h).padStart(2, "0")}:00 - ${String(h + 1).padStart(2, "00")}:00`}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
         </div>
       )}
     </div>
