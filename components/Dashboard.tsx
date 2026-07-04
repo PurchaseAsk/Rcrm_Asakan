@@ -1347,7 +1347,7 @@ function SalesActivityView({
   }, [matrix]);
 
   // SVG chart dimensions
-  const svgW = 900, svgH = 280, pL = 32, pR = 12, pT = 28, pB = 48;
+  const svgW = 900, svgH = 260, pL = 32, pR = 12, pT = 28, pB = 28;
   const cW = svgW - pL - pR;
   const cH = svgH - pT - pB;
   const n = hours.length;
@@ -1497,16 +1497,15 @@ function SalesActivityView({
                     </text>
                   )}
 
-                  {/* X-axis label rotated */}
+                  {/* X-axis label */}
                   <text
                     x={cx}
-                    y={svgH - 4}
-                    textAnchor="end"
-                    fontSize={9}
+                    y={svgH - 6}
+                    textAnchor="middle"
+                    fontSize={bw > 50 ? 9.5 : 8}
                     fill="#94a3b8"
-                    transform={`rotate(-38, ${cx}, ${svgH - 4})`}
                   >
-                    {`${String(h).padStart(2, "0")}:00 - ${String(h + 1).padStart(2, "0")}:00`}
+                    {`${String(h).padStart(2, "0")}:00`}
                   </text>
                 </g>
               );
