@@ -108,6 +108,7 @@ export default function HomePage() {
   const [activePipelineId, setActivePipelineId] = useState("");
   const [leadFilter, setLeadFilter] = useState<"active" | "unfollowed">("active");
   const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [funnelTagFilter, setFunnelTagFilter] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [bootstrapping, setBootstrapping] = useState(false);
@@ -561,6 +562,9 @@ export default function HomePage() {
               filterableProfiles={filterableProfiles}
               assigneeFilter={assigneeFilter}
               setAssigneeFilter={setAssigneeFilter}
+              tags={data.tags}
+              tagFilter={funnelTagFilter}
+              setTagFilter={setFunnelTagFilter}
               recallRules={data.recallRules}
               onMoveLead={async (leadId, stage) => {
                 if (stage.is_voucher_stage) {
