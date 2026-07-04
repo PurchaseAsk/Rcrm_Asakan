@@ -724,9 +724,9 @@ async function autoTagCoupon(
     return;
   }
 
-  type TagRow = { tags: { name: string } };
-  const hasCouponTag = (existing as TagRow[] | null)?.some((r) =>
-    COUPON_TAGS.includes(r.tags.name),
+  type TagRow = { tags: { name: string }[] };
+  const hasCouponTag = (existing as unknown as TagRow[] | null)?.some((r) =>
+    r.tags.some((t) => COUPON_TAGS.includes(t.name)),
   );
   if (hasCouponTag) {
     console.log("[autoTagCoupon] already has coupon tag, skipping");
