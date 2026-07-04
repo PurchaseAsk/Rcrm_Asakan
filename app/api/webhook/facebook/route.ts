@@ -295,6 +295,11 @@ export async function POST(request: NextRequest) {
         },
         { onConflict: "fb_message_id", ignoreDuplicates: true },
       );
+
+      // Auto-tag "รอส่งคูปอง" when customer texts a phone number (text-only, not echo)
+      if (!isEcho && hasText && text) {
+        void autoTagCoupon(supabase, conv.id, text);
+      }
     }
   }
 
@@ -692,6 +697,45 @@ async function fetchFormName(formId: string, token: string): Promise<string | nu
   } catch {
     return null;
   }
+}
+
+// Thai mobile number: 06x/08x/09x + optional separators + 7 digits
+const PHONE_RE = /0[689]\d[\s\-.]*\d{3}[\s\-.]*\d{4}/;
+
+async function autoTagCoupon(
+  supabase: SupabaseClient,
+  convId: string,
+  text: string,
+): Promise<void> {
+  // Regex first — if no phone pattern, zero DB cost
+  if (!PHONE_RE.test(text)) return;
+
+  // Check if conversation already has either coupon tag
+  const { data: existing } = await supabase
+    .from("conversation_tags")
+    .select("tag_id, tags!inner(name)")
+    .eq("conversation_id", convId);
+
+  const COUPON_TAGS = ["รอส่งคูปอง", "ส่งคูปองแล้ว"];
+  type TagRow = { tags: { name: string } };
+  const hasCouponTag = (existing as TagRow[] | null)?.some((r) =>
+    COUPON_TAGS.includes(r.tags.name),
+  );
+  if (hasCouponTag) return;
+
+  // Fetch the tag id (cached in most runtimes after first hit)
+  const { data: tag } = await supabase
+    .from("tags")
+    .select("id")
+    .eq("name", "รอส่งคูปอง")
+    .single();
+
+  if (!tag) return;
+
+  await supabase.from("conversation_tags").insert({
+    conversation_id: convId,
+    tag_id: tag.id,
+  });
 }
 
 async function fetchPostInfo(
