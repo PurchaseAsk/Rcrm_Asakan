@@ -66,7 +66,7 @@ export function StagesPanel({
   function addQuestion() {
     if (!draftQ.label.trim()) return;
     const opts = draftQ.options
-      .split(",")
+      .split("/")
       .map((s) => s.trim())
       .filter(Boolean);
     const newQ: StageQuestion = {
@@ -95,6 +95,7 @@ export function StagesPanel({
           { onConflict: "stage_id" },
         );
       }
+      await reload();
       toast("บันทึก rule แล้ว");
       setEditingStage(null);
     } finally {
@@ -259,7 +260,7 @@ export function StagesPanel({
                     {(draftQ.type === "radio" || draftQ.type === "checkbox") && (
                       <input
                         className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
-                        placeholder="ตัวเลือก คั่นด้วย comma เช่น ใช่, ยังไม่ได้, ไม่แน่ใจ"
+                        placeholder="ตัวเลือก คั่นด้วย / เช่น ใช่ / ยังไม่ได้ / ไม่แน่ใจ"
                         value={draftQ.options}
                         onChange={(e) => setDraftQ((d) => ({ ...d, options: e.target.value }))}
                       />

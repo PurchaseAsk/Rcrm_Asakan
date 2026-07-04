@@ -571,12 +571,16 @@ export default function HomePage() {
                   }
                   return;
                 }
+                const stageRule = (data.stageRules ?? []).find((r: StageRule) => r.stage_id === stage.id) ?? null;
+                const noteRequester = stageRule
+                  ? requestStageChangeNote
+                  : (_name: string, _id: string) => Promise.resolve<string | null>("ย้าย stage");
                 const moved = await updateLeadStage(
                   leadId,
                   stage,
                   currentUserId,
                   actorName(currentUserId, data.profiles),
-                  requestStageChangeNote,
+                  noteRequester,
                   showToast,
                 );
                 if (moved) await reload();
