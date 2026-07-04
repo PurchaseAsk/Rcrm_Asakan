@@ -942,69 +942,96 @@ function ChatMetricsView({
   );
 }
 
+// ─── Shared chart helpers ─────────────────────────────────────────────────────
+function roundedTopPath(x: number, y: number, w: number, h: number, r: number): string {
+  const safe = Math.min(r, h, w / 2);
+  return [
+    `M ${x + safe} ${y}`,
+    `L ${x + w - safe} ${y}`,
+    `Q ${x + w} ${y} ${x + w} ${y + safe}`,
+    `L ${x + w} ${y + h}`,
+    `L ${x} ${y + h}`,
+    `L ${x} ${y + safe}`,
+    `Q ${x} ${y} ${x + safe} ${y}`,
+    "Z",
+  ].join(" ");
+}
+
 // ─── Voucher Bar Chart ────────────────────────────────────────────────────────
 function VoucherBarChart({ hourCounts, peakHour }: { hourCounts: number[]; peakHour: number }) {
-  const W = 720, H = 200, pL = 28, pR = 8, pT = 24, pB = 28;
+  const W = 760, H = 240, pL = 32, pR = 12, pT = 28, pB = 36;
   const cW = W - pL - pR;
   const cH = H - pT - pB;
   const maxVal = Math.max(...hourCounts, 1);
   const barW = cW / 24;
-  const gap = barW * 0.18;
-
+  const gap = barW * 0.22;
+  const bw = barW - gap;
   const yTicks = [0, 0.25, 0.5, 0.75, 1];
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 200 }}>
-      {/* Y grid lines + labels */}
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
+      {/* Chart area background */}
+      <rect x={pL} y={pT} width={cW} height={cH} fill="#fafafa" rx={6} />
+
+      {/* Y grid + labels */}
       {yTicks.map((t) => {
         const y = pT + (1 - t) * cH;
         const val = Math.round(t * maxVal);
         return (
           <g key={t}>
-            <line x1={pL} y1={y} x2={W - pR} y2={y} stroke="#e2e8f0" strokeWidth={1} />
-            <text x={pL - 4} y={y + 4} textAnchor="end" fontSize={9} fill="#94a3b8">{val}</text>
+            <line
+              x1={pL} y1={y} x2={W - pR} y2={y}
+              stroke={t === 0 ? "#cbd5e1" : "#e8edf3"}
+              strokeWidth={t === 0 ? 1.5 : 1}
+              strokeDasharray={t === 0 ? "none" : "4 3"}
+            />
+            <text x={pL - 6} y={y + 4} textAnchor="end" fontSize={10} fill="#94a3b8">{val}</text>
           </g>
         );
       })}
 
       {/* Bars */}
       {hourCounts.map((count, h) => {
-        const barH = count === 0 ? 0 : Math.max(3, (count / maxVal) * cH);
+        const barH = count === 0 ? 0 : Math.max(4, (count / maxVal) * cH);
         const x = pL + h * barW + gap / 2;
         const y = pT + cH - barH;
         const isPeak = h === peakHour && count > 0;
-        const fill = isPeak ? "#d97706" : count === 0 ? "#f1f5f9" : "#fbbf24";
+        const fill = isPeak ? "#f59e0b" : count === 0 ? "transparent" : "#fcd34d";
+        const cx = x + bw / 2;
 
         return (
           <g key={h}>
-            <rect
-              x={x}
-              y={y}
-              width={barW - gap}
-              height={barH}
-              rx={2}
-              fill={fill}
-            />
-            {/* Count label above bar */}
+            {/* Empty bar ghost */}
+            <rect x={x} y={pT} width={bw} height={cH} fill={isPeak ? "#fffbeb" : "#f1f5f9"} rx={4} />
+
+            {/* Filled bar with rounded top */}
+            {count > 0 && (
+              <path d={roundedTopPath(x, y, bw, barH, 4)} fill={fill} />
+            )}
+
+            {/* Peak highlight ring */}
+            {isPeak && (
+              <rect x={x - 1} y={pT} width={bw + 2} height={cH} fill="none"
+                stroke="#f59e0b" strokeWidth={1.5} rx={4} strokeDasharray="none" opacity={0.5} />
+            )}
+
+            {/* Count label */}
             {count > 0 && (
               <text
-                x={x + (barW - gap) / 2}
-                y={y - 3}
-                textAnchor="middle"
-                fontSize={9}
-                fontWeight={isPeak ? "700" : "500"}
-                fill={isPeak ? "#92400e" : "#78350f"}
+                x={cx} y={y - 5}
+                textAnchor="middle" fontSize={isPeak ? 11 : 9.5}
+                fontWeight="700"
+                fill={isPeak ? "#92400e" : "#a16207"}
               >
                 {count}
               </text>
             )}
-            {/* Hour label below */}
+
+            {/* Hour label */}
             <text
-              x={x + (barW - gap) / 2}
-              y={H - 4}
-              textAnchor="middle"
-              fontSize={8.5}
-              fill={isPeak ? "#d97706" : "#94a3b8"}
+              x={cx} y={H - 2}
+              textAnchor="middle" fontSize={9}
+              fill={isPeak ? "#b45309" : "#94a3b8"}
               fontWeight={isPeak ? "700" : "400"}
             >
               {String(h).padStart(2, "0")}
@@ -1320,12 +1347,12 @@ function SalesActivityView({
   }, [matrix]);
 
   // SVG chart dimensions
-  const svgW = 900, svgH = 260, pL = 28, pR = 8, pT = 20, pB = 44;
+  const svgW = 900, svgH = 280, pL = 32, pR = 12, pT = 28, pB = 48;
   const cW = svgW - pL - pR;
   const cH = svgH - pT - pB;
   const n = hours.length;
   const barW = cW / n;
-  const gap = Math.max(barW * 0.18, 2);
+  const gap = Math.max(barW * 0.22, 3);
   const bw = barW - gap;
   const yTicks = [0, 0.25, 0.5, 0.75, 1];
 
@@ -1370,7 +1397,7 @@ function SalesActivityView({
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
           {/* User filter tags */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-slate-500">เลือกผู้ใช้</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">เลือกผู้ใช้</span>
             {activeProfiles.map((p) => {
               const hidden = hiddenIds.has(p.id);
               const color = userColor.get(p.id)!;
@@ -1379,12 +1406,21 @@ function SalesActivityView({
                 <button
                   key={p.id}
                   onClick={() => toggleUser(p.id)}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-white transition-opacity"
-                  style={{ backgroundColor: hidden ? "#cbd5e1" : color }}
                   title={`${total} leads รวม`}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                    hidden
+                      ? "border-slate-200 bg-white text-slate-400 line-through"
+                      : "border-slate-200 bg-white text-slate-700 shadow-sm hover:shadow"
+                  }`}
                 >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: hidden ? "#cbd5e1" : color }}
+                  />
                   {p.full_name ?? p.email.split("@")[0]}
-                  <span className="opacity-70">{hidden ? "+" : "×"}</span>
+                  <span className="ml-0.5 tabular-nums text-slate-400">
+                    {hidden ? "+" : `${total}`}
+                  </span>
                 </button>
               );
             })}
@@ -1392,14 +1428,22 @@ function SalesActivityView({
 
           {/* Stacked bar chart */}
           <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: svgH }}>
+            {/* Chart area background */}
+            <rect x={pL} y={pT} width={cW} height={cH} fill="#fafafa" rx={6} />
+
             {/* Y grid + labels */}
             {yTicks.map((t) => {
               const y = pT + (1 - t) * cH;
               const val = Math.round(t * globalMax);
               return (
                 <g key={t}>
-                  <line x1={pL} y1={y} x2={svgW - pR} y2={y} stroke="#e2e8f0" strokeWidth={1} />
-                  <text x={pL - 4} y={y + 4} textAnchor="end" fontSize={9} fill="#94a3b8">{val}</text>
+                  <line
+                    x1={pL} y1={y} x2={svgW - pR} y2={y}
+                    stroke={t === 0 ? "#cbd5e1" : "#e8edf3"}
+                    strokeWidth={t === 0 ? 1.5 : 1}
+                    strokeDasharray={t === 0 ? "none" : "4 3"}
+                  />
+                  <text x={pL - 6} y={y + 4} textAnchor="end" fontSize={10} fill="#94a3b8">{val}</text>
                 </g>
               );
             })}
@@ -1410,58 +1454,59 @@ function SalesActivityView({
               const barBottom = pT + cH;
               let currentY = barBottom;
 
-              // Build segment rects bottom-to-top
-              const rects = segments
-                .filter((s) => s.count > 0)
-                .map((seg) => {
-                  const segH = Math.max(2, (seg.count / globalMax) * cH);
-                  currentY -= segH;
-                  return { uid: seg.uid, y: currentY, h: segH, count: seg.count };
-                });
+              const visSegs = segments.filter((s) => s.count > 0);
+              const rects = visSegs.map((seg, si) => {
+                const segH = Math.max(3, (seg.count / globalMax) * cH);
+                currentY -= segH;
+                return { uid: seg.uid, y: currentY, h: segH, count: seg.count, isTop: si === visSegs.length - 1 };
+              });
 
               const totalBarH = stackTotal > 0 ? (stackTotal / globalMax) * cH : 0;
-              const labelY = barBottom - totalBarH - 5;
+              const cx = x + bw / 2;
 
               return (
                 <g key={h}>
-                  {rects.map((r) => (
-                    <rect
-                      key={r.uid}
-                      x={x}
-                      y={r.y}
-                      width={bw}
-                      height={r.h}
-                      fill={userColor.get(r.uid) ?? "#94a3b8"}
-                      rx={1}
-                    >
-                      <title>{`${activeProfiles.find((p) => p.id === r.uid)?.full_name ?? r.uid} · ${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 · ${r.count} leads`}</title>
-                    </rect>
-                  ))}
+                  {/* Ghost bar background */}
+                  <rect x={x} y={pT} width={bw} height={cH} fill="#f1f5f9" rx={4} />
 
-                  {/* Total label above bar */}
+                  {rects.map((r) => {
+                    const color = userColor.get(r.uid) ?? "#94a3b8";
+                    const name = activeProfiles.find((p) => p.id === r.uid)?.full_name ?? r.uid;
+                    return (
+                      <g key={r.uid}>
+                        {r.isTop
+                          ? <path d={roundedTopPath(x, r.y, bw, r.h, 4)} fill={color} />
+                          : <rect x={x} y={r.y} width={bw} height={r.h} fill={color} />
+                        }
+                        <title>{`${name} · ${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 · ${r.count} leads`}</title>
+                      </g>
+                    );
+                  })}
+
+                  {/* Total count label */}
                   {stackTotal > 0 && (
                     <text
-                      x={x + bw / 2}
-                      y={labelY}
+                      x={cx}
+                      y={pT + cH - totalBarH - 6}
                       textAnchor="middle"
-                      fontSize={9}
-                      fontWeight="600"
-                      fill="#475569"
+                      fontSize={10}
+                      fontWeight="700"
+                      fill="#334155"
                     >
                       {stackTotal}
                     </text>
                   )}
 
-                  {/* X-axis label — rotated for readability */}
+                  {/* X-axis label rotated */}
                   <text
-                    x={x + bw / 2}
-                    y={svgH - 2}
+                    x={cx}
+                    y={svgH - 4}
                     textAnchor="end"
-                    fontSize={8.5}
+                    fontSize={9}
                     fill="#94a3b8"
-                    transform={`rotate(-40, ${x + bw / 2}, ${svgH - 2})`}
+                    transform={`rotate(-38, ${cx}, ${svgH - 4})`}
                   >
-                    {`${String(h).padStart(2, "0")}:00 - ${String(h + 1).padStart(2, "00")}:00`}
+                    {`${String(h).padStart(2, "0")}:00 - ${String(h + 1).padStart(2, "0")}:00`}
                   </text>
                 </g>
               );
