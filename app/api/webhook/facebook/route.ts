@@ -298,7 +298,7 @@ export async function POST(request: NextRequest) {
 
       // Auto-tag "รอส่งคูปอง" when customer texts a phone number (text-only, not echo)
       if (!isEcho && hasText && text) {
-        void autoTagCoupon(supabase, conv.id, text);
+        await autoTagCoupon(supabase, conv.id, text);
       }
     }
   }
@@ -710,32 +710,51 @@ async function autoTagCoupon(
   // Regex first — if no phone pattern, zero DB cost
   if (!PHONE_RE.test(text)) return;
 
+  console.log("[autoTagCoupon] phone detected in conv", convId);
+
   // Check if conversation already has either coupon tag
-  const { data: existing } = await supabase
+  const COUPON_TAGS = ["รอส่งคูปอง", "ส่งคูปองแล้ว"];
+  const { data: existing, error: existErr } = await supabase
     .from("conversation_tags")
     .select("tag_id, tags!inner(name)")
     .eq("conversation_id", convId);
 
-  const COUPON_TAGS = ["รอส่งคูปอง", "ส่งคูปองแล้ว"];
+  if (existErr) {
+    console.error("[autoTagCoupon] check existing tags error:", existErr.message);
+    return;
+  }
+
   type TagRow = { tags: { name: string } };
   const hasCouponTag = (existing as TagRow[] | null)?.some((r) =>
     COUPON_TAGS.includes(r.tags.name),
   );
-  if (hasCouponTag) return;
+  if (hasCouponTag) {
+    console.log("[autoTagCoupon] already has coupon tag, skipping");
+    return;
+  }
 
-  // Fetch the tag id (cached in most runtimes after first hit)
-  const { data: tag } = await supabase
+  // Fetch the tag id
+  const { data: tag, error: tagErr } = await supabase
     .from("tags")
     .select("id")
     .eq("name", "รอส่งคูปอง")
     .single();
 
-  if (!tag) return;
+  if (tagErr || !tag) {
+    console.error("[autoTagCoupon] tag not found:", tagErr?.message);
+    return;
+  }
 
-  await supabase.from("conversation_tags").insert({
+  const { error: insertErr } = await supabase.from("conversation_tags").insert({
     conversation_id: convId,
     tag_id: tag.id,
   });
+
+  if (insertErr) {
+    console.error("[autoTagCoupon] insert error:", insertErr.message);
+  } else {
+    console.log("[autoTagCoupon] tagged conv", convId, "with รอส่งคูปอง");
+  }
 }
 
 async function fetchPostInfo(
