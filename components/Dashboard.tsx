@@ -7,7 +7,7 @@ import { sourceLabel } from "@/lib/helpers";
 
 const supabase = createBrowserSupabase();
 
-type DashTab = "pipeline" | "conversions" | "chat" | "heatmap";
+type DashTab = "pipeline" | "conversions" | "chat" | "heatmap" | "sales";
 
 const CHART_COLORS = [
   "#ef4444", "#3b82f6", "#10b981", "#f59e0b",
@@ -1156,6 +1156,237 @@ function VoucherHeatmap({
   );
 }
 
+// ─── Dashboard 5: Sales Activity ─────────────────────────────────────────────
+type ActRow = { created_at: string; created_by: string; lead_id: string };
+
+function SalesActivityView({
+  profiles,
+  dateFrom,
+  dateTo,
+  setDateFrom,
+  setDateTo,
+}: {
+  profiles: Profile[];
+  dateFrom: string;
+  dateTo: string;
+  setDateFrom: (v: string) => void;
+  setDateTo: (v: string) => void;
+}) {
+  const [activities, setActivities] = useState<ActRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [workHoursOnly, setWorkHoursOnly] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    void (async () => {
+      const { data } = await supabase
+        .from("lead_activities")
+        .select("created_at, created_by, lead_id")
+        .not("created_by", "is", null)
+        .gte("created_at", `${dateFrom}T00:00:00+07:00`)
+        .lte("created_at", `${dateTo}T23:59:59+07:00`)
+        .limit(50000);
+      setActivities((data ?? []) as ActRow[]);
+      setLoading(false);
+    })();
+  }, [dateFrom, dateTo]);
+
+  const hours = workHoursOnly
+    ? Array.from({ length: 13 }, (_, i) => i + 8)
+    : Array.from({ length: 24 }, (_, i) => i);
+
+  // user → hour → Set<lead_id>
+  const matrix = useMemo(() => {
+    const m = new Map<string, Map<number, Set<string>>>();
+    for (const act of activities) {
+      const h = parseInt(
+        new Date(act.created_at).toLocaleString("en-US", {
+          hour: "2-digit",
+          hour12: false,
+          timeZone: "Asia/Bangkok",
+        }),
+      );
+      if (isNaN(h) || h < 0 || h > 23) continue;
+      if (!m.has(act.created_by)) m.set(act.created_by, new Map());
+      const um = m.get(act.created_by)!;
+      if (!um.has(h)) um.set(h, new Set());
+      um.get(h)!.add(act.lead_id);
+    }
+    return m;
+  }, [activities]);
+
+  const activeProfiles = useMemo(() => {
+    const ids = new Set(matrix.keys());
+    return profiles.filter((p) => ids.has(p.id));
+  }, [profiles, matrix]);
+
+  const globalMax = useMemo(() => {
+    let max = 1;
+    for (const [, um] of matrix)
+      for (const [, s] of um)
+        if (s.size > max) max = s.size;
+    return max;
+  }, [matrix]);
+
+  // Row totals: distinct leads touched over the whole period
+  const rowTotals = useMemo(() => {
+    const t = new Map<string, number>();
+    for (const [uid, um] of matrix) {
+      const all = new Set<string>();
+      for (const [, s] of um) s.forEach((id) => all.add(id));
+      t.set(uid, all.size);
+    }
+    return t;
+  }, [matrix]);
+
+  // Column totals: sum of distinct-per-user counts per hour
+  const colSums = useMemo(() => {
+    const t = new Map<number, number>();
+    for (const [, um] of matrix)
+      for (const [h, s] of um)
+        t.set(h, (t.get(h) ?? 0) + s.size);
+    return t;
+  }, [matrix]);
+
+  const totalLeads = useMemo(() => {
+    const all = new Set<string>();
+    for (const act of activities) all.add(act.lead_id);
+    return all.size;
+  }, [activities]);
+
+  return (
+    <div className="space-y-4">
+      <DateRangePicker
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        setDateFrom={setDateFrom}
+        setDateTo={setDateTo}
+        showToday
+        suffix={
+          <span className="text-sm text-slate-500">
+            · {loading ? "กำลังโหลด…" : `${totalLeads} distinct leads · ${activities.length} activities`}
+          </span>
+        }
+      />
+
+      {/* Controls */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setWorkHoursOnly((v) => !v)}
+          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+            workHoursOnly
+              ? "border-brand-600 bg-brand-600 text-white"
+              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          {workHoursOnly ? "เวลางาน 08:00–20:00" : "ทั้งวัน 00:00–23:00"}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-sm text-slate-400 shadow-sm">
+          กำลังโหลด…
+        </div>
+      ) : activeProfiles.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-sm text-slate-400 shadow-sm">
+          ไม่มีข้อมูล activity ในช่วงวันที่นี้
+        </div>
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h3 className="font-semibold text-slate-800">Sales Activity — distinct leads ที่แตะต่อชั่วโมง</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {dateFrom} — {dateTo} · Bangkok time · 1 lead = นับ 1 ต่อชั่วโมงต่อคน ไม่ว่าจะทำกี่ activity
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50">
+                <th className="sticky left-0 z-10 bg-slate-50 px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap min-w-[120px]">
+                  Sales
+                </th>
+                {hours.map((h) => (
+                  <th key={h} className="px-1.5 py-2.5 text-center text-xs font-semibold text-slate-500 whitespace-nowrap min-w-[36px]">
+                    {String(h).padStart(2, "0")}
+                  </th>
+                ))}
+                <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                  รวม
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeProfiles
+                .sort((a, b) => (rowTotals.get(b.id) ?? 0) - (rowTotals.get(a.id) ?? 0))
+                .map((profile) => {
+                  const um = matrix.get(profile.id) ?? new Map<number, Set<string>>();
+                  const total = rowTotals.get(profile.id) ?? 0;
+                  return (
+                    <tr key={profile.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                      <td className="sticky left-0 z-10 bg-white px-4 py-2 font-medium text-slate-800 whitespace-nowrap">
+                        {profile.full_name ?? profile.email.split("@")[0]}
+                      </td>
+                      {hours.map((h) => {
+                        const count = um.get(h)?.size ?? 0;
+                        return (
+                          <td
+                            key={h}
+                            className="px-0.5 py-1 text-center"
+                            title={`${profile.full_name ?? profile.email} · ${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 · ${count} leads`}
+                          >
+                            <div
+                              className="mx-auto flex h-7 w-7 items-center justify-center rounded text-[11px] font-semibold"
+                              style={{
+                                backgroundColor: heatColor(count, globalMax),
+                                color: heatTextColor(count, globalMax),
+                              }}
+                            >
+                              {count > 0 ? count : ""}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-2 text-center font-bold tabular-nums text-brand-700">
+                        {total}
+                      </td>
+                    </tr>
+                  );
+                })}
+
+              {/* Column totals */}
+              <tr className="border-t-2 border-slate-200 bg-slate-50">
+                <td className="sticky left-0 z-10 bg-slate-50 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  รวมต่อชั่วโมง
+                </td>
+                {hours.map((h) => {
+                  const s = colSums.get(h) ?? 0;
+                  return (
+                    <td key={h} className="px-0.5 py-2 text-center text-xs font-semibold tabular-nums text-slate-600">
+                      {s > 0 ? s : <span className="text-slate-300">-</span>}
+                    </td>
+                  );
+                })}
+                <td className="px-3 py-2 text-center" />
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Color scale */}
+          <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-2.5">
+            <span className="text-[11px] text-slate-400">น้อย</span>
+            <div className="flex gap-0.5">
+              {HEATMAP_COLORS.slice(1).map((c) => (
+                <div key={c} className="h-3 w-7 rounded-sm" style={{ backgroundColor: c }} />
+              ))}
+            </div>
+            <span className="text-[11px] text-slate-400">มาก</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 export function Dashboard({
   leads,
@@ -1173,6 +1404,8 @@ export function Dashboard({
   const [chatDateTo, setChatDateTo] = useState(todayStr());
   const [heatDateFrom, setHeatDateFrom] = useState(firstOfMonthStr());
   const [heatDateTo, setHeatDateTo] = useState(todayStr());
+  const [salesDateFrom, setSalesDateFrom] = useState(firstOfMonthStr());
+  const [salesDateTo, setSalesDateTo] = useState(todayStr());
 
   const activeStages = useMemo(() => pipelineStages.filter((s) => !s.is_unfollow), [pipelineStages]);
 
@@ -1203,6 +1436,9 @@ export function Dashboard({
         </button>
         <button className={tabCls("heatmap")} onClick={() => setTab("heatmap")}>
           🎟 Voucher Heatmap
+        </button>
+        <button className={tabCls("sales")} onClick={() => setTab("sales")}>
+          👥 Sales Activity
         </button>
       </div>
 
@@ -1235,6 +1471,15 @@ export function Dashboard({
           dateTo={heatDateTo}
           setDateFrom={setHeatDateFrom}
           setDateTo={setHeatDateTo}
+        />
+      )}
+      {tab === "sales" && (
+        <SalesActivityView
+          profiles={profiles}
+          dateFrom={salesDateFrom}
+          dateTo={salesDateTo}
+          setDateFrom={setSalesDateFrom}
+          setDateTo={setSalesDateTo}
         />
       )}
     </div>
