@@ -942,6 +942,80 @@ function ChatMetricsView({
   );
 }
 
+// ─── Voucher Bar Chart ────────────────────────────────────────────────────────
+function VoucherBarChart({ hourCounts, peakHour }: { hourCounts: number[]; peakHour: number }) {
+  const W = 720, H = 200, pL = 28, pR = 8, pT = 24, pB = 28;
+  const cW = W - pL - pR;
+  const cH = H - pT - pB;
+  const maxVal = Math.max(...hourCounts, 1);
+  const barW = cW / 24;
+  const gap = barW * 0.18;
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 200 }}>
+      {/* Y grid lines + labels */}
+      {yTicks.map((t) => {
+        const y = pT + (1 - t) * cH;
+        const val = Math.round(t * maxVal);
+        return (
+          <g key={t}>
+            <line x1={pL} y1={y} x2={W - pR} y2={y} stroke="#e2e8f0" strokeWidth={1} />
+            <text x={pL - 4} y={y + 4} textAnchor="end" fontSize={9} fill="#94a3b8">{val}</text>
+          </g>
+        );
+      })}
+
+      {/* Bars */}
+      {hourCounts.map((count, h) => {
+        const barH = count === 0 ? 0 : Math.max(3, (count / maxVal) * cH);
+        const x = pL + h * barW + gap / 2;
+        const y = pT + cH - barH;
+        const isPeak = h === peakHour && count > 0;
+        const fill = isPeak ? "#d97706" : count === 0 ? "#f1f5f9" : "#fbbf24";
+
+        return (
+          <g key={h}>
+            <rect
+              x={x}
+              y={y}
+              width={barW - gap}
+              height={barH}
+              rx={2}
+              fill={fill}
+            />
+            {/* Count label above bar */}
+            {count > 0 && (
+              <text
+                x={x + (barW - gap) / 2}
+                y={y - 3}
+                textAnchor="middle"
+                fontSize={9}
+                fontWeight={isPeak ? "700" : "500"}
+                fill={isPeak ? "#92400e" : "#78350f"}
+              >
+                {count}
+              </text>
+            )}
+            {/* Hour label below */}
+            <text
+              x={x + (barW - gap) / 2}
+              y={H - 4}
+              textAnchor="middle"
+              fontSize={8.5}
+              fill={isPeak ? "#d97706" : "#94a3b8"}
+              fontWeight={isPeak ? "700" : "400"}
+            >
+              {String(h).padStart(2, "0")}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 // ─── Dashboard 4: Voucher Heatmap ────────────────────────────────────────────
 const HEATMAP_COLORS = ["#f8fafc", "#fef3c7", "#fde68a", "#fbbf24", "#d97706", "#92400e"];
 
@@ -1078,37 +1152,7 @@ function VoucherHeatmap({
             ไม่มีข้อมูล voucher stage ในช่วงวันที่นี้
           </div>
         ) : (
-          <>
-            {/* 24 cells — split into 3 rows of 8 for readability */}
-            <div className="grid grid-cols-8 gap-1.5">
-              {hourCounts.map((count, h) => (
-                <div
-                  key={h}
-                  className="flex flex-col items-center rounded-lg px-1 py-2"
-                  style={{ backgroundColor: heatColor(count, maxCount) }}
-                  title={`${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 น. · ${count} ครั้ง`}
-                >
-                  <span className="text-[10px] font-medium leading-none" style={{ color: heatTextColor(count, maxCount) }}>
-                    {String(h).padStart(2, "0")}
-                  </span>
-                  <span className="mt-1 text-sm font-bold leading-none" style={{ color: heatTextColor(count, maxCount) }}>
-                    {count > 0 ? count : <span style={{ color: "#cbd5e1" }}>-</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Color scale legend */}
-            <div className="mt-3 flex items-center gap-2">
-              <span className="text-[11px] text-slate-400">น้อย</span>
-              <div className="flex gap-0.5">
-                {HEATMAP_COLORS.slice(1).map((c) => (
-                  <div key={c} className="h-3 w-7 rounded-sm" style={{ backgroundColor: c }} />
-                ))}
-              </div>
-              <span className="text-[11px] text-slate-400">มาก</span>
-            </div>
-          </>
+          <VoucherBarChart hourCounts={hourCounts} peakHour={peakHour} />
         )}
       </div>
 
