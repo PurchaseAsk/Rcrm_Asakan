@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Lead, Profile, Stage } from "@/types/crm";
+import type { Lead, Profile, Stage, UnfollowReason } from "@/types/crm";
 import { sourceLabel } from "@/lib/helpers";
 
 const supabase = createBrowserSupabase();
 
-type DashTab = "pipeline" | "conversions" | "chat" | "heatmap" | "sales";
+type DashTab = "pipeline" | "conversions" | "chat" | "heatmap" | "sales" | "unfollow";
 
 const CHART_COLORS = [
   "#ef4444", "#3b82f6", "#10b981", "#f59e0b",
@@ -1517,15 +1517,178 @@ function SalesActivityView({
   );
 }
 
+// ─── Unfollow Reasons Donut Chart ────────────────────────────────────────────
+function SvgDonut({
+  slices,
+  total,
+}: {
+  slices: { label: string; value: number; color: string; pct: number }[];
+  total: number;
+}) {
+  const R = 90, r = 54, cx = 120, cy = 120;
+  let angle = -Math.PI / 2;
+
+  const arcPath = (startA: number, endA: number, outerR: number, innerR: number) => {
+    const x1o = cx + outerR * Math.cos(startA), y1o = cy + outerR * Math.sin(startA);
+    const x2o = cx + outerR * Math.cos(endA),   y2o = cy + outerR * Math.sin(endA);
+    const x1i = cx + innerR * Math.cos(endA),   y1i = cy + innerR * Math.sin(endA);
+    const x2i = cx + innerR * Math.cos(startA), y2i = cy + innerR * Math.sin(startA);
+    const large = endA - startA > Math.PI ? 1 : 0;
+    return `M${x1o},${y1o} A${outerR},${outerR} 0 ${large} 1 ${x2o},${y2o} L${x1i},${y1i} A${innerR},${innerR} 0 ${large} 0 ${x2i},${y2i} Z`;
+  };
+
+  return (
+    <svg viewBox="0 0 240 240" className="w-full max-w-[240px]">
+      {slices.map((sl) => {
+        const a = total > 0 ? (sl.value / total) * Math.PI * 2 : 0;
+        const startA = angle;
+        angle += a;
+        return (
+          <path key={sl.label} d={arcPath(startA, angle, R, r)} fill={sl.color} stroke="white" strokeWidth={2} />
+        );
+      })}
+      {/* Center total */}
+      <text x={cx} y={cy - 8} textAnchor="middle" fontSize={28} fontWeight="700" fill="#0f172a">{total}</text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fontSize={11} fill="#64748b">leads</text>
+    </svg>
+  );
+}
+
+function UnfollowView({
+  leads,
+  unfollowReasons,
+  dateFrom,
+  dateTo,
+  setDateFrom,
+  setDateTo,
+}: {
+  leads: Lead[];
+  unfollowReasons: UnfollowReason[];
+  dateFrom: string;
+  dateTo: string;
+  setDateFrom: (v: string) => void;
+  setDateTo: (v: string) => void;
+}) {
+  const filtered = useMemo(() => {
+    return leads.filter((l) => {
+      if (l.status !== "unfollowed") return false;
+      const day = isoDay(l.last_activity_at);
+      return day >= dateFrom && day <= dateTo;
+    });
+  }, [leads, dateFrom, dateTo]);
+
+  const slices = useMemo(() => {
+    const counts = new Map<string, { name: string; count: number }>();
+    for (const lead of filtered) {
+      const key = lead.unfollow_reason_id ?? "__none__";
+      const name = lead.unfollow_reason_id
+        ? (unfollowReasons.find((r) => r.id === lead.unfollow_reason_id)?.name ?? "ลบไปแล้ว")
+        : "ไม่ระบุเหตุผล";
+      const cur = counts.get(key);
+      if (cur) cur.count++;
+      else counts.set(key, { name, count: 1 });
+    }
+    const total = filtered.length;
+    return [...counts.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([, { name, count }], i) => ({
+        label: name,
+        value: count,
+        color: CHART_COLORS[i % CHART_COLORS.length],
+        pct: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
+      }));
+  }, [filtered, unfollowReasons]);
+
+  const total = filtered.length;
+
+  return (
+    <div className="space-y-4">
+      <DateRangePicker
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        setDateFrom={setDateFrom}
+        setDateTo={setDateTo}
+        showToday
+      />
+
+      {total === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center">
+          <p className="text-slate-400">ไม่มี lead ที่เลิกติดตามในช่วงวันที่เลือก</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-white p-6">
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900">เหตุผลที่เลิกติดตาม</h3>
+            <span className="rounded-full bg-slate-100 px-3 py-0.5 text-sm font-medium text-slate-600">
+              รวม {total} lead
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center gap-8 md:flex-row md:items-start">
+            {/* Donut chart */}
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <SvgDonut slices={slices} total={total} />
+            </div>
+
+            {/* Table + bars */}
+            <div className="w-full min-w-0">
+              <table className="mb-4 w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-xs font-medium text-slate-400">
+                    <th className="pb-2 text-left">เหตุผล</th>
+                    <th className="pb-2 text-right">จำนวน</th>
+                    <th className="pb-2 text-right">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {slices.map((sl) => (
+                    <tr key={sl.label} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: sl.color }} />
+                          <span className="text-slate-800">{sl.label}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 text-right font-semibold text-slate-900">{sl.value}</td>
+                      <td className="py-2.5 text-right tabular-nums text-slate-500">{sl.pct}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Proportional bar */}
+              <div className="space-y-2">
+                {slices.map((sl) => (
+                  <div key={sl.label} className="flex items-center gap-3 text-xs text-slate-400">
+                    <div className="h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${sl.pct}%`, backgroundColor: sl.color }}
+                      />
+                    </div>
+                    <span className="w-8 shrink-0 text-right">{sl.pct}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 export function Dashboard({
   leads,
   pipelineStages,
   profiles,
+  unfollowReasons,
 }: {
   leads: Lead[];
   pipelineStages: Stage[];
   profiles: Profile[];
+  unfollowReasons: UnfollowReason[];
 }) {
   const [tab, setTab] = useState<DashTab>("pipeline");
   const [dateFrom, setDateFrom] = useState(firstOfMonthStr());
@@ -1536,6 +1699,8 @@ export function Dashboard({
   const [heatDateTo, setHeatDateTo] = useState(todayStr());
   const [salesDateFrom, setSalesDateFrom] = useState(firstOfMonthStr());
   const [salesDateTo, setSalesDateTo] = useState(todayStr());
+  const [unfDateFrom, setUnfDateFrom] = useState(firstOfMonthStr());
+  const [unfDateTo, setUnfDateTo] = useState(todayStr());
 
   const activeStages = useMemo(() => pipelineStages.filter((s) => !s.is_unfollow), [pipelineStages]);
 
@@ -1569,6 +1734,9 @@ export function Dashboard({
         </button>
         <button className={tabCls("sales")} onClick={() => setTab("sales")}>
           👥 Sales Activity
+        </button>
+        <button className={tabCls("unfollow")} onClick={() => setTab("unfollow")}>
+          🚫 เลิกติดตาม
         </button>
       </div>
 
@@ -1610,6 +1778,16 @@ export function Dashboard({
           dateTo={salesDateTo}
           setDateFrom={setSalesDateFrom}
           setDateTo={setSalesDateTo}
+        />
+      )}
+      {tab === "unfollow" && (
+        <UnfollowView
+          leads={leads}
+          unfollowReasons={unfollowReasons}
+          dateFrom={unfDateFrom}
+          dateTo={unfDateTo}
+          setDateFrom={setUnfDateFrom}
+          setDateTo={setUnfDateTo}
         />
       )}
     </div>

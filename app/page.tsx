@@ -533,6 +533,7 @@ export default function HomePage() {
               leads={visibleLeads}
               pipelineStages={pipelineStages}
               profiles={data.profiles}
+              unfollowReasons={data.unfollowReasons}
             />
           )}
           {activeTab === "leads" && (
