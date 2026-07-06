@@ -8,14 +8,30 @@ import html2canvas from "html2canvas";
 const supabase = createBrowserSupabase();
 const CONVERSATION_PAGE_SIZE = 30;
 
-function playPing() {
+// Singleton AudioContext — unlocked on first user gesture, reused for all pings
+let _audioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext {
+  if (!_audioCtx || _audioCtx.state === "closed") _audioCtx = new AudioContext();
+  return _audioCtx;
+}
+// Call on any user interaction so the context is pre-unlocked before a Realtime event fires
+function touchAudio() {
   try {
-    const ctx = new AudioContext();
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") void ctx.resume();
+  } catch { /* ignore */ }
+}
+
+async function playPing() {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") await ctx.resume();
+
     const master = ctx.createGain();
     master.gain.setValueAtTime(0.18, ctx.currentTime);
     master.connect(ctx.destination);
 
-    // C4 + E4 — warm major-third ding, one octave below the original high-pitched pair
+    // C4 + E4 — warm major-third ding
     ([
       { delay: 0,    freq: 261.63, type: "triangle" as OscillatorType, peak: 0.85 },
       { delay: 0.18, freq: 329.63, type: "sine"     as OscillatorType, peak: 0.55 },
@@ -32,8 +48,7 @@ function playPing() {
       osc.start(ctx.currentTime + delay);
       osc.stop(ctx.currentTime + delay + 0.52);
     });
-    window.setTimeout(() => void ctx.close(), 900);
-  } catch { /* browser blocked autoplay — ignore */ }
+  } catch { /* ignore */ }
 }
 
 const AVATAR_COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f59e0b"];
@@ -186,6 +201,16 @@ export function ChatInbox({
   useEffect(() => {
     const t = window.setInterval(() => setMinuteTick((n) => n + 1), 60_000);
     return () => window.clearInterval(t);
+  }, []);
+
+  // Unlock AudioContext on first user gesture so Realtime pings can play without autoplay block
+  useEffect(() => {
+    document.addEventListener("click", touchAudio, { once: true });
+    document.addEventListener("keydown", touchAudio, { once: true });
+    return () => {
+      document.removeEventListener("click", touchAudio);
+      document.removeEventListener("keydown", touchAudio);
+    };
   }, []);
 
   useEffect(() => {
