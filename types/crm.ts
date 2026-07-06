@@ -74,6 +74,7 @@ export type Lead = {
   last_activity_at: string;
   stage_entered_at: string | null;
   pinned_until: string | null;
+  unfollow_reason_id: string | null;
   created_at: string;
   stage?: Stage | null;
   page?: Page | null;
@@ -245,6 +246,15 @@ export type PageCommentReply = {
   fb_reply_id: string | null;
   created_by: string | null;
   created_at: string;
+};
+
+export type UnfollowReason = {
+  id: string;
+  pipeline_id: string | null;
+  name: string;
+  position: number;
+  is_active: boolean;
+  created_by: string | null;
 };
 
 export type StageQuestionType = "text" | "radio" | "date" | "checkbox";

@@ -788,6 +788,7 @@ export default function HomePage() {
           tags={data.tags}
           userId={currentUserId}
           userRole={profile?.role ?? "staff"}
+          unfollowReasons={data.unfollowReasons.filter((r) => r.pipeline_id === selectedLead.pipeline_id)}
           requestStageChangeNote={requestStageChangeNote}
           onVoucherStage={(stage) => setVoucherStage(stage)}
           onClose={() => setSelectedLeadId(null)}
@@ -831,6 +832,7 @@ export default function HomePage() {
           profiles={data.profiles}
           leads={data.leads}
           userId={currentUserId}
+          unfollowReasons={data.unfollowReasons}
           reload={reload}
           toast={showToast}
           onClose={() => setManagingPipelineId(null)}

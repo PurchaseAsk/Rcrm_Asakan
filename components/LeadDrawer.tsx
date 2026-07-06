@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { MapPin, MessageSquareText } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Lead, Pipeline, Profile, Stage, Tag } from "@/types/crm";
+import type { Lead, Pipeline, Profile, Stage, Tag, UnfollowReason } from "@/types/crm";
 import type { LeadDetail } from "@/types/app";
 import { actorName, deleteRow, isPinned, leadAge, pinDaysLeft, pinLead, recallCountdownText, toggleLeadTag, unpinLead } from "@/lib/helpers";
+import { UnfollowReasonModal } from "@/components/UnfollowReasonModal";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
 
@@ -48,6 +49,7 @@ export function LeadDrawer({
   tags: Tag[];
   userId: string;
   userRole: "admin" | "team_lead" | "staff";
+  unfollowReasons: UnfollowReason[];
   requestStageChangeNote: (stageName: string, stageId: string) => Promise<string | null>;
   onVoucherStage?: (stage: Stage) => void;
   onClose: () => void;
@@ -69,6 +71,7 @@ export function LeadDrawer({
   const [reminder, setReminder] = useState({ date: "", time: "09:00", note: "" });
   const [busy, setBusy] = useState(false);
   const [editingInfo, setEditingInfo] = useState(false);
+  const [showUnfollowModal, setShowUnfollowModal] = useState(false);
   const currentActorName = actorName(userId, profiles);
 
   // Staff can only change assignee if they ARE the current assignee (transfer out) or lead is unassigned
@@ -205,7 +208,7 @@ export function LeadDrawer({
         .from("leads")
         .update({
           stage_id: stage.id,
-          status: stage.is_unfollow ? "unfollowed" : "active",
+          status: "active",
           last_activity_at: new Date().toISOString(),
           stage_entered_at: new Date().toISOString(),
         })
@@ -275,6 +278,58 @@ export function LeadDrawer({
     }
   }
 
+  async function unfollowLead(reasonId: string | null) {
+    setShowUnfollowModal(false);
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({
+          status: "unfollowed",
+          unfollow_reason_id: reasonId,
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq("id", lead.id);
+      if (error) { toast(error.message); return; }
+
+      const reasonName = unfollowReasons.find((r) => r.id === reasonId)?.name;
+      await supabase.from("lead_activities").insert({
+        lead_id: lead.id,
+        type: "unfollow",
+        content: reasonName
+          ? `${currentActorName} เลิกติดตาม: ${reasonName}`
+          : `${currentActorName} เลิกติดตาม`,
+        created_by: userId,
+      });
+
+      await reload();
+      toast("เลิกติดตามแล้ว");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reactivateLead() {
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ status: "active", unfollow_reason_id: null, last_activity_at: new Date().toISOString() })
+        .eq("id", lead.id);
+      if (error) { toast(error.message); return; }
+      await supabase.from("lead_activities").insert({
+        lead_id: lead.id,
+        type: "reactivate",
+        content: `${currentActorName} เปิดใช้งานลีดอีกครั้ง`,
+        created_by: userId,
+      });
+      await reload();
+      toast("เปิดใช้งานอีกครั้งแล้ว");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveReminder() {
     if (!reminder.date) return toast("เลือกวันที่ก่อน");
     const remind_at = `${reminder.date}T${reminder.time || "09:00"}`;
@@ -325,6 +380,24 @@ export function LeadDrawer({
               <MapPin size={14} />
               {isPinned(lead) ? `${pinDaysLeft(lead)} วัน` : "Pin"}
             </button>
+            {/* Unfollow / Reactivate button */}
+            {lead.status === "unfollowed" ? (
+              <button
+                disabled={busy}
+                onClick={() => void reactivateLead()}
+                className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+              >
+                เปิดอีกครั้ง
+              </button>
+            ) : (
+              <button
+                disabled={busy}
+                onClick={() => setShowUnfollowModal(true)}
+                className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+              >
+                เลิกติดตาม
+              </button>
+            )}
             <button
               className={
                 editingInfo
@@ -690,6 +763,15 @@ export function LeadDrawer({
           </section>
         </div>
       </aside>
+
+      {showUnfollowModal && (
+        <UnfollowReasonModal
+          leadName={lead.customer_name}
+          reasons={unfollowReasons}
+          onConfirm={(reasonId) => void unfollowLead(reasonId)}
+          onCancel={() => setShowUnfollowModal(false)}
+        />
+      )}
     </div>
   );
 }

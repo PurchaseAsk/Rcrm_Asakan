@@ -34,7 +34,7 @@ export function StagesPanel({
   reload: () => Promise<void>;
   toast: (message: string) => void;
 }) {
-  const [form, setForm] = useState({ name: "", color: "#2563eb", is_unfollow: false });
+  const [form, setForm] = useState({ name: "", color: "#2563eb" });
   const [busy, setBusy] = useState(false);
   const orderedStages = [...stages].sort((a, b) => a.position - b.position);
 
@@ -112,13 +112,12 @@ export function StagesPanel({
       const { error } = await supabase.from("funnel_stages").insert({
         name: form.name.trim(),
         color: form.color,
-        is_unfollow: form.is_unfollow,
         pipeline_id: activePipelineId,
         position: nextPosition,
       });
       if (error) { toast(error.message); return; }
       await normalizeStagePositions(activePipelineId);
-      setForm({ name: "", color: "#2563eb", is_unfollow: false });
+      setForm({ name: "", color: "#2563eb" });
       await reload();
       toast("Stage created");
     } finally {
@@ -139,13 +138,9 @@ export function StagesPanel({
 
   return (
     <Panel title="Funnel stages">
-      <div className="mb-4 grid gap-2 md:grid-cols-[1fr_160px_140px_120px]">
+      <div className="mb-4 grid gap-2 md:grid-cols-[1fr_160px_120px]">
         <Field label="Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} placeholder="New stage name" />
         <Field label="Color" value={form.color} onChange={(value) => setForm({ ...form, color: value })} type="color" />
-        <label className="flex items-end gap-2 pb-2 text-sm text-slate-700">
-          <input type="checkbox" checked={form.is_unfollow} onChange={(event) => setForm({ ...form, is_unfollow: event.target.checked })} />
-          Unfollow
-        </label>
         <div className="flex items-end">
           <button className="h-10 w-full rounded-lg bg-brand-700 text-sm font-medium text-white disabled:opacity-50" disabled={!activePipelineId || busy} onClick={createStage}>
             {busy ? "Working…" : "Create"}
@@ -155,13 +150,10 @@ export function StagesPanel({
 
       <div className="grid gap-2">
         {orderedStages.map((stage, index) => (
-          <div key={stage.id} className="grid gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-[40px_1fr_96px_112px_110px_160px_172px]">
+          <div key={stage.id} className="grid gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-[40px_1fr_96px_110px_160px_172px]">
             <div className="text-sm text-slate-500">#{index + 1}</div>
             <input className="h-10 rounded-lg border border-slate-200 px-3 text-sm" defaultValue={stage.name} onBlur={(event) => updateStage(stage.id, { name: event.target.value }, reload, toast)} />
             <input className="h-10 rounded-lg border border-slate-200 px-2" type="color" defaultValue={stage.color} onChange={(event) => updateStage(stage.id, { color: event.target.value }, reload, toast)} />
-            <button className="rounded-lg border border-slate-200 text-sm" onClick={() => updateStage(stage.id, { is_unfollow: !stage.is_unfollow }, reload, toast)}>
-              {stage.is_unfollow ? "Unfollow" : "Active"}
-            </button>
             <button className={`rounded-lg border text-sm ${stage.is_voucher_stage ? "border-amber-300 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-400 hover:bg-slate-50"}`} onClick={() => updateStage(stage.id, { is_voucher_stage: !stage.is_voucher_stage }, reload, toast)}>
               {stage.is_voucher_stage ? "🎟️ Voucher" : "🎟️"}
             </button>

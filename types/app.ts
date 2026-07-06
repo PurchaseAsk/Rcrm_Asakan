@@ -12,6 +12,7 @@ import type {
   StageRule,
   Tag,
   Team,
+  UnfollowReason,
 } from "@/types/crm";
 
 export type AppData = {
@@ -26,6 +27,7 @@ export type AppData = {
   tags: Tag[];
   lineOaAccounts: LineOaAccount[];
   stageRules: StageRule[];
+  unfollowReasons: UnfollowReason[];
 };
 
 export const emptyData: AppData = {
@@ -40,6 +42,7 @@ export const emptyData: AppData = {
   tags: [],
   lineOaAccounts: [],
   stageRules: [],
+  unfollowReasons: [],
 };
 
 export type LeadDetail = {
