@@ -34,6 +34,7 @@ export function LeadDrawer({
   tags,
   userId,
   userRole,
+  unfollowReasons,
   requestStageChangeNote,
   onVoucherStage,
   onClose,
