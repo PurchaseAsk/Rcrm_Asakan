@@ -37,6 +37,8 @@ export function StagesPanel({
   const [form, setForm] = useState({ name: "", color: "#2563eb" });
   const [busy, setBusy] = useState(false);
   const orderedStages = [...stages].sort((a, b) => a.position - b.position);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ stage: Stage; leadCount: number } | null>(null);
+  const [moveToStageId, setMoveToStageId] = useState("");
 
   // Stage Rule Editor state
   const [editingStage, setEditingStage] = useState<Stage | null>(null);
@@ -125,15 +127,35 @@ export function StagesPanel({
     }
   }
 
-  async function deleteStage(stage: Stage) {
-    if (leads.some((lead) => lead.stage_id === stage.id)) return toast("Cannot delete a stage that still has leads");
-    const ok = window.confirm(`Delete stage "${stage.name}"?`);
-    if (!ok) return;
-    const { error } = await supabase.from("funnel_stages").delete().eq("id", stage.id);
-    if (error) return toast(error.message);
-    await normalizeStagePositions(activePipelineId);
-    await reload();
-    toast("Stage deleted");
+  function requestDeleteStage(stage: Stage) {
+    const leadCount = leads.filter((l) => l.stage_id === stage.id).length;
+    if (leadCount > 0) {
+      setMoveToStageId("");
+      setDeleteConfirm({ stage, leadCount });
+    } else {
+      void confirmDeleteStage(stage, null);
+    }
+  }
+
+  async function confirmDeleteStage(stage: Stage, targetStageId: string | null) {
+    setBusy(true);
+    try {
+      if (targetStageId) {
+        const { error } = await supabase
+          .from("leads")
+          .update({ stage_id: targetStageId })
+          .eq("stage_id", stage.id);
+        if (error) { toast(error.message); return; }
+      }
+      const { error } = await supabase.from("funnel_stages").delete().eq("id", stage.id);
+      if (error) { toast(error.message); return; }
+      await normalizeStagePositions(activePipelineId);
+      await reload();
+      setDeleteConfirm(null);
+      toast("Stage deleted");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -174,7 +196,7 @@ export function StagesPanel({
               <button className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300" disabled={index === orderedStages.length - 1} onClick={() => moveStage(orderedStages, index, 1, reload)}>
                 <ArrowDown size={16} />
               </button>
-              <button className="flex h-10 w-10 items-center justify-center rounded-lg border border-rose-100 text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 disabled:hover:bg-transparent" disabled={leads.some((lead) => lead.stage_id === stage.id)} onClick={() => deleteStage(stage)}>
+              <button className="flex h-10 w-10 items-center justify-center rounded-lg border border-rose-100 text-rose-600 hover:bg-rose-50" onClick={() => requestDeleteStage(stage)}>
                 <Trash2 size={16} />
               </button>
             </div>
@@ -284,6 +306,49 @@ export function StagesPanel({
                   className="h-9 rounded-lg bg-brand-700 px-4 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   {ruleSaving ? "กำลังบันทึก…" : "บันทึก"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete stage confirm modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
+          <div className="w-full max-w-sm overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h3 className="font-semibold text-slate-900">ลบ stage &quot;{deleteConfirm.stage.name}&quot;</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Stage นี้มี <span className="font-medium text-slate-800">{deleteConfirm.leadCount} lead</span> อยู่ — เลือก stage ที่จะย้าย lead ไปก่อนลบ
+              </p>
+            </div>
+            <div className="p-5 space-y-3">
+              <select
+                className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-brand-600"
+                value={moveToStageId}
+                onChange={(e) => setMoveToStageId(e.target.value)}
+              >
+                <option value="">เลือก stage ปลายทาง…</option>
+                {orderedStages
+                  .filter((s) => s.id !== deleteConfirm.stage.id)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+              </select>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="h-10 flex-1 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  disabled={!moveToStageId || busy}
+                  onClick={() => void confirmDeleteStage(deleteConfirm.stage, moveToStageId)}
+                  className="h-10 flex-1 rounded-lg bg-rose-500 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
+                >
+                  {busy ? "กำลังลบ…" : "ย้าย Lead แล้วลบ Stage"}
                 </button>
               </div>
             </div>
