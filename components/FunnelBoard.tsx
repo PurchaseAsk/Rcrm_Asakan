@@ -164,8 +164,7 @@ export function FunnelBoard({
                 return (
                   <div
                     key={stage.id}
-                    className="hidden shrink-0 cursor-pointer select-none rounded-md border border-slate-200 bg-slate-50 transition-all hover:bg-slate-100 md:flex md:w-10 md:flex-col md:items-center md:py-3"
-                    onClick={() => toggleCollapse(stage.id)}
+                    className="rounded-md border border-slate-200 bg-slate-50 md:shrink-0 md:w-10 md:flex md:flex-col md:items-center md:py-3 md:cursor-pointer md:select-none md:transition-all md:hover:bg-slate-100"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => {
                       if (draggedLeadId) void onMoveLead(draggedLeadId, stage);
@@ -173,21 +172,38 @@ export function FunnelBoard({
                     }}
                     title={`${stage.name} (${stageLeads.length}) — คลิกเพื่อขยาย`}
                   >
-                    <span
-                      className="mb-2 h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: stage.color }}
-                    />
-                    {stageLeads.length > 0 && (
-                      <span className="mb-2 rounded-full bg-white px-1 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm">
-                        {stageLeads.length}
-                      </span>
-                    )}
-                    <span
-                      className="max-h-40 overflow-hidden text-[11px] font-semibold text-slate-500"
-                      style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                    {/* Mobile: compact header — always visible so user can re-expand */}
+                    <button
+                      className="flex w-full items-center justify-between px-2 py-1.5 text-left md:hidden"
+                      onClick={() => toggleCollapse(stage.id)}
                     >
-                      {stage.name}
-                    </span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stage.color }} />
+                        <span className="truncate text-sm font-semibold text-slate-900">{stage.name}</span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <span className="rounded-full bg-white px-1.5 py-0.5 text-[11px] text-slate-600">{stageLeads.length}</span>
+                        <ChevronDown size={14} className="text-slate-400" />
+                      </div>
+                    </button>
+                    {/* Desktop: thin vertical strip */}
+                    <div
+                      className="hidden w-full cursor-pointer flex-col items-center md:flex"
+                      onClick={() => toggleCollapse(stage.id)}
+                    >
+                      <span className="mb-2 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stage.color }} />
+                      {stageLeads.length > 0 && (
+                        <span className="mb-2 rounded-full bg-white px-1 py-0.5 text-[10px] font-semibold text-slate-600 shadow-sm">
+                          {stageLeads.length}
+                        </span>
+                      )}
+                      <span
+                        className="max-h-40 overflow-hidden text-[11px] font-semibold text-slate-500"
+                        style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                      >
+                        {stage.name}
+                      </span>
+                    </div>
                   </div>
                 );
               }
