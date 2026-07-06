@@ -275,7 +275,7 @@ export function ChatInbox({
     return allowedPageIds;
   }
 
-  async function fetchConversationPage(page: number, append = false) {
+  async function fetchConversationPage(page: number, append = false, pageIdFilter?: string | null) {
     const allowedPageIds = await getAllowedPageIds();
     const from = page * CONVERSATION_PAGE_SIZE;
     const to = from + CONVERSATION_PAGE_SIZE - 1;
@@ -286,7 +286,9 @@ export function ChatInbox({
       .order("last_message_at", { ascending: false })
       .range(from, to);
 
-    if (allowedPageIds !== null) {
+    if (pageIdFilter) {
+      query = query.eq("page_id", pageIdFilter);
+    } else if (allowedPageIds !== null) {
       query =
         allowedPageIds.length > 0
           ? query.in("page_id", allowedPageIds)
@@ -308,13 +310,22 @@ export function ChatInbox({
     setLoading(false);
   }
 
+  async function changePageFilter(newPageId: string | null) {
+    setFilterPageId(newPageId);
+    setConversations([]);
+    setConversationTotal(null);
+    setLoading(true);
+    await fetchConversationPage(0, false, newPageId);
+    setLoading(false);
+  }
+
   async function loadMoreConversations() {
     if (loadingMoreConvs) return;
     if (conversationTotal !== null && conversations.length >= conversationTotal) return;
     setLoadingMoreConvs(true);
     try {
       const nextPage = Math.floor(conversations.length / CONVERSATION_PAGE_SIZE);
-      await fetchConversationPage(nextPage, true);
+      await fetchConversationPage(nextPage, true, filterPageId);
     } finally {
       setLoadingMoreConvs(false);
     }
@@ -875,7 +886,7 @@ export function ChatInbox({
                   <select
                     className="h-7 max-w-[140px] rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-brand-600 focus:outline-none"
                     value={filterPageId ?? ""}
-                    onChange={(e) => setFilterPageId(e.target.value || null)}
+                    onChange={(e) => void changePageFilter(e.target.value || null)}
                   >
                     <option value="">ทุกเพจ</option>
                     {accessiblePages.map((p) => (
