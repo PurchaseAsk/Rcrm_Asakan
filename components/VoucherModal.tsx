@@ -74,6 +74,14 @@ export function VoucherModal({
         created_by: userId,
       });
 
+      if (stage.capi_event) {
+        void fetch("/api/facebook/capi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lead_id: lead.id, stage_id: stage.id }),
+        });
+      }
+
       onSuccess();
     } catch (err) {
       setError(String(err));
