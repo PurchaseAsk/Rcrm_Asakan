@@ -14,7 +14,12 @@ function sha256(value: string): string {
 }
 
 function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "");
+  const digits = phone.replace(/\D/g, "");
+  // Convert local Thai format 0XXXXXXXXX → 66XXXXXXXXX (E.164 without +)
+  if (digits.startsWith("0") && digits.length === 10) {
+    return "66" + digits.slice(1);
+  }
+  return digits;
 }
 
 export async function POST(request: NextRequest) {
@@ -44,7 +49,7 @@ export async function POST(request: NextRequest) {
   // Fetch lead + page pixel config
   const { data: lead } = await supabase
     .from("leads")
-    .select("phone, email, customer_name, page_id, facebook_pages(pixel_id, capi_token)")
+    .select("phone, email, customer_name, facebook_id, page_id, facebook_pages(pixel_id, capi_token)")
     .eq("id", lead_id)
     .single();
 
@@ -58,22 +63,29 @@ export async function POST(request: NextRequest) {
   }
 
   const userData: Record<string, string[]> = {};
-  const phone = (lead as unknown as { phone: string | null }).phone;
-  const email = (lead as unknown as { email: string | null }).email;
+  const leadData = lead as unknown as {
+    phone: string | null;
+    email: string | null;
+    customer_name: string | null;
+    facebook_id: string | null;
+  };
 
-  if (phone) userData.ph = [sha256(normalizePhone(phone))];
-  if (email) userData.em = [sha256(email)];
+  if (leadData.phone) userData.ph = [sha256(normalizePhone(leadData.phone))];
+  if (leadData.email) userData.em = [sha256(leadData.email.trim().toLowerCase())];
+  // facebook_id (PSID) is the strongest matching signal for lead ads traffic
+  if (leadData.facebook_id) userData.external_id = [sha256(leadData.facebook_id)];
 
+  const eventTime = Math.floor(Date.now() / 1000);
   const payload = {
     data: [
       {
         event_name: stage.capi_event,
-        event_time: Math.floor(Date.now() / 1000),
+        event_time: eventTime,
+        // unique ID prevents double-counting if the request retries
+        event_id: `${lead_id}-${stage_id}-${eventTime}`,
         action_source: "system_generated",
         user_data: userData,
-        custom_data: {
-          lead_id,
-        },
+        custom_data: { lead_id },
       },
     ],
   };
