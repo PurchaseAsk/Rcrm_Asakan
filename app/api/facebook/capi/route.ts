@@ -76,18 +76,21 @@ export async function POST(request: NextRequest) {
   if (leadData.facebook_id) userData.external_id = [sha256(leadData.facebook_id)];
 
   const eventTime = Math.floor(Date.now() / 1000);
-  const payload = {
+  // Set TEST_CAPI_EVENT_CODE env var to route events to FB Test Events tab
+  const testEventCode = process.env.TEST_CAPI_EVENT_CODE;
+
+  const payload: Record<string, unknown> = {
     data: [
       {
         event_name: stage.capi_event,
         event_time: eventTime,
-        // unique ID prevents double-counting if the request retries
         event_id: `${lead_id}-${stage_id}-${eventTime}`,
         action_source: "system_generated",
         user_data: userData,
         custom_data: { lead_id },
       },
     ],
+    ...(testEventCode ? { test_event_code: testEventCode } : {}),
   };
 
   const res = await fetch(
