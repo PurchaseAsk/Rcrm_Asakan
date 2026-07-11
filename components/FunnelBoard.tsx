@@ -62,7 +62,7 @@ export function FunnelBoard({
     if (!rule || !lead.assigned_to) return false;
     const enteredAt = new Date(lead.stage_entered_at ?? lead.last_activity_at).getTime();
     const recallAt = enteredAt + rule.inactive_days * 86400 * 1000;
-    return recallAt - now < 86400 * 1000 && recallAt > now;
+    return recallAt - now < 86400 * 1000; // within 24h of recall, or already overdue
   }
 
   function toggleTag(id: string) {
