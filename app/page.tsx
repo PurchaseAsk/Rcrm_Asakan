@@ -85,7 +85,7 @@ const mainTabs: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "leads", label: "ลีดทั้งหมด", icon: UserRound },
 ];
 
-const topbarTabs = mainTabs.filter((item) => !["dashboard", "my-tags", "cases", "leads"].includes(item.id));
+const topbarTabs = mainTabs.filter((item) => !["dashboard", "my-tags", "cases", "leads", "line"].includes(item.id));
 
 const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean; adminOnly?: boolean }[] = [
   { id: "customers", label: "ทะเบียนลูกค้า", icon: BookUser },
