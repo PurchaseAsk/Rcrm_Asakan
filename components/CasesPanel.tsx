@@ -72,7 +72,7 @@ export function CasesPanel({
   toast: (msg: string) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<Case["status"] | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<"open" | Case["status"]>("open");
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -122,7 +122,10 @@ export function CasesPanel({
 
   const filtered = cases.filter((c) => {
     const matchSearch = !search || c.title.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || c.status === statusFilter;
+    const matchStatus =
+      statusFilter === "open"
+        ? c.status === "active" || c.status === "pending_close"
+        : c.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
@@ -166,7 +169,7 @@ export function CasesPanel({
   }
 
   const counts = {
-    all: cases.length,
+    open: cases.filter((c) => c.status === "active" || c.status === "pending_close").length,
     active: cases.filter((c) => c.status === "active").length,
     pending_close: cases.filter((c) => c.status === "pending_close").length,
     closed: cases.filter((c) => c.status === "closed").length,
@@ -179,7 +182,7 @@ export function CasesPanel({
         <div className="flex items-center gap-3">
           <BriefcaseIcon size={20} className="text-brand-700" />
           <h2 className="text-lg font-bold text-slate-900">เคสรอโอน</h2>
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{cases.length}</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{counts.open}</span>
         </div>
         <button
           onClick={() => setShowCreate((v) => !v)}
@@ -264,19 +267,21 @@ export function CasesPanel({
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {(["all", "active", "pending_close", "closed"] as const).map((s) => (
+        {(["open", "active", "pending_close", "closed"] as const).map((s) => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
             className={`h-9 rounded-lg border px-3 text-xs font-medium transition ${
               statusFilter === s
                 ? "border-brand-600 bg-brand-700 text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                : s === "closed"
+                  ? "border-slate-200 bg-white text-slate-400 hover:bg-slate-50"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
             }`}
           >
-            {s === "all" ? "ทั้งหมด" : statusConfig[s].label}
+            {s === "open" ? "ทั้งหมด" : statusConfig[s].label}
             <span className="ml-1.5 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">
-              {s === "all" ? counts.all : counts[s]}
+              {counts[s]}
             </span>
           </button>
         ))}
