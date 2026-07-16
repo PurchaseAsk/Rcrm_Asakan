@@ -238,6 +238,9 @@ export default function HomePage() {
         const id = selectedLeadIdRef.current;
         if (id) void loadLeadDetail(id).then(setLeadDetail);
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "cases" }, reloadLiveData)
+      .on("postgres_changes", { event: "*", schema: "public", table: "case_activities" }, reloadLiveData)
+      .on("postgres_changes", { event: "*", schema: "public", table: "case_reminders" }, reloadLiveData)
       .subscribe();
 
     return () => {
