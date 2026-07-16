@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Send, Bell, CheckCircle, BriefcaseIcon, Image as ImageIcon } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Case, CaseActivity, CaseReminder, Profile, Role } from "@/types/crm";
@@ -272,6 +273,7 @@ export function CaseDrawer({
   const badge = statusBadge[caseItem.status];
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
       <div className="relative flex h-full w-full max-w-lg flex-col bg-white shadow-2xl">
 
@@ -706,39 +708,41 @@ export function CaseDrawer({
             )}
           </div>
         )}
-        {/* Confirm-edit modal */}
-        {confirmEdit && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-            <div className="w-72 rounded-xl bg-white p-5 shadow-xl">
-              <p className="mb-1 text-sm font-semibold text-slate-900">ต้องการแก้ไขข้อมูล?</p>
-              <p className="mb-4 text-xs text-slate-500">
-                {confirmEdit === "title" && "คุณต้องการแก้ไขชื่อเคสใช่ไหม?"}
-                {confirmEdit === "customer" && "คุณต้องการแก้ไขข้อมูลลูกค้าใช่ไหม?"}
-                {confirmEdit === "finance" && "คุณต้องการแก้ไขข้อมูลสินเชื่อใช่ไหม?"}
-              </p>
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={() => setConfirmEdit(null)}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirmEdit === "title") setEditingTitle(true);
-                    if (confirmEdit === "customer") setEditingCustomer(true);
-                    if (confirmEdit === "finance") setEditingFinance(true);
-                    setConfirmEdit(null);
-                  }}
-                  className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-800"
-                >
-                  ตกลง
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
+
+    {confirmEdit && createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
+        <div className="w-72 rounded-xl bg-white p-5 shadow-xl">
+          <p className="mb-1 text-sm font-semibold text-slate-900">ต้องการแก้ไขข้อมูล?</p>
+          <p className="mb-4 text-xs text-slate-500">
+            {confirmEdit === "title" && "คุณต้องการแก้ไขชื่อเคสใช่ไหม?"}
+            {confirmEdit === "customer" && "คุณต้องการแก้ไขข้อมูลลูกค้าใช่ไหม?"}
+            {confirmEdit === "finance" && "คุณต้องการแก้ไขข้อมูลสินเชื่อใช่ไหม?"}
+          </p>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setConfirmEdit(null)}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={() => {
+                if (confirmEdit === "title") setEditingTitle(true);
+                if (confirmEdit === "customer") setEditingCustomer(true);
+                if (confirmEdit === "finance") setEditingFinance(true);
+                setConfirmEdit(null);
+              }}
+              className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-800"
+            >
+              ตกลง
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   );
 }
