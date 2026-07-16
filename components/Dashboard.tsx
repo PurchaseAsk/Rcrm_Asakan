@@ -806,7 +806,7 @@ function ChatMetricsView({
     );
 
     return { metrics: rows, totals: t };
-  }, [conversations, firstInMap, firstOutMap, dateFrom]);
+  }, [conversations, firstInMap, firstOutMap]);
 
   const newTotal = useMemo(
     () => metrics.filter((r) => !r.isRepeat).reduce((s, r) => s + r.total, 0),
@@ -1044,23 +1044,6 @@ function VoucherBarChart({ hourCounts, peakHour }: { hourCounts: number[]; peakH
 }
 
 // ─── Dashboard 4: Voucher Heatmap ────────────────────────────────────────────
-const HEATMAP_COLORS = ["#f8fafc", "#fef3c7", "#fde68a", "#fbbf24", "#d97706", "#92400e"];
-
-function heatColor(count: number, max: number): string {
-  if (count === 0 || max === 0) return HEATMAP_COLORS[0];
-  const ratio = count / max;
-  if (ratio < 0.1) return HEATMAP_COLORS[1];
-  if (ratio < 0.3) return HEATMAP_COLORS[2];
-  if (ratio < 0.55) return HEATMAP_COLORS[3];
-  if (ratio < 0.8) return HEATMAP_COLORS[4];
-  return HEATMAP_COLORS[5];
-}
-
-function heatTextColor(count: number, max: number): string {
-  const ratio = max > 0 ? count / max : 0;
-  return ratio >= 0.55 ? "#ffffff" : "#78350f";
-}
-
 function VoucherHeatmap({
   stages,
   dateFrom,

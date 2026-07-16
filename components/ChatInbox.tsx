@@ -100,7 +100,7 @@ export function ChatInbox({
   const [messages, setMessages] = useState<Message[]>([]);
   const [replyText, setReplyText] = useState("");
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMoreConvs, setLoadingMoreConvs] = useState(false);
   const [conversationTotal, setConversationTotal] = useState<number | null>(null);

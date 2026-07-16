@@ -462,6 +462,7 @@ export function LeadsPanel({
 
     for (let i = 0; i < toInsert.length; i += CHUNK) {
       const chunk = toInsert.slice(i, i + CHUNK);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const leadPayload = chunk.map(({ note: _n, ...rest }) => rest);
       const { data: inserted, error: insErr } = await supabase
         .from("leads").insert(leadPayload).select("id");
@@ -471,6 +472,7 @@ export function LeadsPanel({
       } else if (insErr?.code === "23505") {
         // Fallback: insert row-by-row, skip actual duplicates silently
         for (const row of chunk) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { note: _n, ...leadRow } = row;
           const { data: one, error: oneErr } = await supabase.from("leads").insert(leadRow).select("id");
           if (!oneErr && one) { ok += one.length; await insertActivities(one, [row]); }

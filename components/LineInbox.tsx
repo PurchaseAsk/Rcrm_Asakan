@@ -39,7 +39,7 @@ export function LineInbox({
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<LineMessage[]>([]);
   const [replyText, setReplyText] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -95,7 +95,6 @@ export function LineInbox({
       .subscribe();
 
     return () => { void supabase.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadPage(page: number, append = false, oaId?: string | null) {
@@ -124,7 +123,6 @@ export function LineInbox({
     setLoading(true);
     setTotal(null);
     void loadPage(0, false, filterOaId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterOaId]);
 
   async function loadMore() {

@@ -136,6 +136,7 @@ export default function SalesHubToolsPage() {
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto bg-[#f1f1ef] p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={activeImage.src} alt={activeImage.title} className="mx-auto max-h-[72dvh] w-auto max-w-full rounded-[14px] bg-white shadow-sm" />
             </div>
             <div className="border-t border-[#ececea] p-3">

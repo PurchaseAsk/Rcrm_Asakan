@@ -247,6 +247,7 @@ export default function HomePage() {
       cancelled = true;
       void supabase.removeChannel(channel);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]); // use .id (string) not object ref — prevents re-bootstrap on token refresh (e.g. wake from sleep)
 
   useEffect(() => {
@@ -585,7 +586,7 @@ export default function HomePage() {
                 const stageRule = (data.stageRules ?? []).find((r: StageRule) => r.stage_id === stage.id) ?? null;
                 const noteRequester = stageRule
                   ? requestStageChangeNote
-                  : (_name: string, _id: string) => Promise.resolve<string | null>("ย้าย stage");
+                  : () => Promise.resolve<string | null>("ย้าย stage");
                 const moved = await updateLeadStage(
                   leadId,
                   stage,

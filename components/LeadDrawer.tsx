@@ -40,6 +40,7 @@ export function LeadDrawer({
   onClose,
   reload,
   toast,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onViewChat,
 }: {
   lead: Lead;
@@ -603,6 +604,7 @@ export function LeadDrawer({
             </div>
             {noteImage && (
               <div className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={URL.createObjectURL(noteImage)} alt="" className="h-12 w-12 rounded object-cover" />
                 <span className="flex-1 truncate text-xs text-slate-600">{noteImage.name}</span>
                 <button className="text-xs text-red-500 hover:underline" onClick={() => { setNoteImage(null); if (noteImageInputRef.current) noteImageInputRef.current.value = ""; }}>ลบ</button>

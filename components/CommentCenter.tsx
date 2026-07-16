@@ -23,6 +23,7 @@ type CommentWithRelations = PageComment & {
 };
 
 export function CommentCenter({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   pages: _pages,
   userId,
   toast,

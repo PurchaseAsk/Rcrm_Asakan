@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Send, Bell, CheckCircle, BriefcaseIcon, Paperclip, Image as ImageIcon } from "lucide-react";
+import { X, Send, Bell, CheckCircle, BriefcaseIcon, Image as ImageIcon } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Case, CaseActivity, CaseReminder, Profile, Role } from "@/types/crm";
 
@@ -109,6 +109,7 @@ export function CaseDrawer({
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [caseItem.id]);
 
   async function uploadFile(file: File): Promise<string | null> {
@@ -550,6 +551,7 @@ export function CaseDrawer({
                   </p>
                   {act.attachment_url && (
                     <a href={act.attachment_url} target="_blank" rel="noreferrer" className="mt-2 block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={act.attachment_url}
                         alt="แนบ"
@@ -643,6 +645,7 @@ export function CaseDrawer({
             {/* Image preview */}
             {attachmentUrl && (
               <div className="relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={attachmentUrl} alt="preview" className="max-h-32 rounded-lg border border-slate-200 object-contain" />
                 <button
                   onClick={() => setAttachmentUrl(null)}
