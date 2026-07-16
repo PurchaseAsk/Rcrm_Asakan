@@ -2,7 +2,7 @@
 
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { AppData, LeadDetail } from "@/types/app";
-import type { Activity, DistributionRule, Lead, Page, Pipeline, Profile, RecallRule, Reminder, Role, Stage, StageRule, Tag, Team } from "@/types/crm";
+import type { Activity, Case, DistributionRule, Lead, Page, Pipeline, Profile, RecallRule, Reminder, Role, Stage, StageRule, Tag, Team } from "@/types/crm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const supabase = createBrowserSupabase();
@@ -508,7 +508,7 @@ export async function loadCrmData(
   client: SupabaseClient,
   opts?: { role?: Role; userId?: string },
 ): Promise<AppData> {
-  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons] = await Promise.all([
+  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases] = await Promise.all([
     fetchAllLeads(client, opts),
     client.from("funnel_stages").select("*").order("position"),
     client
@@ -528,9 +528,10 @@ export async function loadCrmData(
     client.from("line_oa_accounts").select("id,name,channel_id,is_active,bot_user_id").order("created_at"),
     client.from("stage_rules").select("id, stage_id, questions"),
     client.from("unfollow_reasons").select("*").order("position"),
+    client.from("cases").select("*, assigned:profiles!cases_assigned_to_fkey(id,email,full_name,role), creator:profiles!cases_created_by_fkey(id,email,full_name,role)").order("created_at", { ascending: false }),
   ]);
 
-  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons };
+  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases };
   for (const [name, result] of Object.entries(queryResults)) {
     if (result.error) {
       throw new Error(`Load ${name} failed: ${result.error.message}`);
@@ -560,6 +561,7 @@ export async function loadCrmData(
     lineOaAccounts: (lineOaAccounts.data || []) as import("@/types/crm").LineOaAccount[],
     stageRules: (stageRules.data || []) as StageRule[],
     unfollowReasons: (unfollowReasons.data || []) as import("@/types/crm").UnfollowReason[],
+    cases: (cases.data || []) as Case[],
   };
 }
 

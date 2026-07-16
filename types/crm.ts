@@ -138,6 +138,46 @@ export type Reminder = {
   leads?: { customer_name: string } | null;
 };
 
+export type Case = {
+  id: string;
+  title: string;
+  description: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  payment_type: "cash" | "loan" | null;
+  loan_banks: string[] | null;
+  status: "active" | "pending_close" | "closed";
+  assigned_to: string | null;
+  created_by: string | null;
+  closed_by: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  assigned?: Profile | null;
+  creator?: Profile | null;
+};
+
+export type CaseActivity = {
+  id: string;
+  case_id: string;
+  type: "note" | "status_change" | "close_request" | "closed" | "reopened";
+  content: string;
+  attachment_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  profiles?: Profile | null;
+};
+
+export type CaseReminder = {
+  id: string;
+  case_id: string;
+  remind_at: string;
+  note: string | null;
+  created_by: string | null;
+  is_done: boolean;
+  created_at: string;
+};
+
 export type TeamReminder = {
   id: string;
   title: string;

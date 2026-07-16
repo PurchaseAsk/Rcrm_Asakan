@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, RefreshCcw, CheckCircle, X, Tag, Megaphone, Trash2 } from "lucide-react";
+import { Bell, RefreshCcw, CheckCircle, X, Tag, Megaphone, Trash2, BriefcaseIcon } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Reminder, Role, TeamReminder } from "@/types/crm";
 
@@ -221,6 +221,15 @@ export function RemindersTab({
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-950">การแจ้งเตือน</h2>
         <div className="flex items-center gap-2">
+          {onNavigate && (
+            <button
+              className="flex h-9 items-center gap-2 rounded-lg bg-brand-700 px-4 text-sm font-medium text-white hover:bg-brand-800"
+              onClick={() => onNavigate("cases")}
+            >
+              <BriefcaseIcon size={14} />
+              เคสรอโอน
+            </button>
+          )}
           {onNavigate && (
             <button
               className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"

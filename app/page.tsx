@@ -12,6 +12,7 @@ import {
   BellRing,
   BookUser,
   Boxes,
+  BriefcaseIcon,
   Eye,
   EyeOff,
   Globe,
@@ -66,6 +67,7 @@ import { RulesPanel } from "@/components/RulesPanel";
 import { StageChangeNoteModal } from "@/components/StageChangeNoteModal";
 import { StagesPanel } from "@/components/StagesPanel";
 import { MyTagsPanel } from "@/components/MyTagsPanel";
+import { CasesPanel } from "@/components/CasesPanel";
 import { TagsPanel } from "@/components/TagsPanel";
 import { TeamsPanel } from "@/components/TeamsPanel";
 import { VoucherModal } from "@/components/VoucherModal";
@@ -78,11 +80,12 @@ const mainTabs: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "inbox", label: "Inbox", icon: Inbox },
   { id: "line", label: "Other Inbox", icon: MessagesSquare },
   { id: "reminders", label: "Reminders", icon: BellRing },
+  { id: "cases", label: "เคสรอโอน", icon: BriefcaseIcon },
   { id: "my-tags", label: "แท็กของฉัน", icon: Tags },
   { id: "leads", label: "ลีดทั้งหมด", icon: UserRound },
 ];
 
-const topbarTabs = mainTabs.filter((item) => !["dashboard", "my-tags", "leads"].includes(item.id));
+const topbarTabs = mainTabs.filter((item) => !["dashboard", "my-tags", "cases", "leads"].includes(item.id));
 
 const settingsTabs: { id: TabId; label: string; icon: LucideIcon; managerOnly?: boolean; adminOnly?: boolean }[] = [
   { id: "customers", label: "ทะเบียนลูกค้า", icon: BookUser },
@@ -512,13 +515,13 @@ export default function HomePage() {
 
       <div className={activeTab === "inbox" || activeTab === "line" ? "w-full" : "w-full px-3 py-4 sm:px-4 xl:px-6"}>
         <section className={`min-w-0 ${activeTab === "inbox" || activeTab === "line" ? "" : "space-y-4"}`}>
-          {activeTab !== "inbox" && activeTab !== "line" && activeTab !== "reminders" && data.leads.length >= 8000 && (
+          {activeTab !== "inbox" && activeTab !== "line" && activeTab !== "reminders" && activeTab !== "cases" && data.leads.length >= 8000 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               แสดง 8,000 ลีดล่าสุด — ลีดที่เก่ากว่าอาจไม่แสดงในหน้านี้
             </div>
           )}
 
-          {activeTab !== "inbox" && activeTab !== "line" && activeTab !== "reminders" && (
+          {activeTab !== "inbox" && activeTab !== "line" && activeTab !== "reminders" && activeTab !== "cases" && (
             <PipelineBar
               pipelines={data.pipelines}
               activePipelineId={activePipelineId}
@@ -647,6 +650,16 @@ export default function HomePage() {
               toast={showToast}
               onOpenLead={openLead}
               onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)}
+            />
+          )}
+          {activeTab === "cases" && (
+            <CasesPanel
+              cases={data.cases}
+              profiles={data.profiles}
+              userId={currentUserId}
+              userRole={profile?.role ?? "staff"}
+              reload={reload}
+              toast={showToast}
             />
           )}
           {activeTab === "pipelines" && (

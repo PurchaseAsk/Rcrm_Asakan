@@ -1,5 +1,6 @@
 import type {
   Activity,
+  Case,
   DistributionRule,
   Lead,
   LineOaAccount,
@@ -28,6 +29,7 @@ export type AppData = {
   lineOaAccounts: LineOaAccount[];
   stageRules: StageRule[];
   unfollowReasons: UnfollowReason[];
+  cases: Case[];
 };
 
 export const emptyData: AppData = {
@@ -43,6 +45,7 @@ export const emptyData: AppData = {
   lineOaAccounts: [],
   stageRules: [],
   unfollowReasons: [],
+  cases: [],
 };
 
 export type LeadDetail = {
@@ -78,6 +81,7 @@ export type TabId =
   | "recall"
   | "tags"
   | "my-tags"
+  | "cases"
   | "pages"
   | "customers"
   | "website"
