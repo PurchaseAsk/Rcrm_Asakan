@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { X, Send, Bell, CheckCircle, BriefcaseIcon, Paperclip, Image as ImageIcon } from "lucide-react";
@@ -19,17 +19,17 @@ function caseAge(createdAt: string): string {
   const mins = Math.floor(ms / 60000);
   const hours = Math.floor(ms / 3600000);
   const days = Math.floor(ms / 86400000);
-  if (mins < 60) return `${mins} เธเธฒเธ—เธต`;
-  if (hours < 24) return `${hours} เธเธก.`;
-  if (days < 30) return `${days} เธงเธฑเธ`;
+  if (mins < 60) return `${mins} นาที`;
+  if (hours < 24) return `${hours} ชม.`;
+  if (days < 30) return `${days} วัน`;
   const months = Math.floor(days / 30);
-  return `${months} เน€เธ”เธทเธญเธ${days % 30 > 0 ? ` ${days % 30} เธงเธฑเธ` : ""}`;
+  return `${months} เดือน${days % 30 > 0 ? ` ${days % 30} วัน` : ""}`;
 }
 
 function actorLabel(profiles: Profile[], id: string | null) {
-  if (!id) return "เธฃเธฐเธเธ";
+  if (!id) return "ระบบ";
   const p = profiles.find((x) => x.id === id);
-  return p?.full_name ?? p?.email ?? "เนเธกเนเธฃเธฐเธเธธ";
+  return p?.full_name ?? p?.email ?? "ไม่ระบุ";
 }
 
 // Convert local datetime strings to ISO for storage
@@ -39,11 +39,11 @@ function toISO(date: string, time: string): string | null {
 }
 
 const typeIcon: Record<CaseActivity["type"], string> = {
-  note: "๐“",
-  status_change: "๐”",
-  close_request: "๐“",
-  closed: "โ…",
-  reopened: "๐”“",
+  note: "📝",
+  status_change: "🔄",
+  close_request: "📋",
+  closed: "✅",
+  reopened: "🔓",
 };
 
 export function CaseDrawer({
@@ -61,7 +61,6 @@ export function CaseDrawer({
   onClose: () => void;
   onUpdated: () => Promise<void>;
 }) {
-  const [confirmEdit, setConfirmEdit] = useState<"title" | "customer" | "finance" | null>(null);
   const [activities, setActivities] = useState<CaseActivity[]>([]);
   const [reminders, setReminders] = useState<CaseReminder[]>([]);
   const [note, setNote] = useState("");
@@ -83,6 +82,7 @@ export function CaseDrawer({
   const [loanBanks, setLoanBanks] = useState<string[]>(caseItem.loan_banks ?? ["", "", "", ""]);
   const [editingFinance, setEditingFinance] = useState(false);
   const [assignTo, setAssignTo] = useState(caseItem.assigned_to ?? "");
+  const [confirmEdit, setConfirmEdit] = useState<"title" | "customer" | "finance" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -136,7 +136,7 @@ export function CaseDrawer({
     await supabase.from("case_activities").insert({
       case_id: caseItem.id,
       type: "note",
-      content: note.trim() || "(เนเธเธเธฃเธนเธ)",
+      content: note.trim() || "(แนบรูป)",
       attachment_url: attachmentUrl ?? null,
       created_by: userId,
     });
@@ -172,7 +172,7 @@ export function CaseDrawer({
     await supabase.from("case_activities").insert({
       case_id: caseItem.id,
       type: "note",
-      content: `โ… เธ—เธณเน€เธชเธฃเนเธเนเธฅเนเธง (${reminderLabel}): ${completionNote.trim()}`,
+      content: `✅ ทำเสร็จแล้ว (${reminderLabel}): ${completionNote.trim()}`,
       created_by: userId,
     });
     setCompletingReminderId(null);
@@ -213,7 +213,7 @@ export function CaseDrawer({
     await supabase.from("case_activities").insert({
       case_id: caseItem.id,
       type: "status_change",
-      content: `เน€เธเธฅเธตเนเธขเธเธเธนเนเธฃเธฑเธเธเธดเธ”เธเธญเธเน€เธเนเธ ${actorLabel(profiles, assignTo || null)}`,
+      content: `เปลี่ยนผู้รับผิดชอบเป็น ${actorLabel(profiles, assignTo || null)}`,
       created_by: userId,
     });
     await Promise.all([onUpdated(), load()]);
@@ -224,7 +224,7 @@ export function CaseDrawer({
     await supabase.from("cases").update({ status: "pending_close" }).eq("id", caseItem.id);
     await supabase.from("case_activities").insert({
       case_id: caseItem.id, type: "close_request",
-      content: `${actorLabel(profiles, userId)} เธเธญเธเธดเธ”เน€เธเธช`, created_by: userId,
+      content: `${actorLabel(profiles, userId)} ขอปิดเคส`, created_by: userId,
     });
     await Promise.all([onUpdated(), load()]);
     setBusy(false);
@@ -235,7 +235,7 @@ export function CaseDrawer({
     await supabase.from("cases").update({ status: "closed", closed_by: userId, closed_at: new Date().toISOString() }).eq("id", caseItem.id);
     await supabase.from("case_activities").insert({
       case_id: caseItem.id, type: "closed",
-      content: `${actorLabel(profiles, userId)} เธญเธเธธเธกเธฑเธ•เธดเธเธดเธ”เน€เธเธช`, created_by: userId,
+      content: `${actorLabel(profiles, userId)} อนุมัติปิดเคส`, created_by: userId,
     });
     await Promise.all([onUpdated(), load()]);
     setBusy(false);
@@ -246,7 +246,7 @@ export function CaseDrawer({
     await supabase.from("cases").update({ status: "active" }).eq("id", caseItem.id);
     await supabase.from("case_activities").insert({
       case_id: caseItem.id, type: "reopened",
-      content: `${actorLabel(profiles, userId)} เนเธกเนเธญเธเธธเธกเธฑเธ•เธดเธเธดเธ”เน€เธเธช โ€” เน€เธเธดเธ”เนเธซเธกเน`, created_by: userId,
+      content: `${actorLabel(profiles, userId)} ไม่อนุมัติปิดเคส — เปิดใหม่`, created_by: userId,
     });
     await Promise.all([onUpdated(), load()]);
     setBusy(false);
@@ -257,16 +257,16 @@ export function CaseDrawer({
     await supabase.from("cases").update({ status: "active", closed_by: null, closed_at: null }).eq("id", caseItem.id);
     await supabase.from("case_activities").insert({
       case_id: caseItem.id, type: "reopened",
-      content: `${actorLabel(profiles, userId)} เน€เธเธดเธ”เน€เธเธชเนเธซเธกเน`, created_by: userId,
+      content: `${actorLabel(profiles, userId)} เปิดเคสใหม่`, created_by: userId,
     });
     await Promise.all([onUpdated(), load()]);
     setBusy(false);
   }
 
   const statusBadge: Record<Case["status"], { label: string; cls: string }> = {
-    active:        { label: "เธเธณเธฅเธฑเธเธ”เธณเน€เธเธดเธเธเธฒเธฃ", cls: "bg-blue-100 text-blue-700" },
-    pending_close: { label: "เธฃเธญเธญเธเธธเธกเธฑเธ•เธดเธเธดเธ”",   cls: "bg-amber-100 text-amber-700" },
-    closed:        { label: "เธเธดเธ”เน€เธเธชเนเธฅเนเธง",     cls: "bg-slate-100 text-slate-500" },
+    active:        { label: "กำลังดำเนินการ", cls: "bg-blue-100 text-blue-700" },
+    pending_close: { label: "รออนุมัติปิด",   cls: "bg-amber-100 text-amber-700" },
+    closed:        { label: "ปิดเคสแล้ว",     cls: "bg-slate-100 text-slate-500" },
   };
   const badge = statusBadge[caseItem.status];
 
@@ -287,13 +287,13 @@ export function CaseDrawer({
                 onChange={(e) => setAssignTo(e.target.value)}
                 disabled={isClosed}
               >
-                <option value="">โ€” เนเธกเนเธฃเธฐเธเธธ โ€”</option>
+                <option value="">— ไม่ระบุ —</option>
                 {profiles.map((p) => (
                   <option key={p.id} value={p.id}>{p.full_name ?? p.email}</option>
                 ))}
               </select>
               {assignTo !== (caseItem.assigned_to ?? "") && (
-                <button onClick={() => void saveAssign()} className="shrink-0 rounded bg-brand-700 px-2 py-0.5 text-xs text-white">เธเธฑเธเธ—เธถเธ</button>
+                <button onClick={() => void saveAssign()} className="shrink-0 rounded bg-brand-700 px-2 py-0.5 text-xs text-white">บันทึก</button>
               )}
             </div>
             <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
@@ -310,21 +310,21 @@ export function CaseDrawer({
                 onKeyDown={(e) => { if (e.key === "Enter") void saveTitle(); if (e.key === "Escape") setEditingTitle(false); }}
                 autoFocus
               />
-              <button onClick={() => void saveTitle()} className="rounded bg-brand-700 px-2.5 py-1 text-xs text-white">เธเธฑเธเธ—เธถเธ</button>
+              <button onClick={() => void saveTitle()} className="rounded bg-brand-700 px-2.5 py-1 text-xs text-white">บันทึก</button>
             </div>
           ) : (
             <h2
               className="mt-1.5 cursor-pointer truncate text-base font-bold text-slate-900 hover:text-brand-700"
-              title={isClosed ? "" : "เธเธฅเธดเธเน€เธเธทเนเธญเนเธเนเนเธเธเธทเนเธญ"}
+              title={isClosed ? "" : "คลิกเพื่อแก้ไขชื่อ"}
               onClick={() => !isClosed && setConfirmEdit("title")}
             >
               {caseItem.title}
             </h2>
           )}
           <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
-            <span>เธชเธฃเนเธฒเธเน€เธกเธทเนเธญ {fmtDate(caseItem.created_at)}</span>
+            <span>สร้างเมื่อ {fmtDate(caseItem.created_at)}</span>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
-              โฑ {caseAge(caseItem.created_at)}
+              ⏱ {caseAge(caseItem.created_at)}
             </span>
           </div>
         </div>
@@ -335,21 +335,21 @@ export function CaseDrawer({
             <div className="flex items-center gap-2">
               <input
                 className="h-8 flex-1 rounded border border-slate-200 bg-white px-2 text-sm outline-none focus:border-brand-400"
-                placeholder="เธเธทเนเธญเธฅเธนเธเธเนเธฒ"
+                placeholder="ชื่อลูกค้า"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 autoFocus
               />
               <input
                 className="h-8 w-36 rounded border border-slate-200 bg-white px-2 text-sm outline-none focus:border-brand-400"
-                placeholder="เน€เธเธญเธฃเนเนเธ—เธฃ"
+                placeholder="เบอร์โทร"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 type="tel"
                 onKeyDown={(e) => { if (e.key === "Enter") void saveCustomer(); if (e.key === "Escape") setEditingCustomer(false); }}
               />
-              <button onClick={() => void saveCustomer()} className="shrink-0 rounded bg-brand-700 px-2.5 py-1 text-xs text-white">เธเธฑเธเธ—เธถเธ</button>
-              <button onClick={() => setEditingCustomer(false)} className="text-xs text-slate-400 hover:text-slate-700">เธขเธเน€เธฅเธดเธ</button>
+              <button onClick={() => void saveCustomer()} className="shrink-0 rounded bg-brand-700 px-2.5 py-1 text-xs text-white">บันทึก</button>
+              <button onClick={() => setEditingCustomer(false)} className="text-xs text-slate-400 hover:text-slate-700">ยกเลิก</button>
             </div>
           ) : (
             <button
@@ -357,14 +357,14 @@ export function CaseDrawer({
               onClick={() => !isClosed && setConfirmEdit("customer")}
               disabled={isClosed}
             >
-              <span className="text-xs text-slate-500 shrink-0">เธฅเธนเธเธเนเธฒ:</span>
+              <span className="text-xs text-slate-500 shrink-0">ลูกค้า:</span>
               {caseItem.customer_name || caseItem.customer_phone ? (
                 <span className="flex items-center gap-3 text-sm">
                   {caseItem.customer_name && <span className="font-medium text-slate-800">{caseItem.customer_name}</span>}
                   {caseItem.customer_phone && <span className="text-brand-700">{caseItem.customer_phone}</span>}
                 </span>
               ) : (
-                <span className="text-xs text-slate-400 italic">{isClosed ? "โ€”" : "เธเธฅเธดเธเน€เธเธทเนเธญเน€เธเธดเนเธกเธเธทเนเธญเนเธฅเธฐเน€เธเธญเธฃเนเนเธ—เธฃ"}</span>
+                <span className="text-xs text-slate-400 italic">{isClosed ? "—" : "คลิกเพื่อเพิ่มชื่อและเบอร์โทร"}</span>
               )}
             </button>
           )}
@@ -376,9 +376,9 @@ export function CaseDrawer({
             <div className="space-y-3">
               {/* Payment type toggle */}
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 shrink-0">เธเธฃเธฐเน€เธ เธ—:</span>
+                <span className="text-xs text-slate-500 shrink-0">ประเภท:</span>
                 <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 gap-0.5">
-                  {([["cash", "๐’ต เธเธทเนเธญเธชเธ”"], ["loan", "๐ฆ เธชเธดเธเน€เธเธทเนเธญ"]] as const).map(([val, label]) => (
+                  {([["cash", "💵 ซื้อสด"], ["loan", "🏦 สินเชื่อ"]] as const).map(([val, label]) => (
                     <button
                       key={val}
                       onClick={() => setPaymentType(val)}
@@ -389,16 +389,16 @@ export function CaseDrawer({
                   ))}
                 </div>
                 {paymentType && (
-                  <button onClick={() => setPaymentType("")} className="text-xs text-slate-400 hover:text-slate-700">เธฅเนเธฒเธ</button>
+                  <button onClick={() => setPaymentType("")} className="text-xs text-slate-400 hover:text-slate-700">ล้าง</button>
                 )}
               </div>
 
               {/* Bank inputs (only when loan) */}
               {paymentType === "loan" && (
                 <div className="space-y-1.5">
-                  <p className="text-xs text-slate-500">เธเธเธฒเธเธฒเธฃเธ—เธตเนเธขเธทเนเธเธชเธดเธเน€เธเธทเนเธญ (เธชเธนเธเธชเธธเธ” 4 เนเธซเนเธ)</p>
+                  <p className="text-xs text-slate-500">ธนาคารที่ยื่นสินเชื่อ (สูงสุด 4 แห่ง)</p>
                   <datalist id="bank-list">
-                    {["เธเธชเธดเธเธฃเนเธ—เธข (KBank)", "เนเธ—เธขเธเธฒเธ“เธดเธเธขเน (SCB)", "เธเธฃเธธเธเน€เธ—เธ (BBL)", "เธเธฃเธธเธเนเธ—เธข (KTB)", "เธเธฃเธธเธเธจเธฃเธต (BAY)", "เธ—เธตเธ—เธตเธเธต (TTB)", "เธญเธญเธกเธชเธดเธ (GSB)", "เธเธญเธช. (GHB)", "UOB", "CIMB"].map((b) => (
+                    {["กสิกรไทย (KBank)", "ไทยพาณิชย์ (SCB)", "กรุงเทพ (BBL)", "กรุงไทย (KTB)", "กรุงศรี (BAY)", "ทีทีบี (TTB)", "ออมสิน (GSB)", "ธอส. (GHB)", "UOB", "CIMB"].map((b) => (
                       <option key={b} value={b} />
                     ))}
                   </datalist>
@@ -408,7 +408,7 @@ export function CaseDrawer({
                         key={i}
                         list="bank-list"
                         className="h-8 rounded border border-slate-200 bg-white px-2 text-xs outline-none focus:border-brand-400"
-                        placeholder={`เธเธเธฒเธเธฒเธฃเธ—เธตเน ${i + 1}`}
+                        placeholder={`ธนาคารที่ ${i + 1}`}
                         value={loanBanks[i] ?? ""}
                         onChange={(e) => {
                           const next = [...loanBanks];
@@ -422,8 +422,8 @@ export function CaseDrawer({
               )}
 
               <div className="flex gap-2">
-                <button onClick={() => void saveFinance()} className="rounded bg-brand-700 px-3 py-1 text-xs font-medium text-white">เธเธฑเธเธ—เธถเธ</button>
-                <button onClick={() => setEditingFinance(false)} className="text-xs text-slate-400 hover:text-slate-700">เธขเธเน€เธฅเธดเธ</button>
+                <button onClick={() => void saveFinance()} className="rounded bg-brand-700 px-3 py-1 text-xs font-medium text-white">บันทึก</button>
+                <button onClick={() => setEditingFinance(false)} className="text-xs text-slate-400 hover:text-slate-700">ยกเลิก</button>
               </div>
             </div>
           ) : (
@@ -432,20 +432,20 @@ export function CaseDrawer({
               onClick={() => !isClosed && setConfirmEdit("finance")}
               disabled={isClosed}
             >
-              <span className="text-xs text-slate-500 shrink-0">เธชเธดเธเน€เธเธทเนเธญ:</span>
+              <span className="text-xs text-slate-500 shrink-0">สินเชื่อ:</span>
               {caseItem.payment_type === "cash" && (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">๐’ต เธเธทเนเธญเธชเธ”</span>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">💵 ซื้อสด</span>
               )}
               {caseItem.payment_type === "loan" && (
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">๐ฆ เธชเธดเธเน€เธเธทเนเธญ</span>
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">🏦 สินเชื่อ</span>
                   {(caseItem.loan_banks ?? []).filter(Boolean).map((b) => (
                     <span key={b} className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600">{b}</span>
                   ))}
                 </span>
               )}
               {!caseItem.payment_type && (
-                <span className="text-xs text-slate-400 italic">{isClosed ? "โ€”" : "เธเธฅเธดเธเน€เธเธทเนเธญเธฃเธฐเธเธธเธเธฃเธฐเน€เธ เธ—เธเธฒเธฃเธเธณเธฃเธฐ"}</span>
+                <span className="text-xs text-slate-400 italic">{isClosed ? "—" : "คลิกเพื่อระบุประเภทการชำระ"}</span>
               )}
             </button>
           )}
@@ -454,38 +454,38 @@ export function CaseDrawer({
         {/* Close workflow banners */}
         {isPendingClose && canClose && (
           <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3">
-            <p className="flex-1 text-sm font-medium text-amber-800">๐“ Sales เธเธญเธเธดเธ”เน€เธเธชเธเธตเน</p>
-            <button onClick={() => void approveClose()} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">เธญเธเธธเธกเธฑเธ•เธดเธเธดเธ”</button>
-            <button onClick={() => void rejectClose()} disabled={busy} className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">เนเธกเนเธญเธเธธเธกเธฑเธ•เธด</button>
+            <p className="flex-1 text-sm font-medium text-amber-800">📋 Sales ขอปิดเคสนี้</p>
+            <button onClick={() => void approveClose()} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">อนุมัติปิด</button>
+            <button onClick={() => void rejectClose()} disabled={busy} className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">ไม่อนุมัติ</button>
           </div>
         )}
         {isPendingClose && !canClose && (
-          <div className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm text-amber-700">โณ เธฃเธญ Manager เธญเธเธธเธกเธฑเธ•เธดเธเธดเธ”เน€เธเธช</div>
+          <div className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm text-amber-700">⏳ รอ Manager อนุมัติปิดเคส</div>
         )}
         {isClosed && (
           <div className="flex items-center gap-3 border-b bg-slate-50 px-5 py-2.5">
-            <p className="flex-1 text-sm text-slate-500">โ… เธเธดเธ”เน€เธเธชเน€เธกเธทเนเธญ {caseItem.closed_at ? fmtDate(caseItem.closed_at) : ""}</p>
-            {canClose && <button onClick={() => void reopenCase()} disabled={busy} className="text-xs text-slate-500 underline hover:text-slate-800">เน€เธเธดเธ”เนเธซเธกเน</button>}
+            <p className="flex-1 text-sm text-slate-500">✅ ปิดเคสเมื่อ {caseItem.closed_at ? fmtDate(caseItem.closed_at) : ""}</p>
+            {canClose && <button onClick={() => void reopenCase()} disabled={busy} className="text-xs text-slate-500 underline hover:text-slate-800">เปิดใหม่</button>}
           </div>
         )}
 
         {/* Pending reminders */}
         {reminders.length > 0 && (
           <div className="border-b bg-yellow-50 px-5 py-3 space-y-2">
-            <p className="text-xs font-semibold text-yellow-700">๐”” Reminder เธ—เธตเนเธขเธฑเธเธเนเธฒเธเธญเธขเธนเน</p>
+            <p className="text-xs font-semibold text-yellow-700">🔔 Reminder ที่ยังค้างอยู่</p>
             {reminders.map((r) => {
               const isCompleting = completingReminderId === r.id;
               return (
                 <div key={r.id} className="space-y-1.5">
                   <div className="flex items-center gap-2 text-xs text-yellow-800">
-                    <span className="flex-1">{fmtDate(r.remind_at)}{r.note ? ` โ€” ${r.note}` : ""}</span>
+                    <span className="flex-1">{fmtDate(r.remind_at)}{r.note ? ` — ${r.note}` : ""}</span>
                     <button
                       onClick={() => {
                         if (isCompleting) { setCompletingReminderId(null); setCompletionNote(""); }
                         else { setCompletingReminderId(r.id); setCompletionNote(""); }
                       }}
                       className={`shrink-0 ${isCompleting ? "text-slate-400" : "text-emerald-600 hover:text-emerald-800"}`}
-                      title={isCompleting ? "เธขเธเน€เธฅเธดเธ" : "เธเธฑเธเธ—เธถเธเธเธฅเนเธฅเธฐเธ—เธณเน€เธชเธฃเนเธ"}
+                      title={isCompleting ? "ยกเลิก" : "บันทึกผลและทำเสร็จ"}
                     >
                       <CheckCircle size={14} />
                     </button>
@@ -495,7 +495,7 @@ export function CaseDrawer({
                       <input
                         autoFocus
                         className="h-8 flex-1 rounded border border-yellow-300 bg-white px-2 text-xs outline-none focus:border-brand-400"
-                        placeholder="เธเธฑเธเธ—เธถเธเธเธฅเธฅเธฑเธเธเน เน€เธเนเธ เนเธ—เธฃเนเธฅเนเธง เธเธฑเธ”เธงเธฑเธเธจเธธเธเธฃเน..."
+                        placeholder="บันทึกผลลัพธ์ เช่น โทรแล้ว นัดวันศุกร์..."
                         value={completionNote}
                         onChange={(e) => setCompletionNote(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") void doneReminder(r); if (e.key === "Escape") { setCompletingReminderId(null); setCompletionNote(""); } }}
@@ -505,7 +505,7 @@ export function CaseDrawer({
                         disabled={!completionNote.trim() || busy}
                         className="rounded bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
                       >
-                        {busy ? "โ€ฆ" : "เธเธฑเธเธ—เธถเธ"}
+                        {busy ? "…" : "บันทึก"}
                       </button>
                     </div>
                   )}
@@ -518,7 +518,7 @@ export function CaseDrawer({
         {/* Activities */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {activities.length === 0 && (
-            <p className="py-10 text-center text-sm text-slate-400">เธขเธฑเธเนเธกเนเธกเธตเธเธฑเธเธ—เธถเธ โ€” เน€เธเธดเนเธก note เนเธฃเธเธ”เนเธฒเธเธฅเนเธฒเธ</p>
+            <p className="py-10 text-center text-sm text-slate-400">ยังไม่มีบันทึก — เพิ่ม note แรกด้านล่าง</p>
           )}
           {activities.map((act) => {
             const creatorRole = act.profiles?.role;
@@ -552,7 +552,7 @@ export function CaseDrawer({
                     <a href={act.attachment_url} target="_blank" rel="noreferrer" className="mt-2 block">
                       <img
                         src={act.attachment_url}
-                        alt="เนเธเธ"
+                        alt="แนบ"
                         className="max-h-60 max-w-full rounded-lg border border-slate-200 object-contain"
                       />
                     </a>
@@ -571,11 +571,11 @@ export function CaseDrawer({
             {/* Reminder form */}
             {showReminderForm && (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
-                <p className="text-xs font-semibold text-slate-700">๐”” เน€เธเธดเนเธก Reminder</p>
+                <p className="text-xs font-semibold text-slate-700">🔔 เพิ่ม Reminder</p>
 
                 {/* Date */}
                 <div>
-                  <label className="mb-1 block text-xs text-slate-500">เธงเธฑเธเธ—เธตเน</label>
+                  <label className="mb-1 block text-xs text-slate-500">วันที่</label>
                   <input
                     type="date"
                     className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-brand-400"
@@ -587,7 +587,7 @@ export function CaseDrawer({
 
                 {/* Time */}
                 <div>
-                  <label className="mb-1 block text-xs text-slate-500">เน€เธงเธฅเธฒ</label>
+                  <label className="mb-1 block text-xs text-slate-500">เวลา</label>
                   <div className="flex items-center gap-2">
                     <select
                       className="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-brand-400"
@@ -596,7 +596,7 @@ export function CaseDrawer({
                     >
                       {Array.from({ length: 18 }, (_, i) => i + 6).map((h) => (
                         <option key={h} value={String(h).padStart(2, "0")}>
-                          {String(h).padStart(2, "0")} เธ.
+                          {String(h).padStart(2, "0")} น.
                         </option>
                       ))}
                     </select>
@@ -607,7 +607,7 @@ export function CaseDrawer({
                       onChange={(e) => setReminderTime(`${reminderTime.split(":")[0]}:${e.target.value}`)}
                     >
                       {["00","15","30","45"].map((m) => (
-                        <option key={m} value={m}>{m} เธเธฒเธ—เธต</option>
+                        <option key={m} value={m}>{m} นาที</option>
                       ))}
                     </select>
                   </div>
@@ -615,10 +615,10 @@ export function CaseDrawer({
 
                 {/* Note */}
                 <div>
-                  <label className="mb-1 block text-xs text-slate-500">เธซเธกเธฒเธขเน€เธซเธ•เธธ <span className="text-rose-500">*</span></label>
+                  <label className="mb-1 block text-xs text-slate-500">หมายเหตุ <span className="text-rose-500">*</span></label>
                   <input
                     className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-brand-400"
-                    placeholder="เน€เธเนเธ เนเธ—เธฃเธ•เธดเธ”เธ•เธฒเธกเน€เธฃเธทเนเธญเธเธเธนเน, เธเธฑเธ”เน€เธเนเธเธชเธฑเธเธเธฒ..."
+                    placeholder="เช่น โทรติดตามเรื่องกู้, นัดเซ็นสัญญา..."
                     value={reminderNote}
                     onChange={(e) => setReminderNote(e.target.value)}
                     autoFocus
@@ -631,10 +631,10 @@ export function CaseDrawer({
                     disabled={!reminderDate || !reminderNote.trim() || busy}
                     className="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                   >
-                    เธเธฑเธเธ—เธถเธ
+                    บันทึก
                   </button>
                   <button onClick={() => setShowReminderForm(false)} className="text-xs text-slate-500 underline">
-                    เธขเธเน€เธฅเธดเธ
+                    ยกเลิก
                   </button>
                 </div>
               </div>
@@ -647,16 +647,16 @@ export function CaseDrawer({
                 <button
                   onClick={() => setAttachmentUrl(null)}
                   className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white text-xs"
-                >ร—</button>
+                >×</button>
               </div>
             )}
-            {uploading && <p className="text-xs text-slate-400 animate-pulse">เธเธณเธฅเธฑเธเธญเธฑเธเนเธซเธฅเธ”เธฃเธนเธโ€ฆ</p>}
+            {uploading && <p className="text-xs text-slate-400 animate-pulse">กำลังอัปโหลดรูป…</p>}
 
             {/* Note input + action buttons */}
             <div className="flex gap-2">
               <textarea
                 className="flex-1 resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-400"
-                placeholder="เธเธฑเธเธ—เธถเธ noteโ€ฆ (Enter เธชเนเธ, Shift+Enter เธเธถเนเธเธเธฃเธฃเธ—เธฑเธ”)"
+                placeholder="บันทึก note… (Enter ส่ง, Shift+Enter ขึ้นบรรทัด)"
                 rows={2}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
@@ -675,14 +675,14 @@ export function CaseDrawer({
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
                   className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40"
-                  title="เนเธเธเธฃเธนเธ"
+                  title="แนบรูป"
                 >
                   <ImageIcon size={14} />
                 </button>
                 <button
                   onClick={() => setShowReminderForm((v) => !v)}
                   className={`flex h-9 w-9 items-center justify-center rounded-lg border text-slate-500 hover:bg-slate-50 ${showReminderForm ? "border-brand-400 bg-brand-50 text-brand-700" : "border-slate-200"}`}
-                  title="เน€เธเธดเนเธก Reminder"
+                  title="เพิ่ม Reminder"
                 >
                   <Bell size={14} />
                 </button>
@@ -698,46 +698,44 @@ export function CaseDrawer({
                 disabled={busy}
                 className="w-full rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
               >
-                เธเธญเธเธดเธ”เน€เธเธช
+                ขอปิดเคส
               </button>
             )}
           </div>
         )}
-      </div>
-
-      {/* Confirm edit modal */}
-      {confirmEdit && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20">
-          <div className="mx-4 w-full max-w-xs rounded-xl bg-white p-5 shadow-xl">
-            <p className="text-sm font-semibold text-slate-800">ต้องการแก้ไขข้อมูลใช่ไหม?</p>
-            <p className="mt-1 text-xs text-slate-500">
-              {confirmEdit === "title" && "แก้ไขชื่อเคส"}
-              {confirmEdit === "customer" && "แก้ไขข้อมูลลูกค้า"}
-              {confirmEdit === "finance" && "แก้ไขข้อมูลสินเชื่อ"}
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => {
-                  if (confirmEdit === "title") setEditingTitle(true);
-                  if (confirmEdit === "customer") setEditingCustomer(true);
-                  if (confirmEdit === "finance") setEditingFinance(true);
-                  setConfirmEdit(null);
-                }}
-                className="flex-1 rounded-lg bg-brand-700 py-2 text-sm font-medium text-white hover:bg-brand-800"
-              >
-                ตกลง
-              </button>
-              <button
-                onClick={() => setConfirmEdit(null)}
-                className="flex-1 rounded-lg border border-slate-200 py-2 text-sm text-slate-600 hover:bg-slate-50"
-              >
-                ยกเลิก
-              </button>
+        {/* Confirm-edit modal */}
+        {confirmEdit && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20">
+            <div className="w-72 rounded-xl bg-white p-5 shadow-xl">
+              <p className="mb-1 text-sm font-semibold text-slate-900">ต้องการแก้ไขข้อมูล?</p>
+              <p className="mb-4 text-xs text-slate-500">
+                {confirmEdit === "title" && "คุณต้องการแก้ไขชื่อเคสใช่ไหม?"}
+                {confirmEdit === "customer" && "คุณต้องการแก้ไขข้อมูลลูกค้าใช่ไหม?"}
+                {confirmEdit === "finance" && "คุณต้องการแก้ไขข้อมูลสินเชื่อใช่ไหม?"}
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setConfirmEdit(null)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirmEdit === "title") setEditingTitle(true);
+                    if (confirmEdit === "customer") setEditingCustomer(true);
+                    if (confirmEdit === "finance") setEditingFinance(true);
+                    setConfirmEdit(null);
+                  }}
+                  className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-800"
+                >
+                  ตกลง
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
-
