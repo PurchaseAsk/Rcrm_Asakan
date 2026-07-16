@@ -91,9 +91,6 @@ export function CaseDrawer({
   const isPendingClose = caseItem.status === "pending_close";
   const isClosed = caseItem.status === "closed";
 
-  // eslint-disable-next-line no-console
-  console.log("[CaseDrawer] build=2026-07-16-v4 confirmEdit=", confirmEdit);
-
   async function load() {
     const [{ data: acts }, { data: rems }] = await Promise.all([
       supabase
