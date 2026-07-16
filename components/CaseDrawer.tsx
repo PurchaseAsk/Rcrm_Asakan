@@ -587,24 +587,6 @@ export function CaseDrawer({
                 {/* Time */}
                 <div>
                   <label className="mb-1 block text-xs text-slate-500">เวลา</label>
-                  {/* Quick presets */}
-                  <div className="mb-2 flex flex-wrap gap-1">
-                    {["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00"].map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setReminderTime(t)}
-                        className={`rounded-md px-2 py-1 text-xs font-medium transition ${
-                          reminderTime === t
-                            ? "bg-brand-700 text-white"
-                            : "border border-slate-200 bg-white text-slate-600 hover:border-brand-400 hover:text-brand-700"
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Custom selects */}
                   <div className="flex items-center gap-2">
                     <select
                       className="rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-brand-400"
