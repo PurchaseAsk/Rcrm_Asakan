@@ -708,7 +708,7 @@ export function CaseDrawer({
         )}
         {/* Confirm-edit modal */}
         {confirmEdit && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
             <div className="w-72 rounded-xl bg-white p-5 shadow-xl">
               <p className="mb-1 text-sm font-semibold text-slate-900">ต้องการแก้ไขข้อมูล?</p>
               <p className="mb-4 text-xs text-slate-500">
