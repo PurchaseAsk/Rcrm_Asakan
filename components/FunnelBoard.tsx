@@ -155,9 +155,9 @@ export function FunnelBoard({
                   (stageIndex === 0 && (!lead.stage_id || !knownStageIds.has(lead.stage_id))),
                 )
                 .sort((a, b) => {
-                  const aPin = isPinned(a) ? 1 : 0;
-                  const bPin = isPinned(b) ? 1 : 0;
-                  return bPin - aPin;
+                  const aTime = new Date(a.stage_entered_at ?? a.last_activity_at ?? 0).getTime();
+                  const bTime = new Date(b.stage_entered_at ?? b.last_activity_at ?? 0).getTime();
+                  return bTime - aTime;
                 });
 
               if (collapsed) {
