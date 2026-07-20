@@ -64,9 +64,6 @@ function isUnread(conv: Conversation): boolean {
   return new Date(conv.last_message_at) > new Date(conv.last_read_at);
 }
 
-type AppImagesCache = { folders: string[]; images: { name: string; url: string }[] };
-const appImagesCache = new Map<string, AppImagesCache>();
-
 export function ChatInbox({
   pages,
   profiles,
@@ -606,14 +603,6 @@ export function ChatInbox({
   }
 
   async function loadAppImages(project: "wela" | "elysium", folder?: string | null) {
-    const cacheKey = `${project}:${folder ?? ""}`;
-    const cached = appImagesCache.get(cacheKey);
-    if (cached) {
-      setAppFolders(cached.folders);
-      setAppImages(cached.images);
-      setSelectedImgUrls([]);
-      return;
-    }
     setLoadingAppImages(true);
     setAppImages([]);
     setAppFolders([]);
@@ -624,10 +613,8 @@ export function ChatInbox({
       const res = await fetch(`/api/project-images?${params.toString()}`);
       if (!res.ok) return;
       const json = (await res.json()) as { folders: string[]; images: { name: string; url: string }[] };
-      const result = { folders: json.folders ?? [], images: json.images ?? [] };
-      appImagesCache.set(cacheKey, result);
-      setAppFolders(result.folders);
-      setAppImages(result.images);
+      setAppFolders(json.folders ?? []);
+      setAppImages(json.images ?? []);
     } finally {
       setLoadingAppImages(false);
     }
