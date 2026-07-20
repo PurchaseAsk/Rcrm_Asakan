@@ -1559,7 +1559,7 @@ export function ChatInbox({
                   {appImagesProject === "wela" ? "Wela" : "Elysium"}
                 </button>
                 <span className="text-slate-400">›</span>
-                <span className="capitalize text-slate-700">{appImagesFolder}</span>
+                <span className="capitalize text-slate-700">{appImagesFolder.split("/").pop()}</span>
               </div>
             )}
             {/* Content */}
@@ -1615,7 +1615,7 @@ export function ChatInbox({
                   {appFolders.map((folder) => (
                     <button
                       key={folder}
-                      onClick={() => { setAppImagesFolder(folder); void loadAppImages(appImagesProject, folder); }}
+                      onClick={() => { const p = appImagesFolder ? `${appImagesFolder}/${folder}` : folder; setAppImagesFolder(p); void loadAppImages(appImagesProject, p); }}
                       className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
                     >
                       <svg className="h-8 w-8" fill="currentColor" viewBox="0 0 24 24">
