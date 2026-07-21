@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Download, Filter, Plus, RefreshCcw, Search, Upload, X } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Lead, Pipeline, Profile, Stage } from "@/types/crm";
+import type { Lead, Page, Pipeline, Profile, Stage } from "@/types/crm";
 import { actorName, MANUAL_SOURCES, pillClass, sourceLabel } from "@/lib/helpers";
 import { IconButton } from "@/components/ui/IconButton";
 import { LeadTable } from "@/components/LeadTable";
@@ -106,6 +106,7 @@ export function LeadsPanel({
   reload,
   pipelines,
   stages,
+  pages,
   search,
   setSearch,
   userRole,
@@ -121,6 +122,7 @@ export function LeadsPanel({
   reload: () => void;
   pipelines: Pipeline[];
   stages: Stage[];
+  pages: Page[];
   search: string;
   setSearch: (v: string) => void;
   userRole?: string;
@@ -336,6 +338,7 @@ export function LeadsPanel({
     const now = new Date().toISOString();
     const knownSources = MANUAL_SOURCES.map((s) => s.value);
     const pipelineMap = new Map(pipelines.map((p) => [p.name.toLowerCase(), p.id]));
+    const pageMap = new Map(pages.map((p) => [p.name.toLowerCase(), p.id]));
     const profileMap = new Map(
       profiles.map((p) => [(p.full_name ?? p.email ?? "").toLowerCase(), p.id]),
     );
@@ -344,6 +347,7 @@ export function LeadsPanel({
     type InsertRow = {
       customer_name: string; phone: string | null; email: string | null;
       line_id: string | null; source: string; pipeline_id: string;
+      page_id: string | null;
       stage_id: string | null; stage_entered_at: string | null;
       assigned_to: string | null; status: "active"; last_activity_at: string;
     };
@@ -386,9 +390,13 @@ export function LeadsPanel({
       const csvAssignee = getField(row, "มอบหมายให้", "assigned_to", "sales").toLowerCase();
       const resolvedAssignedTo = (csvAssignee && profileMap.get(csvAssignee)) || null;
 
+      const csvPage = getField(row, "page", "page_id", "เพจ").toLowerCase();
+      const resolvedPageId = (csvPage && pageMap.get(csvPage)) || null;
+
       candidates.push({
         customer_name: name, phone, email, line_id: lineId, source,
-        pipeline_id: resolvedPipelineId, stage_id: resolvedStageId,
+        pipeline_id: resolvedPipelineId, page_id: resolvedPageId,
+        stage_id: resolvedStageId,
         stage_entered_at: resolvedStageId ? now : null,
         assigned_to: resolvedAssignedTo, status: "active", last_activity_at: now,
         note,

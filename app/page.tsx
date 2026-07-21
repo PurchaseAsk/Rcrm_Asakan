@@ -556,6 +556,7 @@ export default function HomePage() {
               reload={reload}
               pipelines={data.pipelines}
               stages={data.stages}
+              pages={data.pages}
               search={search}
               setSearch={setSearch}
               userRole={profile?.role}
