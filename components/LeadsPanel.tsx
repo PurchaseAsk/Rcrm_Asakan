@@ -827,8 +827,8 @@ export function LeadsPanel({
                   <p className="font-medium text-slate-700">รูปแบบ CSV (row แรกต้องเป็น header):</p>
                   <button
                     onClick={() => {
-                      const headers = ["ชื่อลูกค้า","เบอร์โทร","Email","LineID","แหล่งที่มา","Pipeline","Stage","มอบหมายให้","หมายเหตุ"];
-                      const example = ["สมชาย ใจดี","0812345678","somchai@email.com","@somchai","referral","Wela Pipeline","โทรติดต่อ","ชื่อ Sales","หมายเหตุเพิ่มเติม"];
+                      const headers = ["ชื่อลูกค้า","เบอร์โทร","Email","LineID","แหล่งที่มา","Pipeline","Page","Stage","มอบหมายให้","หมายเหตุ"];
+                      const example = ["สมชาย ใจดี","0812345678","somchai@email.com","@somchai","referral","Wela Pipeline","Wela Condo","โทรติดต่อ","ชื่อ Sales","หมายเหตุเพิ่มเติม"];
                       const csv = [headers, example].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
                       const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
                       const a = document.createElement("a");
@@ -843,8 +843,8 @@ export function LeadsPanel({
                   </button>
                 </div>
                 <div className="space-y-0.5">
-                  <p className="font-mono text-slate-500">ชื่อลูกค้า · เบอร์โทร · Email · LineID · แหล่งที่มา · Pipeline · Stage · มอบหมายให้ · หมายเหตุ</p>
-                  <p className="text-slate-400">• ชื่อลูกค้า = บังคับ · เบอร์ซ้ำจะถูกข้าม · แหล่งที่มา: website, walk_in, cold_call, referral, event, line, facebook, tiktok, other</p>
+                  <p className="font-mono text-slate-500">ชื่อลูกค้า · เบอร์โทร · Email · LineID · แหล่งที่มา · Pipeline · Page · Stage · มอบหมายให้ · หมายเหตุ</p>
+                  <p className="text-slate-400">• ชื่อลูกค้า = บังคับ · เบอร์ซ้ำจะถูกข้าม · Page = ชื่อ Facebook Page ให้ตรงกับที่ตั้งในระบบ · แหล่งที่มา: website, walk_in, cold_call, referral, event, line, facebook, tiktok, other</p>
                 </div>
               </div>
 
