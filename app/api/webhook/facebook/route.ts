@@ -794,7 +794,20 @@ async function enrichSenderName(
     const participants = data.data?.[0]?.participants?.data ?? [];
     const user = participants.find((p) => p.id !== fbPageId);
     if (user?.name) {
-      await supabase.from("conversations").update({ sender_name: user.name }).eq("id", convId);
+      let pictureUrl: string | null = null;
+      try {
+        const picRes = await fetch(
+          `https://graph.facebook.com/v20.0/${psid}?fields=profile_pic&access_token=${encodeURIComponent(token)}`,
+        );
+        const picData = (await picRes.json().catch(() => ({}))) as { profile_pic?: string };
+        pictureUrl = picData.profile_pic ?? null;
+      } catch {
+        pictureUrl = null;
+      }
+      await supabase
+        .from("conversations")
+        .update({ sender_name: user.name, ...(pictureUrl ? { picture_url: pictureUrl } : {}) })
+        .eq("id", convId);
       return user.name;
     }
     return null;
