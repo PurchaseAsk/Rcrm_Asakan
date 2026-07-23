@@ -105,6 +105,7 @@ export function ChatInbox({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
+  const enrichingConvIdsRef = useRef<Set<string>>(new Set());
 
   type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
   type QuickReply = { id: string; title: string; content: string };
@@ -434,7 +435,7 @@ export function ChatInbox({
     void loadNotes(conv.id);
     void markRead(conv.id);
 
-    if (!conv.sender_name) {
+    if (!conv.sender_name || !conv.picture_url) {
       try {
         const res = await fetch("/api/facebook/enrich-name", {
           method: "POST",
@@ -442,8 +443,8 @@ export function ChatInbox({
           body: JSON.stringify({ conv_id: conv.id }),
         });
         if (res.ok) {
-          const result = (await res.json()) as { name?: string | null };
-          if (result.name) await refreshConversations();
+          const result = (await res.json()) as { name?: string | null; picture_url?: string | null };
+          if (result.name || result.picture_url) await refreshConversations();
         }
       } catch { /* non-critical */ }
     }
@@ -863,6 +864,36 @@ export function ChatInbox({
   const conversationCountLabel = hasActiveConversationFilters
     ? `${visibleConvs.length} shown (${conversations.length}${conversationTotal !== null ? ` of ${conversationTotal}` : ""} loaded)`
     : `${conversations.length}${conversationTotal !== null && hasMoreConversations ? ` of ${conversationTotal}` : ""} conversations`;
+
+  useEffect(() => {
+    const targets = visibleConvs
+      .filter((conv) => (!conv.sender_name || !conv.picture_url) && !enrichingConvIdsRef.current.has(conv.id))
+      .slice(0, 6);
+    if (!targets.length) return;
+
+    let cancelled = false;
+    targets.forEach((conv) => enrichingConvIdsRef.current.add(conv.id));
+    void Promise.all(
+      targets.map(async (conv) => {
+        try {
+          const res = await fetch("/api/facebook/enrich-name", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ conv_id: conv.id }),
+          });
+          if (!res.ok) return false;
+          const result = (await res.json()) as { name?: string | null; picture_url?: string | null };
+          return Boolean(result.name || result.picture_url);
+        } catch {
+          return false;
+        }
+      }),
+    ).then((updated) => {
+      if (!cancelled && updated.some(Boolean)) void refreshConversations();
+    });
+
+    return () => { cancelled = true; };
+  }, [visibleConvs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleTagFilter(tagId: string) {
     setFilterTagIds((prev) => {

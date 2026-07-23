@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
   type ConvRow = { sender_psid: string; sender_name: string | null; picture_url: string | null; facebook_pages: { page_id: string; token: string | null } };
   const row = conv as unknown as ConvRow;
 
-  if (row.sender_name && row.picture_url) return NextResponse.json({ name: row.sender_name });
+  if (row.sender_name && row.picture_url) {
+    return NextResponse.json({ name: row.sender_name, picture_url: row.picture_url });
+  }
 
   const fbPageId = row.facebook_pages?.page_id;
   const dbToken = row.facebook_pages?.token ?? null;
@@ -52,18 +54,21 @@ export async function POST(request: NextRequest) {
   }
 
   if (nameToSave) {
-    let pictureUrl: string | null = null;
+    let pictureUrl: string | null = row.picture_url;
     try {
       const picRes = await fetch(
         `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(token)}`,
       );
       const picData = (await picRes.json()) as { profile_pic?: string; error?: { message?: string; code?: number } };
-      console.log("[enrich-name] profile API:", JSON.stringify(picData));
-      if (picData.profile_pic) pictureUrl = picData.profile_pic;
+      if (!picRes.ok) {
+        console.error("[enrich-name] profile API error response:", JSON.stringify(picData));
+      } else if (picData.profile_pic) {
+        pictureUrl = picData.profile_pic;
+      }
     } catch (e) { console.error("[enrich-name] profile API error:", e); }
     await supabase.from("conversations").update({ sender_name: nameToSave, picture_url: pictureUrl }).eq("id", conv_id);
-    return NextResponse.json({ name: nameToSave });
+    return NextResponse.json({ name: nameToSave, picture_url: pictureUrl });
   }
 
-  return NextResponse.json({ name: null });
+  return NextResponse.json({ name: null, picture_url: null });
 }
