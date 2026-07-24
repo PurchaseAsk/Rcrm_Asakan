@@ -41,38 +41,34 @@ export async function POST(request: NextRequest) {
 
   if (!nameToSave || !pictureUrl) {
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,picture.redirect(false){url}}&access_token=${encodeURIComponent(token)}`,
+      `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,picture}&access_token=${encodeURIComponent(token)}`,
     );
     if (!res.ok) {
-      const err = (await res.json()) as unknown;
+      const err = (await res.json()) as { error?: { code?: number } };
+      if (err.error?.code === 4) {
+        console.warn("[enrich-name] rate limited by Facebook, skipping psid=%s", row.sender_psid);
+        return NextResponse.json({ name: row.sender_name, picture_url: row.picture_url, rate_limited: true });
+      }
       console.error("[enrich-name] Conversations API error psid=%s:", row.sender_psid, JSON.stringify(err));
       return NextResponse.json({ error: "Graph API error" }, { status: 500 });
     }
-    type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; picture?: unknown }[] } }[] };
+    type PicField = { data?: { url?: string; is_silhouette?: boolean }; url?: string } | string;
+    type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; picture?: PicField }[] } }[] };
     const data = (await res.json()) as ConvApiResult;
     const participants = data.data?.[0]?.participants?.data ?? [];
     const user = participants.find((p) => p.id !== fbPageId);
     console.log("[enrich-name] participant user raw:", JSON.stringify(user));
     nameToSave = nameToSave ?? user?.name ?? null;
-    const pic = user?.picture as { data?: { url?: string } } | string | undefined;
-    pictureUrl = pictureUrl ?? (typeof pic === "string" ? pic : pic?.data?.url) ?? null;
-  }
-
-  // Fallback: fetch picture via /{psid}/picture if still missing
-  if (nameToSave && !pictureUrl) {
-    try {
-      const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}/picture?redirect=false&type=large&access_token=${encodeURIComponent(token)}`,
-      );
-      const picRaw = (await picRes.json()) as unknown;
-      console.log("[enrich-name] picture fallback raw:", JSON.stringify(picRaw));
-      if (picRes.ok) {
-        const picData = picRaw as { data?: { url?: string; is_silhouette?: boolean } };
-        if (picData.data?.url && !picData.data.is_silhouette) {
-          pictureUrl = picData.data.url;
-        }
+    if (!pictureUrl && user?.picture) {
+      const pic = user.picture;
+      if (typeof pic === "string") {
+        pictureUrl = pic;
+      } else if (pic.data?.url && !pic.data.is_silhouette) {
+        pictureUrl = pic.data.url;
+      } else if (pic.url) {
+        pictureUrl = pic.url;
       }
-    } catch (e) { console.error("[enrich-name] picture fallback error:", e); }
+    }
   }
 
   if (nameToSave) {
