@@ -36,36 +36,26 @@ export async function POST(request: NextRequest) {
   }
 
   let nameToSave = row.sender_name;
+  let pictureUrl: string | null = row.picture_url;
 
-  if (!nameToSave) {
+  if (!nameToSave || !pictureUrl) {
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id}&access_token=${encodeURIComponent(token)}`,
+      `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,picture}&access_token=${encodeURIComponent(token)}`,
     );
     if (!res.ok) {
       const err = (await res.json()) as unknown;
       console.error("[enrich-name] Conversations API error psid=%s:", row.sender_psid, JSON.stringify(err));
       return NextResponse.json({ error: "Graph API error" }, { status: 500 });
     }
-    type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string }[] } }[] };
+    type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; picture?: { data?: { url?: string } } }[] } }[] };
     const data = (await res.json()) as ConvApiResult;
     const participants = data.data?.[0]?.participants?.data ?? [];
     const user = participants.find((p) => p.id !== fbPageId);
-    nameToSave = user?.name ?? null;
+    nameToSave = nameToSave ?? user?.name ?? null;
+    pictureUrl = pictureUrl ?? user?.picture?.data?.url ?? null;
   }
 
   if (nameToSave) {
-    let pictureUrl: string | null = row.picture_url;
-    try {
-      const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(token)}`,
-      );
-      const picData = (await picRes.json()) as { profile_pic?: string; error?: { message?: string; code?: number } };
-      if (!picRes.ok) {
-        console.error("[enrich-name] profile API error response:", JSON.stringify(picData));
-      } else if (picData.profile_pic) {
-        pictureUrl = picData.profile_pic;
-      }
-    } catch (e) { console.error("[enrich-name] profile API error:", e); }
     await supabase.from("conversations").update({ sender_name: nameToSave, picture_url: pictureUrl }).eq("id", conv_id);
     return NextResponse.json({ name: nameToSave, picture_url: pictureUrl });
   }
