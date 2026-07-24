@@ -797,10 +797,10 @@ async function enrichSenderName(
       let pictureUrl: string | null = null;
       try {
         const picRes = await fetch(
-          `https://graph.facebook.com/v20.0/${psid}?fields=picture.redirect(false){url,is_silhouette}&access_token=${encodeURIComponent(token)}`,
+          `https://graph.facebook.com/v20.0/${psid}?fields=profile_pic&access_token=${encodeURIComponent(token)}`,
         );
-        const picData = (await picRes.json().catch(() => ({}))) as { picture?: { data?: { url?: string; is_silhouette?: boolean } } };
-        pictureUrl = (!picData.picture?.data?.is_silhouette && picData.picture?.data?.url) ? picData.picture.data.url : null;
+        const picData = (await picRes.json().catch(() => ({}))) as { profile_pic?: string };
+        pictureUrl = picData.profile_pic ?? null;
       } catch {
         pictureUrl = null;
       }

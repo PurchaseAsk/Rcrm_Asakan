@@ -59,19 +59,19 @@ export async function POST(request: NextRequest) {
     nameToSave = nameToSave ?? user?.name ?? null;
   }
 
-  // Get profile picture via /{psid}?fields=picture
+  // Get profile picture — some users restrict this (100/33) which is expected
   if (nameToSave && !pictureUrl) {
     try {
       const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=picture.redirect(false){url,is_silhouette}&access_token=${encodeURIComponent(token)}`,
+        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=profile_pic&access_token=${encodeURIComponent(token)}`,
       );
-      const picRaw = (await picRes.json()) as { picture?: { data?: { url?: string; is_silhouette?: boolean } }; error?: { code?: number; message?: string } };
-      console.log("[enrich-name] picture raw:", JSON.stringify(picRaw));
-      if (picRes.ok && picRaw.picture?.data?.url && !picRaw.picture.data.is_silhouette) {
-        pictureUrl = picRaw.picture.data.url;
+      const picRaw = (await picRes.json()) as { profile_pic?: string; error?: { code?: number; error_subcode?: number } };
+      if (picRes.ok && picRaw.profile_pic) {
+        pictureUrl = picRaw.profile_pic;
       } else if (picRaw.error?.code === 4) {
-        console.warn("[enrich-name] picture rate limited for psid=%s", row.sender_psid);
+        console.warn("[enrich-name] picture rate limited psid=%s", row.sender_psid);
       }
+      // 100/33 = user privacy restricted, skip silently
     } catch (e) { console.error("[enrich-name] picture error:", e); }
   }
 
