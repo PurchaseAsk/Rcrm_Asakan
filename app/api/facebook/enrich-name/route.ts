@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   if (!nameToSave || !pictureUrl) {
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,picture}&access_token=${encodeURIComponent(token)}`,
+      `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,picture.redirect(false){url}}&access_token=${encodeURIComponent(token)}`,
     );
     if (!res.ok) {
       const err = (await res.json()) as unknown;
@@ -53,6 +53,21 @@ export async function POST(request: NextRequest) {
     const user = participants.find((p) => p.id !== fbPageId);
     nameToSave = nameToSave ?? user?.name ?? null;
     pictureUrl = pictureUrl ?? user?.picture?.data?.url ?? null;
+  }
+
+  // Fallback: fetch picture via /{psid}/picture if still missing
+  if (nameToSave && !pictureUrl) {
+    try {
+      const picRes = await fetch(
+        `https://graph.facebook.com/v20.0/${row.sender_psid}/picture?redirect=false&type=large&access_token=${encodeURIComponent(token)}`,
+      );
+      if (picRes.ok) {
+        const picData = (await picRes.json()) as { data?: { url?: string; is_silhouette?: boolean } };
+        if (picData.data?.url && !picData.data.is_silhouette) {
+          pictureUrl = picData.data.url;
+        }
+      }
+    } catch (e) { console.error("[enrich-name] picture fallback error:", e); }
   }
 
   if (nameToSave) {
