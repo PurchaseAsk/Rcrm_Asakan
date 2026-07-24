@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   type ConvRow = { sender_psid: string; sender_name: string | null; picture_url: string | null; facebook_pages: { page_id: string; token: string | null } };
   const row = conv as unknown as ConvRow;
 
+  console.log("[enrich-name] conv_id=%s name=%s pic=%s", conv_id, row.sender_name ?? "null", row.picture_url ? row.picture_url.slice(0, 60) : "null");
   if (row.sender_name && row.picture_url) {
     return NextResponse.json({ name: row.sender_name, picture_url: row.picture_url });
   }
@@ -47,12 +48,14 @@ export async function POST(request: NextRequest) {
       console.error("[enrich-name] Conversations API error psid=%s:", row.sender_psid, JSON.stringify(err));
       return NextResponse.json({ error: "Graph API error" }, { status: 500 });
     }
-    type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; picture?: { data?: { url?: string } } }[] } }[] };
+    type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; picture?: unknown }[] } }[] };
     const data = (await res.json()) as ConvApiResult;
     const participants = data.data?.[0]?.participants?.data ?? [];
     const user = participants.find((p) => p.id !== fbPageId);
+    console.log("[enrich-name] participant user raw:", JSON.stringify(user));
     nameToSave = nameToSave ?? user?.name ?? null;
-    pictureUrl = pictureUrl ?? user?.picture?.data?.url ?? null;
+    const pic = user?.picture as { data?: { url?: string } } | string | undefined;
+    pictureUrl = pictureUrl ?? (typeof pic === "string" ? pic : pic?.data?.url) ?? null;
   }
 
   // Fallback: fetch picture via /{psid}/picture if still missing
@@ -61,8 +64,10 @@ export async function POST(request: NextRequest) {
       const picRes = await fetch(
         `https://graph.facebook.com/v20.0/${row.sender_psid}/picture?redirect=false&type=large&access_token=${encodeURIComponent(token)}`,
       );
+      const picRaw = (await picRes.json()) as unknown;
+      console.log("[enrich-name] picture fallback raw:", JSON.stringify(picRaw));
       if (picRes.ok) {
-        const picData = (await picRes.json()) as { data?: { url?: string; is_silhouette?: boolean } };
+        const picData = picRaw as { data?: { url?: string; is_silhouette?: boolean } };
         if (picData.data?.url && !picData.data.is_silhouette) {
           pictureUrl = picData.data.url;
         }
