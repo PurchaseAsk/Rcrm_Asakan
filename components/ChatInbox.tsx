@@ -887,7 +887,11 @@ export function ChatInbox({
             enrichingConvIdsRef.current.delete(conv.id);
             return false;
           }
-          const result = (await res.json()) as { name?: string | null; picture_url?: string | null };
+          const result = (await res.json()) as { name?: string | null; picture_url?: string | null; rate_limited?: boolean };
+          if (result.rate_limited) {
+            enrichingConvIdsRef.current.delete(conv.id);
+            return false;
+          }
           if (!result.name && !result.picture_url) enrichingConvIdsRef.current.delete(conv.id);
           return Boolean(result.name || result.picture_url);
         } catch {
@@ -896,8 +900,11 @@ export function ChatInbox({
         }
       }),
     ).then((updated) => {
-      enrichingBatchActiveRef.current = false;
-      if (updated.some(Boolean)) void refreshConversations();
+      // 3-second delay before next batch to avoid Facebook rate limits
+      setTimeout(() => {
+        enrichingBatchActiveRef.current = false;
+        if (updated.some(Boolean)) void refreshConversations();
+      }, 3000);
     });
   }, [visibleConvs]); // eslint-disable-line react-hooks/exhaustive-deps
 
