@@ -105,8 +105,6 @@ export function ChatInbox({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
-  const enrichingConvIdsRef = useRef<Set<string>>(new Set());
-  const enrichingBatchActiveRef = useRef(false);
 
   type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
   type QuickReply = { id: string; title: string; content: string };
@@ -865,48 +863,6 @@ export function ChatInbox({
   const conversationCountLabel = hasActiveConversationFilters
     ? `${visibleConvs.length} shown (${conversations.length}${conversationTotal !== null ? ` of ${conversationTotal}` : ""} loaded)`
     : `${conversations.length}${conversationTotal !== null && hasMoreConversations ? ` of ${conversationTotal}` : ""} conversations`;
-
-  useEffect(() => {
-    if (enrichingBatchActiveRef.current) return;
-    const targets = visibleConvs
-      .filter((conv) => (!conv.sender_name || !conv.picture_url) && !enrichingConvIdsRef.current.has(conv.id))
-      .slice(0, 0); // disabled: enrich on click only
-    if (!targets.length) return;
-
-    enrichingBatchActiveRef.current = true;
-    targets.forEach((conv) => enrichingConvIdsRef.current.add(conv.id));
-    void Promise.all(
-      targets.map(async (conv) => {
-        try {
-          const res = await fetch("/api/facebook/enrich-name", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ conv_id: conv.id }),
-          });
-          if (!res.ok) {
-            enrichingConvIdsRef.current.delete(conv.id);
-            return false;
-          }
-          const result = (await res.json()) as { name?: string | null; picture_url?: string | null; rate_limited?: boolean };
-          if (result.rate_limited) {
-            enrichingConvIdsRef.current.delete(conv.id);
-            return false;
-          }
-          if (!result.name && !result.picture_url) enrichingConvIdsRef.current.delete(conv.id);
-          return Boolean(result.name || result.picture_url);
-        } catch {
-          enrichingConvIdsRef.current.delete(conv.id);
-          return false;
-        }
-      }),
-    ).then((updated) => {
-      // 3-second delay before next batch to avoid Facebook rate limits
-      setTimeout(() => {
-        enrichingBatchActiveRef.current = false;
-        if (updated.some(Boolean)) void refreshConversations();
-      }, 3000);
-    });
-  }, [visibleConvs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleTagFilter(tagId: string) {
     setFilterTagIds((prev) => {
