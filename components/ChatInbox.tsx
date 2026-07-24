@@ -870,7 +870,7 @@ export function ChatInbox({
     if (enrichingBatchActiveRef.current) return;
     const targets = visibleConvs
       .filter((conv) => (!conv.sender_name || !conv.picture_url) && !enrichingConvIdsRef.current.has(conv.id))
-      .slice(0, 2);
+      .slice(0, 0); // disabled: enrich on click only
     if (!targets.length) return;
 
     enrichingBatchActiveRef.current = true;
