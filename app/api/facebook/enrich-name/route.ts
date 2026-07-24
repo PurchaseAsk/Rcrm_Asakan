@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
   type ConvRow = { sender_psid: string; sender_name: string | null; picture_url: string | null; facebook_pages: { page_id: string; token: string | null } };
   const row = conv as unknown as ConvRow;
 
-  console.log("[enrich-name] conv_id=%s name=%s pic=%s", conv_id, row.sender_name ?? "null", row.picture_url ? row.picture_url.slice(0, 60) : "null");
   if (row.sender_name && row.picture_url) {
     return NextResponse.json({ name: row.sender_name, picture_url: row.picture_url });
   }
@@ -57,18 +56,23 @@ export async function POST(request: NextRequest) {
     const data = (await res.json()) as ConvApiResult;
     const participants = data.data?.[0]?.participants?.data ?? [];
     const user = participants.find((p) => p.id !== fbPageId);
-    console.log("[enrich-name] participant user raw:", JSON.stringify(user));
     nameToSave = nameToSave ?? user?.name ?? null;
-    if (!pictureUrl && user?.picture) {
-      const pic = user.picture;
-      if (typeof pic === "string") {
-        pictureUrl = pic;
-      } else if (pic.data?.url && !pic.data.is_silhouette) {
-        pictureUrl = pic.data.url;
-      } else if (pic.url) {
-        pictureUrl = pic.url;
+  }
+
+  // Get profile picture via /{psid}/picture endpoint
+  if (nameToSave && !pictureUrl) {
+    try {
+      const picRes = await fetch(
+        `https://graph.facebook.com/v20.0/${row.sender_psid}/picture?redirect=false&type=large&access_token=${encodeURIComponent(token)}`,
+      );
+      const picRaw = (await picRes.json()) as { data?: { url?: string; is_silhouette?: boolean }; error?: { code?: number; message?: string } };
+      console.log("[enrich-name] picture raw:", JSON.stringify(picRaw));
+      if (picRes.ok && picRaw.data?.url && !picRaw.data.is_silhouette) {
+        pictureUrl = picRaw.data.url;
+      } else if (picRaw.error?.code === 4) {
+        console.warn("[enrich-name] picture rate limited for psid=%s", row.sender_psid);
       }
-    }
+    } catch (e) { console.error("[enrich-name] picture error:", e); }
   }
 
   if (nameToSave) {
