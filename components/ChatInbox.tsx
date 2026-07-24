@@ -881,10 +881,15 @@ export function ChatInbox({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ conv_id: conv.id }),
           });
-          if (!res.ok) return false;
+          if (!res.ok) {
+            enrichingConvIdsRef.current.delete(conv.id);
+            return false;
+          }
           const result = (await res.json()) as { name?: string | null; picture_url?: string | null };
+          if (!result.name && !result.picture_url) enrichingConvIdsRef.current.delete(conv.id);
           return Boolean(result.name || result.picture_url);
         } catch {
+          enrichingConvIdsRef.current.delete(conv.id);
           return false;
         }
       }),
