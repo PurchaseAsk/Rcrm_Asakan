@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   if (nameToSave && !pictureUrl) {
     try {
       const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=profile_pic&access_token=${encodeURIComponent(token)}`,
+        `https://graph.facebook.com/v16.0/${row.sender_psid}?fields=profile_pic&access_token=${encodeURIComponent(token)}`,
       );
       const picRaw = (await picRes.json()) as { profile_pic?: string; error?: { code?: number; error_subcode?: number } };
       if (picRes.ok && picRaw.profile_pic) {
