@@ -46,25 +46,45 @@ export async function POST(request: NextRequest) {
 
   const messagePayload: Record<string, unknown> = { text: outboundText };
 
-  const fbRes = await fetch(`https://graph.facebook.com/v20.0/${page.page_id}/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${page.token}`,
-    },
-    body: JSON.stringify({
-      recipient: { id: senderPsid },
-      message: messagePayload,
-      messaging_type: "RESPONSE",
-    }),
-  });
+  const sendToFacebook = async (messagingType: string, tag?: string) =>
+    fetch(`https://graph.facebook.com/v20.0/${page.page_id}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${page.token}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: senderPsid },
+        message: messagePayload,
+        messaging_type: messagingType,
+        ...(tag ? { tag } : {}),
+      }),
+    });
+
+  let fbRes = await sendToFacebook("RESPONSE");
+  type FbError = { error?: { code?: number; message?: string } };
 
   if (!fbRes.ok) {
-    const err = (await fbRes.json()) as { error?: { message?: string } };
-    return NextResponse.json(
-      { error: err.error?.message ?? "Facebook API error" },
-      { status: 500 },
-    );
+    const err = (await fbRes.json()) as FbError;
+    const code = err.error?.code;
+    // 551 = outside 24-hour window; retry with HUMAN_AGENT tag (7-day window)
+    if (code === 551 || code === 200) {
+      console.log("[send] RESPONSE failed code=%d, retrying with HUMAN_AGENT", code);
+      fbRes = await sendToFacebook("MESSAGE_TAG", "HUMAN_AGENT");
+      if (!fbRes.ok) {
+        const err2 = (await fbRes.json()) as FbError;
+        console.error("[send] HUMAN_AGENT also failed:", JSON.stringify(err2));
+        return NextResponse.json(
+          { error: err2.error?.message ?? "Facebook API error" },
+          { status: 500 },
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: err.error?.message ?? "Facebook API error" },
+        { status: 500 },
+      );
+    }
   }
 
   const fbData = (await fbRes.json()) as { message_id?: string };
