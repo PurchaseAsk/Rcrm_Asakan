@@ -106,6 +106,7 @@ export function ChatInbox({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
   const enrichingConvIdsRef = useRef<Set<string>>(new Set());
+  const enrichingBatchActiveRef = useRef(false);
 
   type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
   type QuickReply = { id: string; title: string; content: string };
@@ -866,12 +867,13 @@ export function ChatInbox({
     : `${conversations.length}${conversationTotal !== null && hasMoreConversations ? ` of ${conversationTotal}` : ""} conversations`;
 
   useEffect(() => {
+    if (enrichingBatchActiveRef.current) return;
     const targets = visibleConvs
       .filter((conv) => (!conv.sender_name || !conv.picture_url) && !enrichingConvIdsRef.current.has(conv.id))
-      .slice(0, 6);
+      .slice(0, 2);
     if (!targets.length) return;
 
-    let cancelled = false;
+    enrichingBatchActiveRef.current = true;
     targets.forEach((conv) => enrichingConvIdsRef.current.add(conv.id));
     void Promise.all(
       targets.map(async (conv) => {
@@ -894,10 +896,9 @@ export function ChatInbox({
         }
       }),
     ).then((updated) => {
-      if (!cancelled && updated.some(Boolean)) void refreshConversations();
+      enrichingBatchActiveRef.current = false;
+      if (updated.some(Boolean)) void refreshConversations();
     });
-
-    return () => { cancelled = true; };
   }, [visibleConvs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleTagFilter(tagId: string) {
