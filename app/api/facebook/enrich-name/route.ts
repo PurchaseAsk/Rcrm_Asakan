@@ -59,16 +59,16 @@ export async function POST(request: NextRequest) {
     nameToSave = nameToSave ?? user?.name ?? null;
   }
 
-  // Get profile picture via /{psid}/picture endpoint
+  // Get profile picture via /{psid}?fields=picture
   if (nameToSave && !pictureUrl) {
     try {
       const picRes = await fetch(
-        `https://graph.facebook.com/v20.0/${row.sender_psid}/picture?redirect=false&type=large&access_token=${encodeURIComponent(token)}`,
+        `https://graph.facebook.com/v20.0/${row.sender_psid}?fields=picture.redirect(false){url,is_silhouette}&access_token=${encodeURIComponent(token)}`,
       );
-      const picRaw = (await picRes.json()) as { data?: { url?: string; is_silhouette?: boolean }; error?: { code?: number; message?: string } };
+      const picRaw = (await picRes.json()) as { picture?: { data?: { url?: string; is_silhouette?: boolean } }; error?: { code?: number; message?: string } };
       console.log("[enrich-name] picture raw:", JSON.stringify(picRaw));
-      if (picRes.ok && picRaw.data?.url && !picRaw.data.is_silhouette) {
-        pictureUrl = picRaw.data.url;
+      if (picRes.ok && picRaw.picture?.data?.url && !picRaw.picture.data.is_silhouette) {
+        pictureUrl = picRaw.picture.data.url;
       } else if (picRaw.error?.code === 4) {
         console.warn("[enrich-name] picture rate limited for psid=%s", row.sender_psid);
       }
