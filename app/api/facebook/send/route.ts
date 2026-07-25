@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { isFacebookAuthError, resolveMessengerSendMode } from "@/lib/facebook-send";
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
@@ -45,8 +46,12 @@ export async function POST(request: NextRequest) {
   const outboundText = quotePreview ? `ตอบกลับ: "${quotePreview}"\n\n${trimmedText}` : trimmedText;
 
   const messagePayload: Record<string, unknown> = { text: outboundText };
+  const sendMode = await resolveMessengerSendMode(supabase, conversation_id);
+  if ("error" in sendMode) {
+    return NextResponse.json({ error: sendMode.error }, { status: 400 });
+  }
 
-  const sendToFacebook = async (messagingType: string, tag?: string) =>
+  const sendToFacebook = async (payload: Record<string, unknown>) =>
     fetch(`https://graph.facebook.com/v20.0/${page.page_id}/messages`, {
       method: "POST",
       headers: {
@@ -56,29 +61,29 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         recipient: { id: senderPsid },
         message: messagePayload,
-        messaging_type: messagingType,
-        ...(tag ? { tag } : {}),
+        ...payload,
       }),
     });
 
-  let fbRes = await sendToFacebook("RESPONSE");
+  let humanAgentFallback = false;
+  let fbRes = await sendToFacebook(sendMode.payload);
   type FbError = { error?: { code?: number; message?: string } };
 
   if (!fbRes.ok) {
     const err = (await fbRes.json()) as FbError;
     const code = err.error?.code;
-    // 551 = outside 24-hour window; retry with HUMAN_AGENT tag (7-day window)
-    if (code === 551 || code === 200) {
-      console.log("[send] RESPONSE failed code=%d, retrying with HUMAN_AGENT", code);
-      fbRes = await sendToFacebook("MESSAGE_TAG", "HUMAN_AGENT");
+    if (sendMode.mode === "response" && !isFacebookAuthError(code)) {
+      console.log("[send] RESPONSE failed code=%d msg=%s - retrying with HUMAN_AGENT", code, err.error?.message);
+      fbRes = await sendToFacebook({ messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" });
       if (!fbRes.ok) {
         const err2 = (await fbRes.json()) as FbError;
-        console.error("[send] HUMAN_AGENT also failed:", JSON.stringify(err2));
+        console.error("[send] HUMAN_AGENT also failed code=%d msg=%s", err2.error?.code, err2.error?.message);
         return NextResponse.json(
           { error: err2.error?.message ?? "Facebook API error" },
           { status: 500 },
         );
       }
+      humanAgentFallback = true;
     } else {
       return NextResponse.json(
         { error: err.error?.message ?? "Facebook API error" },
@@ -104,5 +109,5 @@ export async function POST(request: NextRequest) {
       .eq("id", conversation_id),
   ]);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, send_mode: sendMode.mode, human_agent_fallback: humanAgentFallback });
 }

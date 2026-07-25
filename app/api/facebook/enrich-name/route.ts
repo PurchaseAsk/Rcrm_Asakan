@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
   type ConvRow = { sender_psid: string; sender_name: string | null; picture_url: string | null; facebook_pages: { page_id: string; token: string | null } };
   const row = conv as unknown as ConvRow;
 
-  if (row.sender_name && row.picture_url) {
+  // Already have name — nothing to enrich
+  if (row.sender_name) {
     return NextResponse.json({ name: row.sender_name, picture_url: row.picture_url });
   }
 
@@ -35,49 +36,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No page token" }, { status: 400 });
   }
 
-  let nameToSave = row.sender_name;
-  let pictureUrl: string | null = row.picture_url;
-
-  if (!nameToSave || !pictureUrl) {
-    const res = await fetch(
-      `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id,picture}&access_token=${encodeURIComponent(token)}`,
-    );
-    if (!res.ok) {
-      const err = (await res.json()) as { error?: { code?: number } };
-      if (err.error?.code === 4) {
-        console.warn("[enrich-name] rate limited by Facebook, skipping psid=%s", row.sender_psid);
-        return NextResponse.json({ name: row.sender_name, picture_url: row.picture_url, rate_limited: true });
-      }
-      console.error("[enrich-name] Conversations API error psid=%s:", row.sender_psid, JSON.stringify(err));
-      return NextResponse.json({ error: "Graph API error" }, { status: 500 });
+  const res = await fetch(
+    `https://graph.facebook.com/v20.0/${fbPageId}/conversations?user_id=${row.sender_psid}&fields=participants{name,id}&access_token=${encodeURIComponent(token)}`,
+  );
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { code?: number } };
+    if (err.error?.code === 4) {
+      console.warn("[enrich-name] rate limited by Facebook, skipping psid=%s", row.sender_psid);
+      return NextResponse.json({ name: null, picture_url: null, rate_limited: true });
     }
-    type PicField = { data?: { url?: string; is_silhouette?: boolean }; url?: string } | string;
-    type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string; picture?: PicField }[] } }[] };
-    const data = (await res.json()) as ConvApiResult;
-    const participants = data.data?.[0]?.participants?.data ?? [];
-    const user = participants.find((p) => p.id !== fbPageId);
-    nameToSave = nameToSave ?? user?.name ?? null;
+    console.error("[enrich-name] Conversations API error psid=%s:", row.sender_psid, JSON.stringify(err));
+    return NextResponse.json({ error: "Graph API error" }, { status: 500 });
   }
 
-  // Get profile picture — some users restrict this (100/33) which is expected
-  if (nameToSave && !pictureUrl) {
-    try {
-      const picRes = await fetch(
-        `https://graph.facebook.com/v16.0/${row.sender_psid}?fields=profile_pic&access_token=${encodeURIComponent(token)}`,
-      );
-      const picRaw = (await picRes.json()) as { profile_pic?: string; error?: { code?: number; error_subcode?: number } };
-      if (picRes.ok && picRaw.profile_pic) {
-        pictureUrl = picRaw.profile_pic;
-      } else if (picRaw.error?.code === 4) {
-        console.warn("[enrich-name] picture rate limited psid=%s", row.sender_psid);
-      }
-      // 100/33 = user privacy restricted, skip silently
-    } catch (e) { console.error("[enrich-name] picture error:", e); }
-  }
+  type ConvApiResult = { data?: { participants?: { data?: { name?: string; id?: string }[] } }[] };
+  const data = (await res.json()) as ConvApiResult;
+  const participants = data.data?.[0]?.participants?.data ?? [];
+  const user = participants.find((p) => p.id !== fbPageId);
+  const nameToSave = user?.name ?? null;
 
   if (nameToSave) {
-    await supabase.from("conversations").update({ sender_name: nameToSave, picture_url: pictureUrl }).eq("id", conv_id);
-    return NextResponse.json({ name: nameToSave, picture_url: pictureUrl });
+    await supabase.from("conversations").update({ sender_name: nameToSave }).eq("id", conv_id);
+    return NextResponse.json({ name: nameToSave, picture_url: null });
   }
 
   return NextResponse.json({ name: null, picture_url: null });
