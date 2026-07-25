@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { isFacebookAuthError, resolveMessengerSendMode } from "@/lib/facebook-send";
 
 function adminSupabase() {
   return createClient(
@@ -42,30 +43,51 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No page token" }, { status: 400 });
   }
 
-  const fbRes = await fetch(`https://graph.facebook.com/v20.0/${page.page_id}/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${page.token}`,
-    },
-    body: JSON.stringify({
-      recipient: { id: senderPsid },
-      message: {
-        attachment: {
-          type: "image",
-          payload: { url: image_url, is_reusable: true },
-        },
-      },
-      messaging_type: "RESPONSE",
-    }),
-  });
+  const sendMode = await resolveMessengerSendMode(supabase, conversation_id);
+  if ("error" in sendMode) {
+    return NextResponse.json({ error: sendMode.error }, { status: 400 });
+  }
 
+  const messagePayload = {
+    attachment: {
+      type: "image",
+      payload: { url: image_url, is_reusable: true },
+    },
+  };
+  const sendToFacebook = async (payload: Record<string, unknown>) =>
+    fetch(`https://graph.facebook.com/v20.0/${page.page_id}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${page.token}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: senderPsid },
+        message: messagePayload,
+        ...payload,
+      }),
+    });
+
+  let humanAgentFallback = false;
+  let fbRes = await sendToFacebook(sendMode.payload);
   if (!fbRes.ok) {
-    const err = (await fbRes.json()) as { error?: { message?: string } };
-    return NextResponse.json(
-      { error: err.error?.message ?? "Facebook API error" },
-      { status: 500 },
-    );
+    const err = (await fbRes.json()) as { error?: { code?: number; message?: string } };
+    if (sendMode.mode === "response" && !isFacebookAuthError(err.error?.code)) {
+      fbRes = await sendToFacebook({ messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" });
+      if (!fbRes.ok) {
+        const err2 = (await fbRes.json()) as { error?: { message?: string } };
+        return NextResponse.json(
+          { error: err2.error?.message ?? "Facebook API error" },
+          { status: 500 },
+        );
+      }
+      humanAgentFallback = true;
+    } else {
+      return NextResponse.json(
+        { error: err.error?.message ?? "Facebook API error" },
+        { status: 500 },
+      );
+    }
   }
 
   const fbData = (await fbRes.json()) as { message_id?: string };
@@ -86,5 +108,5 @@ export async function POST(request: NextRequest) {
       .eq("id", conversation_id),
   ]);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, send_mode: sendMode.mode, human_agent_fallback: humanAgentFallback });
 }
