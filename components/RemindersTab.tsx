@@ -139,7 +139,7 @@ export function RemindersTab({
               {r.leads?.customer_name || "Lead"}
             </button>
             <div className="mt-0.5 text-xs text-slate-500">
-              {new Date(r.remind_at).toLocaleString("th-TH")}
+              {new Date(r.remind_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
               {r.note && <span className="ml-2 text-slate-700">· {r.note}</span>}
             </div>
           </div>

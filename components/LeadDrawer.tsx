@@ -334,7 +334,7 @@ export function LeadDrawer({
 
   async function saveReminder() {
     if (!reminder.date) return toast("เลือกวันที่ก่อน");
-    const remind_at = `${reminder.date}T${reminder.time || "09:00"}`;
+    const remind_at = `${reminder.date}T${reminder.time || "09:00"}:00+07:00`;
     setBusy(true);
     try {
       const { error } = await supabase.from("lead_reminders").insert({
@@ -680,7 +680,7 @@ export function LeadDrawer({
                   className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm"
                 >
                   <span>
-                    {new Date(item.remind_at).toLocaleString("th-TH")} · {item.note || "Reminder"}
+                    {new Date(item.remind_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })} · {item.note || "Reminder"}
                   </span>
                   <button
                     className="text-rose-600"

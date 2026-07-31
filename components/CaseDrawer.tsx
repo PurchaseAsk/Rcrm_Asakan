@@ -12,6 +12,7 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("th-TH", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
+    timeZone: "Asia/Bangkok",
   });
 }
 
@@ -33,10 +34,9 @@ function actorLabel(profiles: Profile[], id: string | null) {
   return p?.full_name ?? p?.email ?? "ไม่ระบุ";
 }
 
-// Convert local datetime strings to ISO for storage
 function toISO(date: string, time: string): string | null {
   if (!date) return null;
-  return new Date(`${date}T${time || "08:00"}`).toISOString();
+  return `${date}T${time || "08:00"}:00+07:00`;
 }
 
 const typeIcon: Record<CaseActivity["type"], string> = {
