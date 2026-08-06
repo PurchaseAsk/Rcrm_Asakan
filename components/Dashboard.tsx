@@ -358,6 +358,7 @@ function ConversionsView({
 
   // Historical stage entries: leadId → set of stageIds the lead has ever entered
   const [stagesByLead, setStagesByLead] = useState<Map<string, Set<string>>>(new Map());
+  const [activityLeadIds, setActivityLeadIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const ids = filteredLeads.map((l) => l.id);
@@ -383,6 +384,23 @@ function ConversionsView({
       });
     return () => { cancelled = true; };
   }, [filteredLeads]);
+
+  // Fetch all lead_ids that had a stage_change activity within the date range
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("lead_activities")
+      .select("lead_id")
+      .eq("type", "stage_change")
+      .not("lead_id", "is", null)
+      .gte("created_at", `${dateFrom}T00:00:00+07:00`)
+      .lte("created_at", `${dateTo}T23:59:59+07:00`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setActivityLeadIds(new Set((data ?? []).map((r: { lead_id: string }) => r.lead_id)));
+      });
+    return () => { cancelled = true; };
+  }, [dateFrom, dateTo]);
 
   // Expand stages: fill all non-unfollow stages from pos 1 up to the CURRENT stage position
   const expandedStagesByLead = useMemo(() => {
@@ -487,6 +505,81 @@ function ConversionsView({
     });
     return { sourceMatrix: rows, sourceStageTotals: st };
   }, [filteredLeads, expandedStagesByLead]);
+
+  // ── Activity-based: all leads touched (stage_change) during the period ──────
+  const activeLeads = useMemo(() => {
+    const filteredIds = new Set(filteredLeads.map((l) => l.id));
+    const extra = leads.filter((l) => activityLeadIds.has(l.id) && !filteredIds.has(l.id));
+    return [...filteredLeads, ...extra];
+  }, [filteredLeads, leads, activityLeadIds]);
+
+  const expandedStagesByActiveLead = useMemo(() => {
+    const ordered = stages.filter((s) => !s.is_unfollow).sort((a, b) => a.position - b.position);
+    const positionOf = new Map(stages.map((s) => [s.id, s.position]));
+    const result = new Map<string, string[]>();
+    activeLeads.forEach((lead) => {
+      const currentPos = lead.stage_id ? (positionOf.get(lead.stage_id) ?? -1) : -1;
+      const expanded = new Set<string>();
+      if (currentPos > -1) {
+        ordered.forEach((s) => { if (s.position <= currentPos) expanded.add(s.id); });
+      } else {
+        expanded.add(lead.stage_id ?? "__none__");
+      }
+      result.set(lead.id, [...expanded]);
+    });
+    return result;
+  }, [activeLeads, stages]);
+
+  const { activityMatrix, activityStageTotals, activityTotalUnfollowed } = useMemo(() => {
+    const m = new Map<string, { total: number; stages: Map<string, number>; unfollowed: number }>();
+    activeLeads.forEach((lead) => {
+      const uid = lead.assigned_to ?? "__pool__";
+      if (!m.has(uid)) m.set(uid, { total: 0, stages: new Map(), unfollowed: 0 });
+      const row = m.get(uid)!;
+      row.total++;
+      const sids = expandedStagesByActiveLead.get(lead.id) ?? [lead.stage_id ?? "__none__"];
+      sids.forEach((sid) => row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1));
+      if (lead.status === "unfollowed") row.unfollowed++;
+    });
+    const rows = [...m.entries()]
+      .map(([uid, data]) => ({
+        uid,
+        name: uid === "__pool__" ? "(ไม่มีผู้ดูแล)" : (profileById.get(uid)?.full_name ?? profileById.get(uid)?.email ?? uid.slice(0, 8)),
+        total: data.total,
+        stages: data.stages,
+        unfollowed: data.unfollowed,
+      }))
+      .sort((a, b) => b.total - a.total);
+    const st: Record<string, number> = {};
+    activeLeads.forEach((l) => {
+      const sids = expandedStagesByActiveLead.get(l.id) ?? [l.stage_id ?? "__none__"];
+      sids.forEach((sid) => { st[sid] = (st[sid] ?? 0) + 1; });
+    });
+    const uf = activeLeads.filter((l) => l.status === "unfollowed").length;
+    return { activityMatrix: rows, activityStageTotals: st, activityTotalUnfollowed: uf };
+  }, [activeLeads, profileById, expandedStagesByActiveLead]);
+
+  const { activitySourceMatrix, activitySourceStageTotals } = useMemo(() => {
+    const m = new Map<string, { total: number; stages: Map<string, number>; unfollowed: number }>();
+    activeLeads.forEach((lead) => {
+      const key = sourceLabel(lead.source, lead.metadata);
+      if (!m.has(key)) m.set(key, { total: 0, stages: new Map(), unfollowed: 0 });
+      const row = m.get(key)!;
+      row.total++;
+      const sids = expandedStagesByActiveLead.get(lead.id) ?? [lead.stage_id ?? "__none__"];
+      sids.forEach((sid) => row.stages.set(sid, (row.stages.get(sid) ?? 0) + 1));
+      if (lead.status === "unfollowed") row.unfollowed++;
+    });
+    const rows = [...m.entries()]
+      .map(([src, data]) => ({ src, total: data.total, stages: data.stages, unfollowed: data.unfollowed }))
+      .sort((a, b) => b.total - a.total);
+    const st: Record<string, number> = {};
+    activeLeads.forEach((l) => {
+      const sids = expandedStagesByActiveLead.get(l.id) ?? [l.stage_id ?? "__none__"];
+      sids.forEach((sid) => { st[sid] = (st[sid] ?? 0) + 1; });
+    });
+    return { activitySourceMatrix: rows, activitySourceStageTotals: st };
+  }, [activeLeads, expandedStagesByActiveLead]);
 
   return (
     <div className="space-y-4">
@@ -632,6 +725,128 @@ function ConversionsView({
             )}
             {!sourceMatrix.length && (
               <tr><td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดในช่วงวันที่นี้</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Activity-based: all leads touched during period — by user */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+        <div className="border-b border-slate-200 px-4 py-3">
+          <h3 className="font-semibold text-slate-800">Lead Activity แบ่งตามผู้ใช้งาน <span className="ml-1 text-xs font-normal text-slate-400">(รวมลีดเก่าที่เคลื่อนไหวในช่วงนี้)</span></h3>
+          <p className="mt-0.5 text-xs text-slate-500">{dateFrom} — {dateTo} · ลีดที่เคลื่อนไหว {activeLeads.length} ราย</p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-48">ผู้ใช้</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">ลีดทั้งหมด</th>
+              {stages.slice(1).map((s) => (
+                <th key={s.id} className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                  {s.name}
+                </th>
+              ))}
+              <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-rose-400 whitespace-nowrap">เลิกติดตาม</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activityMatrix.map((row, i) => (
+              <tr key={row.uid} className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                <td className="px-4 py-3 font-medium text-slate-800">{row.name}</td>
+                <td className="px-3 py-3 text-center font-bold tabular-nums text-brand-700">{row.total}</td>
+                {stages.slice(1).map((s) => {
+                  const v = row.stages.get(s.id) ?? 0;
+                  return (
+                    <td key={s.id} className="px-3 py-3 text-center tabular-nums">
+                      {v > 0 ? <span className="font-medium text-slate-700">{v}</span> : <span className="text-slate-300">-</span>}
+                    </td>
+                  );
+                })}
+                <td className="px-3 py-3 text-center tabular-nums">
+                  {row.unfollowed > 0 ? <span className="font-medium text-rose-500">{row.unfollowed}</span> : <span className="text-slate-300">-</span>}
+                </td>
+              </tr>
+            ))}
+            {activityMatrix.length > 0 && (
+              <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+                <td className="px-4 py-3 text-slate-700">รวม</td>
+                <td className="px-3 py-3 text-center tabular-nums text-brand-700">{activeLeads.length}</td>
+                {stages.slice(1).map((s) => {
+                  const v = activityStageTotals[s.id] ?? 0;
+                  return (
+                    <td key={s.id} className="px-3 py-3 text-center tabular-nums text-slate-700">
+                      {v > 0 ? v : <span className="font-normal text-slate-300">-</span>}
+                    </td>
+                  );
+                })}
+                <td className="px-3 py-3 text-center tabular-nums text-rose-500">
+                  {activityTotalUnfollowed > 0 ? activityTotalUnfollowed : <span className="font-normal text-slate-300">-</span>}
+                </td>
+              </tr>
+            )}
+            {!activityMatrix.length && (
+              <tr><td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดที่เคลื่อนไหวในช่วงวันที่นี้</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Activity-based: all leads touched during period — by source */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+        <div className="border-b border-slate-200 px-4 py-3">
+          <h3 className="font-semibold text-slate-800">Lead Activity แบ่งตามแหล่งที่มา <span className="ml-1 text-xs font-normal text-slate-400">(รวมลีดเก่าที่เคลื่อนไหวในช่วงนี้)</span></h3>
+          <p className="mt-0.5 text-xs text-slate-500">{dateFrom} — {dateTo}</p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-64">แหล่งที่มา</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">ลีดทั้งหมด</th>
+              {stages.slice(1).map((s) => (
+                <th key={s.id} className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap">
+                  {s.name}
+                </th>
+              ))}
+              <th className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-rose-400 whitespace-nowrap">เลิกติดตาม</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activitySourceMatrix.map((row, i) => (
+              <tr key={row.src} className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${i % 2 === 1 ? "bg-slate-50/40" : ""}`}>
+                <td className="px-4 py-3 font-medium text-slate-800">{row.src}</td>
+                <td className="px-3 py-3 text-center font-bold tabular-nums text-brand-700">{row.total}</td>
+                {stages.slice(1).map((s) => {
+                  const v = row.stages.get(s.id) ?? 0;
+                  return (
+                    <td key={s.id} className="px-3 py-3 text-center tabular-nums">
+                      {v > 0 ? <span className="font-medium text-slate-700">{v}</span> : <span className="text-slate-300">-</span>}
+                    </td>
+                  );
+                })}
+                <td className="px-3 py-3 text-center tabular-nums">
+                  {row.unfollowed > 0 ? <span className="font-medium text-rose-500">{row.unfollowed}</span> : <span className="text-slate-300">-</span>}
+                </td>
+              </tr>
+            ))}
+            {activitySourceMatrix.length > 0 && (
+              <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
+                <td className="px-4 py-3 text-slate-700">รวม</td>
+                <td className="px-3 py-3 text-center tabular-nums text-brand-700">{activeLeads.length}</td>
+                {stages.slice(1).map((s) => {
+                  const v = activitySourceStageTotals[s.id] ?? 0;
+                  return (
+                    <td key={s.id} className="px-3 py-3 text-center tabular-nums text-slate-700">
+                      {v > 0 ? v : <span className="font-normal text-slate-300">-</span>}
+                    </td>
+                  );
+                })}
+                <td className="px-3 py-3 text-center tabular-nums text-rose-500">
+                  {activityTotalUnfollowed > 0 ? activityTotalUnfollowed : <span className="font-normal text-slate-300">-</span>}
+                </td>
+              </tr>
+            )}
+            {!activitySourceMatrix.length && (
+              <tr><td colSpan={stages.length + 2} className="py-12 text-center text-sm text-slate-400">ไม่มีลีดที่เคลื่อนไหวในช่วงวันที่นี้</td></tr>
             )}
           </tbody>
         </table>
