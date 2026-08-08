@@ -6,6 +6,7 @@ export type Profile = {
   full_name: string | null;
   role: Role;
   sales_suffix: string | null;
+  is_available: boolean;
 };
 
 export type Stage = {
