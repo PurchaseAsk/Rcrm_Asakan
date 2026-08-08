@@ -13,6 +13,7 @@ type UserRow = {
   full_name: string | null;
   role: Role;
   is_active: boolean;
+  is_available: boolean;
   created_at: string;
   sales_suffix?: string | null;
 };
@@ -58,12 +59,16 @@ export function UsersPanel({
     try {
       const [res, { data: profiles }] = await Promise.all([
         fetch("/api/admin/users", { headers }),
-        supabase.from("profiles").select("id,sales_suffix"),
+        supabase.from("profiles").select("id,sales_suffix,is_available"),
       ]);
       if (!res.ok) return;
       const json = (await res.json()) as { users: UserRow[] };
-      const suffixMap = new Map((profiles ?? []).map((p: { id: string; sales_suffix: string | null }) => [p.id, p.sales_suffix]));
-      setUsers((json.users ?? []).map((u) => ({ ...u, sales_suffix: suffixMap.get(u.id) ?? null })));
+      const profileMap = new Map((profiles ?? []).map((p: { id: string; sales_suffix: string | null; is_available: boolean }) => [p.id, p]));
+      setUsers((json.users ?? []).map((u) => ({
+        ...u,
+        sales_suffix: profileMap.get(u.id)?.sales_suffix ?? null,
+        is_available: profileMap.get(u.id)?.is_available ?? true,
+      })));
     } finally {
       setLoading(false);
     }
@@ -135,6 +140,21 @@ export function UsersPanel({
     }
   }
 
+  async function toggleAvailability(user: UserRow) {
+    if (user.is_available) {
+      // Going on leave — check if allowed
+      const { data } = await supabase.rpc("can_go_on_leave", { p_user_id: user.id });
+      if (!data) {
+        onToast("ไม่สามารถลาได้ เนื่องจากเป็นผู้รับลีดคนสุดท้ายในกฎกระจาย");
+        return;
+      }
+    }
+    const { error } = await supabase.from("profiles").update({ is_available: !user.is_available }).eq("id", user.id);
+    if (error) { onToast(error.message); return; }
+    setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, is_available: !u.is_available } : u));
+    onToast(user.is_available ? `${user.full_name || user.email} — ตั้งสถานะลา` : `${user.full_name || user.email} — พร้อมรับลีด`);
+  }
+
   function copyToClipboard(text: string) {
     void navigator.clipboard.writeText(text);
     onToast("คัดลอกแล้ว");
@@ -195,6 +215,7 @@ export function UsersPanel({
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Role</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">Sales Code</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">สถานะ</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">รับลีด</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500">สร้างเมื่อ</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500">Actions</th>
               </tr>
@@ -202,6 +223,7 @@ export function UsersPanel({
             <tbody className="divide-y divide-slate-100">
               {users.map((user) => (
                 <tr key={user.id} className={`transition-colors ${user.is_active ? "hover:bg-slate-50" : "bg-slate-50/60 opacity-60"}`}>
+                  {/* ชื่อ / Email */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${user.is_active ? "bg-brand-100 text-brand-700" : "bg-slate-200 text-slate-500"}`}>
@@ -213,16 +235,7 @@ export function UsersPanel({
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <input
-                      className="h-7 w-14 rounded border border-slate-200 px-2 text-center text-xs font-mono font-bold uppercase tracking-widest text-slate-700 outline-none focus:border-brand-600 disabled:opacity-40"
-                      maxLength={4}
-                      placeholder="—"
-                      defaultValue={user.sales_suffix ?? ""}
-                      disabled={!user.is_active}
-                      onBlur={(e) => void updateSalesSuffix(user.id, e.target.value)}
-                    />
-                  </td>
+                  {/* Role */}
                   <td className="px-4 py-3">
                     {user.id === currentUserId ? (
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLOR[user.role]}`}>
@@ -241,14 +254,45 @@ export function UsersPanel({
                       </select>
                     )}
                   </td>
+                  {/* Sales Code */}
+                  <td className="px-4 py-3">
+                    <input
+                      className="h-7 w-14 rounded border border-slate-200 px-2 text-center text-xs font-mono font-bold uppercase tracking-widest text-slate-700 outline-none focus:border-brand-600 disabled:opacity-40"
+                      maxLength={4}
+                      placeholder="—"
+                      defaultValue={user.sales_suffix ?? ""}
+                      disabled={!user.is_active}
+                      onBlur={(e) => void updateSalesSuffix(user.id, e.target.value)}
+                    />
+                  </td>
+                  {/* สถานะ (active/disabled) */}
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${user.is_active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
                       {user.is_active ? "Active" : "Disabled"}
                     </span>
                   </td>
+                  {/* รับลีด (availability) */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${user.is_available ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-600"}`}>
+                        {user.is_available ? "พร้อม" : "ลา"}
+                      </span>
+                      {user.is_active && (
+                        <button
+                          onClick={() => void toggleAvailability(user)}
+                          title={user.is_available ? "ตั้งเป็นลา" : "ตั้งเป็นพร้อมรับลีด"}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${user.is_available ? "bg-emerald-500" : "bg-slate-300"}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${user.is_available ? "translate-x-4" : "translate-x-0"}`} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  {/* สร้างเมื่อ */}
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {new Date(user.created_at).toLocaleDateString("th-TH")}
                   </td>
+                  {/* Actions */}
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       {user.is_active && (

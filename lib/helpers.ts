@@ -463,7 +463,7 @@ export async function bootstrap(
 ) {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id,email,full_name,role")
+    .select("id,email,full_name,role,sales_suffix,is_available")
     .eq("id", userId)
     .single();
   if (profileError) {
