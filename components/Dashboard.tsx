@@ -1426,7 +1426,7 @@ function VoucherHeatmap({
 }
 
 // ─── Dashboard 5: Sales Activity ─────────────────────────────────────────────
-type ActRow = { created_at: string; created_by: string; lead_id: string };
+type ActRow = { created_at: string; created_by: string; lead_id: string; type: string };
 
 function SalesActivityView({
   profiles,
@@ -1451,7 +1451,7 @@ function SalesActivityView({
     void (async () => {
       const { data } = await supabase
         .from("lead_activities")
-        .select("created_at, created_by, lead_id")
+        .select("created_at, created_by, lead_id, type")
         .not("created_by", "is", null)
         .gte("created_at", `${dateFrom}T00:00:00+07:00`)
         .lte("created_at", `${dateTo}T23:59:59+07:00`)
@@ -1544,6 +1544,62 @@ function SalesActivityView({
     return t;
   }, [matrix]);
 
+  // Note/comment matrix: user → hour → Set<lead_id> (distinct leads commented per hour)
+  const noteMatrix = useMemo(() => {
+    const m = new Map<string, Map<number, Set<string>>>();
+    for (const act of activities) {
+      if (act.type !== "note") continue;
+      const h = parseInt(
+        new Date(act.created_at).toLocaleString("en-US", {
+          hour: "2-digit",
+          hour12: false,
+          timeZone: "Asia/Bangkok",
+        }),
+      );
+      if (isNaN(h) || h < 0 || h > 23) continue;
+      if (!m.has(act.created_by)) m.set(act.created_by, new Map());
+      const um = m.get(act.created_by)!;
+      if (!um.has(h)) um.set(h, new Set());
+      um.get(h)!.add(act.lead_id);
+    }
+    return m;
+  }, [activities]);
+
+  const noteActiveProfiles = useMemo(() => {
+    const ids = new Set(noteMatrix.keys());
+    return profiles.filter((p) => ids.has(p.id));
+  }, [profiles, noteMatrix]);
+
+  const noteVisibleProfiles = useMemo(
+    () => noteActiveProfiles.filter((p) => !hiddenIds.has(p.id)),
+    [noteActiveProfiles, hiddenIds],
+  );
+
+  const noteStackedData = useMemo(() =>
+    hours.map((h) => {
+      const segments = noteVisibleProfiles.map((p) => ({
+        uid: p.id,
+        count: noteMatrix.get(p.id)?.get(h)?.size ?? 0,
+      }));
+      return { h, segments, stackTotal: segments.reduce((s, seg) => s + seg.count, 0) };
+    }),
+  [hours, noteVisibleProfiles, noteMatrix]);
+
+  const noteGlobalMax = useMemo(
+    () => Math.max(...noteStackedData.map((d) => d.stackTotal), 1),
+    [noteStackedData],
+  );
+
+  const noteTotals = useMemo(() => {
+    const t = new Map<string, number>();
+    for (const [uid, um] of noteMatrix) {
+      const all = new Set<string>();
+      for (const [, s] of um) s.forEach((id) => all.add(id));
+      t.set(uid, all.size);
+    }
+    return t;
+  }, [noteMatrix]);
+
   // SVG chart dimensions
   const svgW = 900, svgH = 260, pL = 32, pR = 12, pT = 28, pB = 28;
   const cW = svgW - pL - pR;
@@ -1592,6 +1648,7 @@ function SalesActivityView({
           ไม่มีข้อมูล activity ในช่วงวันที่นี้
         </div>
       ) : (
+        <>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
           {/* User filter tags */}
           <div className="flex flex-wrap items-center gap-2">
@@ -1624,7 +1681,12 @@ function SalesActivityView({
             })}
           </div>
 
-          {/* Stacked bar chart */}
+          {/* Chart title */}
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Lead ที่ถูกแก้ไข (distinct leads / ชั่วโมง)
+          </p>
+
+          {/* Stacked bar chart — distinct leads per user per hour */}
           <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: svgH }}>
             {/* Chart area background */}
             <rect x={pL} y={pT} width={cW} height={cH} fill="#fafafa" rx={6} />
@@ -1710,6 +1772,126 @@ function SalesActivityView({
             })}
           </svg>
         </div>
+
+        {/* ── Note/Comment activity chart ───────────────────────────────── */}
+        {noteActiveProfiles.length > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+            {/* Title + legend */}
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              บันทึก Activity — leads ที่ถูก comment (distinct leads / ชั่วโมง)
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">เลือกผู้ใช้</span>
+              {noteActiveProfiles.map((p) => {
+                const hidden = hiddenIds.has(p.id);
+                const color = userColor.get(p.id) ?? CHART_COLORS[0];
+                const total = noteTotals.get(p.id) ?? 0;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => toggleUser(p.id)}
+                    title={`${total} notes รวม`}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                      hidden
+                        ? "border-slate-200 bg-white text-slate-400 line-through"
+                        : "border-slate-200 bg-white text-slate-700 shadow-sm hover:shadow"
+                    }`}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: hidden ? "#cbd5e1" : color }}
+                    />
+                    {p.full_name ?? p.email.split("@")[0]}
+                    <span className="ml-0.5 tabular-nums text-slate-400">
+                      {hidden ? "+" : `${total}`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Note bar chart */}
+            <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: svgH }}>
+              <rect x={pL} y={pT} width={cW} height={cH} fill="#fafafa" rx={6} />
+
+              {yTicks.map((t) => {
+                const y = pT + (1 - t) * cH;
+                const val = Math.round(t * noteGlobalMax);
+                return (
+                  <g key={t}>
+                    <line
+                      x1={pL} y1={y} x2={svgW - pR} y2={y}
+                      stroke={t === 0 ? "#cbd5e1" : "#e8edf3"}
+                      strokeWidth={t === 0 ? 1.5 : 1}
+                      strokeDasharray={t === 0 ? "none" : "4 3"}
+                    />
+                    <text x={pL - 6} y={y + 4} textAnchor="end" fontSize={10} fill="#94a3b8">{val}</text>
+                  </g>
+                );
+              })}
+
+              {noteStackedData.map(({ h, segments, stackTotal }, idx) => {
+                const x = pL + idx * barW + gap / 2;
+                const barBottom = pT + cH;
+                let currentY = barBottom;
+
+                const visSegs = segments.filter((s) => s.count > 0);
+                const rects = visSegs.map((seg, si) => {
+                  const segH = Math.max(3, (seg.count / noteGlobalMax) * cH);
+                  currentY -= segH;
+                  return { uid: seg.uid, y: currentY, h: segH, count: seg.count, isTop: si === visSegs.length - 1 };
+                });
+
+                const totalBarH = stackTotal > 0 ? (stackTotal / noteGlobalMax) * cH : 0;
+                const cx = x + bw / 2;
+
+                return (
+                  <g key={h}>
+                    <rect x={x} y={pT} width={bw} height={cH} fill="#f1f5f9" rx={4} />
+
+                    {rects.map((r) => {
+                      const color = userColor.get(r.uid) ?? "#94a3b8";
+                      const name = noteActiveProfiles.find((p) => p.id === r.uid)?.full_name ?? r.uid;
+                      return (
+                        <g key={r.uid}>
+                          {r.isTop
+                            ? <path d={roundedTopPath(x, r.y, bw, r.h, 4)} fill={color} />
+                            : <rect x={x} y={r.y} width={bw} height={r.h} fill={color} />
+                          }
+                          <title>{`${name} · ${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00 · ${r.count} leads`}</title>
+                        </g>
+                      );
+                    })}
+
+                    {stackTotal > 0 && (
+                      <text
+                        x={cx}
+                        y={pT + cH - totalBarH - 6}
+                        textAnchor="middle"
+                        fontSize={10}
+                        fontWeight="700"
+                        fill="#334155"
+                      >
+                        {stackTotal}
+                      </text>
+                    )}
+
+                    <text
+                      x={cx}
+                      y={svgH - 6}
+                      textAnchor="middle"
+                      fontSize={bw > 50 ? 9.5 : 8}
+                      fill="#94a3b8"
+                    >
+                      {`${String(h).padStart(2, "0")}:00`}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        )}
+        </>
       )}
     </div>
   );
