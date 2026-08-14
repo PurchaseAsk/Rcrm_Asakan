@@ -316,6 +316,7 @@ export async function checkReminders(
   userId: string,
   toast: (message: string) => void,
   reloadSelectedLead: () => Promise<void>,
+  onRemindersDue?: (reminders: Reminder[]) => void,
 ) {
   const now = new Date();
   const todayStart = new Date(now);
@@ -331,8 +332,11 @@ export async function checkReminders(
   const due = (data || []) as Reminder[];
   if (!due.length) return;
 
-  // Notify but do NOT auto-mark done — user must confirm completion
-  due.forEach((r) => toast(`🔔 Reminder: ${r.leads?.customer_name || "Lead"}${r.note ? ` · ${r.note}` : ""}`));
+  if (onRemindersDue) {
+    onRemindersDue(due);
+  } else {
+    due.forEach((r) => toast(`🔔 Reminder: ${r.leads?.customer_name || "Lead"}${r.note ? ` · ${r.note}` : ""}`));
+  }
 
   // Rollover overdue reminders (from a previous day) to today 09:00
   const overdue = due.filter((r) => new Date(r.remind_at) < todayStart);

@@ -33,7 +33,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
-import type { Profile, StageRule } from "@/types/crm";
+import type { Profile, Reminder, StageRule } from "@/types/crm";
 import type { AppData, LeadDetail, StageNoteRequest, TabId } from "@/types/app";
 import { emptyData } from "@/types/app";
 import {
@@ -117,6 +117,8 @@ export default function HomePage() {
   const [bootstrapping, setBootstrapping] = useState(false);
   const [bootError, setBootError] = useState("");
   const [toast, setToast] = useState("");
+  const [reminderAlerts, setReminderAlerts] = useState<{ id: string; lead_id: string; lead_name: string; note: string | null; remind_at: string }[]>([]);
+  const shownReminderIds = useRef<Set<string>>(new Set());
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [leadDetail, setLeadDetail] = useState<LeadDetail>({ activities: [], reminders: [] });
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
@@ -252,9 +254,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!currentUserId) return;
-    void checkReminders(currentUserId, showToast, reloadSelectedLead);
+    void checkReminders(currentUserId, showToast, reloadSelectedLead, showReminderAlerts);
     const timer = window.setInterval(() => {
-      void checkReminders(currentUserId, showToast, reloadSelectedLead);
+      void checkReminders(currentUserId, showToast, reloadSelectedLead, showReminderAlerts);
     }, 30_000);
     return () => window.clearInterval(timer);
     // reloadSelectedLead reads selectedLeadIdRef so no dep on selectedLeadId needed.
@@ -382,6 +384,35 @@ export default function HomePage() {
       setToast("");
       toastTimerRef.current = null;
     }, 3200);
+  }
+
+  function playReminderSound() {
+    try {
+      const audio = new Audio("/sound/reminder.mp3");
+      audio.volume = 0.7;
+      void audio.play();
+    } catch { /* autoplay blocked — silently skip */ }
+  }
+
+  function showReminderAlerts(reminders: Reminder[]) {
+    const fresh = reminders.filter((r) => !shownReminderIds.current.has(r.id));
+    if (!fresh.length) return;
+    fresh.forEach((r) => shownReminderIds.current.add(r.id));
+    playReminderSound();
+    setReminderAlerts((prev) => [
+      ...prev,
+      ...fresh.map((r) => ({
+        id: r.id,
+        lead_id: r.lead_id,
+        lead_name: (r as Reminder & { leads?: { customer_name: string } | null }).leads?.customer_name || "Lead",
+        note: r.note,
+        remind_at: r.remind_at,
+      })),
+    ]);
+  }
+
+  function dismissReminderAlert(id: string) {
+    setReminderAlerts((prev) => prev.filter((a) => a.id !== id));
   }
 
   async function reload() {
@@ -961,6 +992,47 @@ export default function HomePage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Reminder alert stack */}
+      {reminderAlerts.length > 0 && (
+        <div className="fixed right-4 top-16 z-[60] flex w-80 flex-col gap-2">
+          {reminderAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-xl ring-1 ring-amber-200"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-400 text-white shadow-sm">
+                  <BellRing size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-amber-900">{alert.lead_name}</p>
+                  <p className="mt-0.5 text-xs text-amber-700">
+                    {new Date(alert.remind_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
+                  </p>
+                  {alert.note && (
+                    <p className="mt-1 text-sm text-amber-800">{alert.note}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => dismissReminderAlert(alert.id)}
+                  className="shrink-0 rounded p-1 text-amber-600 hover:bg-amber-200 hover:text-amber-900"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => { setActiveTab("reminders"); dismissReminderAlert(alert.id); }}
+                  className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-600"
+                >
+                  ดูใน Reminders
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {toast ? (

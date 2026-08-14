@@ -1445,7 +1445,7 @@ function SalesActivityView({
   const [loading, setLoading] = useState(false);
   const [workHoursOnly, setWorkHoursOnly] = useState(true);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
-  const [recallContents, setRecallContents] = useState<string[]>([]);
+  const [recallSummary, setRecallSummary] = useState<{ staff_name: string; lead_count: number }[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -1458,16 +1458,13 @@ function SalesActivityView({
           .gte("created_at", `${dateFrom}T00:00:00+07:00`)
           .lte("created_at", `${dateTo}T23:59:59+07:00`)
           .limit(50000),
-        supabase
-          .from("lead_activities")
-          .select("content")
-          .eq("type", "recalled")
-          .gte("created_at", `${dateFrom}T00:00:00+07:00`)
-          .lte("created_at", `${dateTo}T23:59:59+07:00`)
-          .limit(50000),
+        supabase.rpc("get_recall_summary", {
+          date_from: `${dateFrom}T00:00:00+07:00`,
+          date_to: `${dateTo}T23:59:59+07:00`,
+        }),
       ]);
       setActivities((actRes.data ?? []) as ActRow[]);
-      setRecallContents((recallRes.data ?? []).map((r: { content: string | null }) => r.content ?? ""));
+      setRecallSummary((recallRes.data ?? []) as { staff_name: string; lead_count: number }[]);
       setLoading(false);
     })();
   }, [dateFrom, dateTo]);
@@ -1611,16 +1608,10 @@ function SalesActivityView({
     return t;
   }, [noteMatrix]);
 
-  // Recall: parse name from content, group by name sorted by count desc
-  const recallByName = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const content of recallContents) {
-      const match = content.match(/ดึงลีดกลับเข้าส่วนกลางจาก (.+?) หลังอยู่ใน stage/);
-      const name = match?.[1] ?? "ไม่ระบุ";
-      m.set(name, (m.get(name) ?? 0) + 1);
-    }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [recallContents]);
+  const recallTotal = useMemo(
+    () => recallSummary.reduce((s, r) => s + r.lead_count, 0),
+    [recallSummary],
+  );
 
   // SVG chart dimensions
   const svgW = 900, svgH = 260, pL = 32, pR = 12, pT = 28, pB = 28;
@@ -1915,18 +1906,18 @@ function SalesActivityView({
         )}
 
         {/* ── Recall summary ────────────────────────────────────────────── */}
-        {recallByName.length > 0 && (
+        {recallSummary.length > 0 && (
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              สรุป Recall — leads ที่ถูกดึงกลับกองกลาง ({recallContents.length} leads)
+              สรุป Recall — leads ที่ถูกดึงกลับกองกลาง ({recallTotal} leads)
             </p>
             <div className="divide-y divide-slate-100">
-              {recallByName.map(([name, count], i) => {
-                const pct = recallContents.length > 0 ? Math.round((count / recallContents.length) * 100) : 0;
+              {recallSummary.map((row, i) => {
+                const pct = recallTotal > 0 ? Math.round((row.lead_count / recallTotal) * 100) : 0;
                 return (
-                  <div key={name} className="flex items-center gap-3 py-2.5">
+                  <div key={row.staff_name} className="flex items-center gap-3 py-2.5">
                     <span className="w-5 shrink-0 text-right text-xs tabular-nums text-slate-400">{i + 1}</span>
-                    <span className="flex-1 min-w-0 truncate text-sm text-slate-700">{name}</span>
+                    <span className="flex-1 min-w-0 truncate text-sm text-slate-700">{row.staff_name}</span>
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="h-2 w-28 rounded-full bg-slate-100">
                         <div
@@ -1935,7 +1926,7 @@ function SalesActivityView({
                         />
                       </div>
                       <span className="w-20 text-right text-sm font-semibold tabular-nums text-slate-700">
-                        {count} <span className="text-xs font-normal text-slate-400">leads</span>
+                        {row.lead_count} <span className="text-xs font-normal text-slate-400">leads</span>
                       </span>
                       <span className="w-9 text-right text-xs tabular-nums text-slate-400">{pct}%</span>
                     </div>
