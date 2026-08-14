@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   // Fetch lead + page pixel config
   const { data: lead } = await supabase
     .from("leads")
-    .select("phone, email, customer_name, facebook_id, page_id, facebook_pages(pixel_id, capi_token)")
+    .select("phone, email, customer_name, facebook_id, facebook_lead_id, page_id, facebook_pages(pixel_id, capi_token)")
     .eq("id", lead_id)
     .single();
 
@@ -62,20 +62,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true, reason: "No pixel/token configured for this page" });
   }
 
-  const userData: Record<string, string[]> = {};
   const leadData = lead as unknown as {
     phone: string | null;
     email: string | null;
     customer_name: string | null;
     facebook_id: string | null;
+    facebook_lead_id: string | null;
   };
+
+  const userData: Record<string, unknown> = {};
 
   if (leadData.phone) userData.ph = [sha256(normalizePhone(leadData.phone))];
   if (leadData.email) userData.em = [sha256(leadData.email.trim().toLowerCase())];
-  // facebook_id (PSID) is the strongest matching signal for lead ads traffic
+  // PSID → external_id (hashed)
   if (leadData.facebook_id) userData.external_id = [sha256(leadData.facebook_id)];
+  // Facebook Lead Ad ID — strongest EMQ signal for lead ads, sent plain (not hashed)
+  if (leadData.facebook_lead_id) userData.lead_id = leadData.facebook_lead_id;
+  // First name from customer_name
+  if (leadData.customer_name) {
+    const nameParts = leadData.customer_name.trim().split(/\s+/);
+    userData.fn = [sha256(nameParts[0])];
+    if (nameParts.length > 1) userData.ln = [sha256(nameParts.slice(1).join(" "))];
+  }
 
   const eventTime = Math.floor(Date.now() / 1000);
+  // Deterministic event_id (no timestamp) so retries don't create duplicate events
+  const eventId = `${lead_id}-${stage_id}`;
   // Set TEST_CAPI_EVENT_CODE env var to route events to FB Test Events tab
   const testEventCode = process.env.TEST_CAPI_EVENT_CODE;
 
@@ -84,10 +96,10 @@ export async function POST(request: NextRequest) {
       {
         event_name: stage.capi_event,
         event_time: eventTime,
-        event_id: `${lead_id}-${stage_id}-${eventTime}`,
+        event_id: eventId,
         action_source: "system_generated",
         user_data: userData,
-        custom_data: { lead_id },
+        custom_data: { crm_lead_id: lead_id },
       },
     ],
     ...(testEventCode ? { test_event_code: testEventCode } : {}),
