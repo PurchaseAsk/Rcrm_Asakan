@@ -240,9 +240,11 @@ export function LeadsPanel({
         const { data: dups } = (await supabase.rpc("find_lead_by_phone", {
           p_phone: draft.phone.trim(),
           p_pipeline_id: draft.pipeline_id || null,
-        })) as { data: { id: string; customer_name: string }[] | null };
+        })) as { data: { id: string; customer_name: string; assigned_to: string | null; assigned_name: string | null }[] | null };
         if (dups?.[0]) {
-          setError(`เบอร์นี้มีลีดอยู่แล้วใน pipeline นี้: ${dups[0].customer_name}`);
+          const dup = dups[0];
+          const owner = dup.assigned_name ? ` — อยู่กับ ${dup.assigned_name}` : " — ยังไม่ได้มอบหมาย";
+          setError(`เบอร์นี้มีลีดอยู่แล้วใน pipeline นี้: ${dup.customer_name}${owner}`);
           return;
         }
       }
