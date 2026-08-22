@@ -319,6 +319,11 @@ export function CasesPanel({
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.bg}`}>
                           {cfg.label}
                         </span>
+                        {c.status === "closed" && c.close_reason && (
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${c.close_reason === "transferred" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                            {c.close_reason === "transferred" ? "โอนแล้ว" : "ยกเลิกสัญญา"}
+                          </span>
+                        )}
                       </div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
                         {c.customer_name && (

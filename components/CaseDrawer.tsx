@@ -84,6 +84,7 @@ export function CaseDrawer({
   const [editingFinance, setEditingFinance] = useState(false);
   const [assignTo, setAssignTo] = useState(caseItem.assigned_to ?? "");
   const [confirmEdit, setConfirmEdit] = useState<"title" | "customer" | "finance" | null>(null);
+  const [closeReasonDialog, setCloseReasonDialog] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -232,12 +233,19 @@ export function CaseDrawer({
     setBusy(false);
   }
 
-  async function approveClose() {
+  async function approveClose(reason: "transferred" | "cancelled") {
     setBusy(true);
-    await supabase.from("cases").update({ status: "closed", closed_by: userId, closed_at: new Date().toISOString() }).eq("id", caseItem.id);
+    setCloseReasonDialog(false);
+    const reasonLabel = reason === "transferred" ? "โอนแล้ว" : "ยกเลิกสัญญา";
+    await supabase.from("cases").update({
+      status: "closed",
+      closed_by: userId,
+      closed_at: new Date().toISOString(),
+      close_reason: reason,
+    }).eq("id", caseItem.id);
     await supabase.from("case_activities").insert({
       case_id: caseItem.id, type: "closed",
-      content: `${actorLabel(profiles, userId)} อนุมัติปิดเคส`, created_by: userId,
+      content: `${actorLabel(profiles, userId)} อนุมัติปิดเคส — ${reasonLabel}`, created_by: userId,
     });
     await Promise.all([onUpdated(), load()]);
     setBusy(false);
@@ -458,7 +466,7 @@ export function CaseDrawer({
         {isPendingClose && canClose && (
           <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3">
             <p className="flex-1 text-sm font-medium text-amber-800">📋 Sales ขอปิดเคสนี้</p>
-            <button onClick={() => void approveClose()} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">อนุมัติปิด</button>
+            <button onClick={() => setCloseReasonDialog(true)} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">อนุมัติปิด</button>
             <button onClick={() => void rejectClose()} disabled={busy} className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">ไม่อนุมัติ</button>
           </div>
         )}
@@ -467,8 +475,55 @@ export function CaseDrawer({
         )}
         {isClosed && (
           <div className="flex items-center gap-3 border-b bg-slate-50 px-5 py-2.5">
-            <p className="flex-1 text-sm text-slate-500">✅ ปิดเคสเมื่อ {caseItem.closed_at ? fmtDate(caseItem.closed_at) : ""}</p>
+            <p className="flex-1 text-sm text-slate-500">
+              ✅ ปิดเคสเมื่อ {caseItem.closed_at ? fmtDate(caseItem.closed_at) : ""}
+              {caseItem.close_reason && (
+                <span className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${caseItem.close_reason === "transferred" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                  {caseItem.close_reason === "transferred" ? "โอนแล้ว" : "ยกเลิกสัญญา"}
+                </span>
+              )}
+            </p>
             {canClose && <button onClick={() => void reopenCase()} disabled={busy} className="text-xs text-slate-500 underline hover:text-slate-800">เปิดใหม่</button>}
+          </div>
+        )}
+
+        {/* Close reason dialog */}
+        {closeReasonDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+              <h3 className="mb-1 text-base font-semibold text-slate-900">เลือกเหตุผลปิดเคส</h3>
+              <p className="mb-5 text-sm text-slate-500">ปิดเคสนี้เนื่องจาก?</p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => void approveClose("transferred")}
+                  disabled={busy}
+                  className="flex items-center gap-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-left hover:border-emerald-400 hover:bg-emerald-100 disabled:opacity-50"
+                >
+                  <span className="text-xl">✅</span>
+                  <div>
+                    <p className="font-semibold text-emerald-800">โอนแล้ว</p>
+                    <p className="text-xs text-emerald-600">ลูกค้าโอนกรรมสิทธิ์เรียบร้อยแล้ว</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => void approveClose("cancelled")}
+                  disabled={busy}
+                  className="flex items-center gap-3 rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-3 text-left hover:border-rose-400 hover:bg-rose-100 disabled:opacity-50"
+                >
+                  <span className="text-xl">❌</span>
+                  <div>
+                    <p className="font-semibold text-rose-800">ยกเลิกสัญญา</p>
+                    <p className="text-xs text-rose-600">ลูกค้ายกเลิกหรือถอนสัญญา</p>
+                  </div>
+                </button>
+              </div>
+              <button
+                onClick={() => setCloseReasonDialog(false)}
+                className="mt-4 w-full rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:bg-slate-50"
+              >
+                ยกเลิก
+              </button>
+            </div>
           </div>
         )}
 
