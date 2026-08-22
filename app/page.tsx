@@ -31,6 +31,7 @@ import {
   UserRound,
   Users,
   Workflow,
+  X,
 } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Profile, Reminder, StageRule } from "@/types/crm";
@@ -996,42 +997,38 @@ export default function HomePage() {
 
       {/* Reminder alert stack */}
       {reminderAlerts.length > 0 && (
-        <div className="fixed right-4 top-16 z-[60] flex w-80 flex-col gap-2">
-          {reminderAlerts.map((alert) => (
+        <div className="fixed right-4 top-16 z-[60] flex w-72 flex-col gap-1.5">
+          {reminderAlerts.slice(0, 3).map((alert) => (
             <div
               key={alert.id}
-              className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-xl ring-1 ring-amber-200"
+              className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 shadow-md hover:bg-amber-100"
+              onClick={() => { setActiveTab("reminders"); dismissReminderAlert(alert.id); }}
             >
-              <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-400 text-white shadow-sm">
-                  <BellRing size={18} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-amber-900">{alert.lead_name}</p>
-                  <p className="mt-0.5 text-xs text-amber-700">
-                    {new Date(alert.remind_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
-                  </p>
-                  {alert.note && (
-                    <p className="mt-1 text-sm text-amber-800">{alert.note}</p>
-                  )}
-                </div>
-                <button
-                  onClick={() => dismissReminderAlert(alert.id)}
-                  className="shrink-0 rounded p-1 text-amber-600 hover:bg-amber-200 hover:text-amber-900"
-                >
-                  ✕
-                </button>
+              <BellRing size={15} className="shrink-0 text-amber-500" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-amber-900">{alert.lead_name}</p>
+                {alert.note
+                  ? <p className="truncate text-xs text-amber-600">{alert.note}</p>
+                  : <p className="text-xs text-amber-500">{new Date(alert.remind_at).toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" })}</p>
+                }
               </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => { setActiveTab("reminders"); dismissReminderAlert(alert.id); }}
-                  className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-600"
-                >
-                  ดูใน Reminders
-                </button>
-              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); dismissReminderAlert(alert.id); }}
+                className="shrink-0 rounded p-0.5 text-amber-400 hover:text-amber-700"
+              >
+                <X size={13} />
+              </button>
             </div>
           ))}
+          {reminderAlerts.length > 3 && (
+            <button
+              className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-700 shadow-sm hover:bg-amber-200"
+              onClick={() => { setActiveTab("reminders"); setReminderAlerts([]); }}
+            >
+              <BellRing size={13} />
+              +{reminderAlerts.length - 3} รายการ — ดูใน Reminders
+            </button>
+          )}
         </div>
       )}
 
