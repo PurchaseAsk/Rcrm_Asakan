@@ -84,7 +84,6 @@ export function CaseDrawer({
   const [editingFinance, setEditingFinance] = useState(false);
   const [assignTo, setAssignTo] = useState(caseItem.assigned_to ?? "");
   const [confirmEdit, setConfirmEdit] = useState<"title" | "customer" | "finance" | null>(null);
-  const [closeReasonDialog, setCloseReasonDialog] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -235,7 +234,6 @@ export function CaseDrawer({
 
   async function approveClose(reason: "transferred" | "cancelled") {
     setBusy(true);
-    setCloseReasonDialog(false);
     const reasonLabel = reason === "transferred" ? "โอนแล้ว" : "ยกเลิกสัญญา";
     await supabase.from("cases").update({
       status: "closed",
@@ -464,41 +462,13 @@ export function CaseDrawer({
 
         {/* Close workflow banners */}
         {isPendingClose && canClose && (
-          <div className="border-b border-amber-200 bg-amber-50 px-5 py-3">
-            {!closeReasonDialog ? (
-              <div className="flex items-center gap-3">
-                <p className="flex-1 text-sm font-medium text-amber-800">📋 Sales ขอปิดเคสนี้</p>
-                <button onClick={() => setCloseReasonDialog(true)} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">อนุมัติปิด</button>
-                <button onClick={() => void rejectClose()} disabled={busy} className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">ไม่อนุมัติ</button>
-              </div>
-            ) : (
-              <div>
-                <p className="mb-2 text-xs font-semibold text-amber-800">เลือกเหตุผลปิดเคส:</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => void approveClose("transferred")}
-                    disabled={busy}
-                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    ✅ โอนแล้ว
-                  </button>
-                  <button
-                    onClick={() => void approveClose("cancelled")}
-                    disabled={busy}
-                    className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
-                  >
-                    ❌ ยกเลิกสัญญา
-                  </button>
-                  <button
-                    onClick={() => setCloseReasonDialog(false)}
-                    disabled={busy}
-                    className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-100 disabled:opacity-50"
-                  >
-                    ย้อนกลับ
-                  </button>
-                </div>
-              </div>
-            )}
+          <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 space-y-2">
+            <p className="text-sm font-medium text-amber-800">📋 Sales ขอปิดเคสนี้ — เลือกเหตุผล:</p>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => void approveClose("transferred")} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">✅ โอนแล้ว</button>
+              <button onClick={() => void approveClose("cancelled")} disabled={busy} className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50">❌ ยกเลิกสัญญา</button>
+              <button onClick={() => void rejectClose()} disabled={busy} className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-100 disabled:opacity-50">ไม่อนุมัติ</button>
+            </div>
           </div>
         )}
         {isPendingClose && !canClose && (
