@@ -834,26 +834,22 @@ export function ChatInbox({
 
   const [filterPageId, setFilterPageId] = useState<string | null>(null);
   const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
+  const [tagFilteredFromServer, setTagFilteredFromServer] = useState<Conversation[] | null>(null);
+  const [tagFilterLoading, setTagFilterLoading] = useState(false);
 
-  const usedConvTags = useMemo(() => {
-    const seen = new Map<string, { id: string; name: string; color: string }>();
-    for (const c of conversations) {
-      for (const ct of c.conversation_tags ?? []) {
-        if (ct.tags && !seen.has(ct.tag_id)) seen.set(ct.tag_id, ct.tags);
-      }
-    }
-    return [...seen.values()];
-  }, [conversations]);
 
-  const pageFilteredConvs = filterPageId
-    ? conversations.filter((c) => c.page_id === filterPageId)
-    : conversations;
-  const tagFilteredConvs = filterTagIds.size > 0
-    ? pageFilteredConvs.filter((c) => {
+  // Tag filter is resolved server-side when active; fall back to client-side only while loading.
+  const tagFilteredConvs = (() => {
+    if (filterTagIds.size > 0) {
+      if (tagFilteredFromServer !== null) return tagFilteredFromServer;
+      const base = filterPageId ? conversations.filter((c) => c.page_id === filterPageId) : conversations;
+      return base.filter((c) => {
         const convTagIds = new Set((c.conversation_tags ?? []).map((ct) => ct.tag_id));
         return [...filterTagIds].every((id) => convTagIds.has(id));
-      })
-    : pageFilteredConvs;
+      });
+    }
+    return filterPageId ? conversations.filter((c) => c.page_id === filterPageId) : conversations;
+  })();
   const oneHourAgo = Date.now() - 3_600_000;
   const overdueConvs = conversations.filter(
     (c) => c.last_message_direction === "inbound" && new Date(c.last_message_at).getTime() < oneHourAgo,
@@ -874,6 +870,56 @@ export function ChatInbox({
       return next;
     });
   }
+
+  useEffect(() => {
+    if (filterTagIds.size === 0) { setTagFilteredFromServer(null); return; }
+    let cancelled = false;
+    async function fetchTagFiltered() {
+      setTagFilterLoading(true);
+      try {
+        const tagIdArr = [...filterTagIds];
+        const { data: tagRows } = await supabase
+          .from("conversation_tags")
+          .select("conversation_id, tag_id")
+          .in("tag_id", tagIdArr);
+        if (cancelled || !tagRows) return;
+
+        const convTagMap = new Map<string, Set<string>>();
+        for (const row of tagRows as { conversation_id: string; tag_id: string }[]) {
+          if (!convTagMap.has(row.conversation_id)) convTagMap.set(row.conversation_id, new Set());
+          convTagMap.get(row.conversation_id)!.add(row.tag_id);
+        }
+        const matchingIds = [...convTagMap.entries()]
+          .filter(([, tagSet]) => tagIdArr.every((t) => tagSet.has(t)))
+          .map(([id]) => id);
+
+        if (!matchingIds.length) { if (!cancelled) setTagFilteredFromServer([]); return; }
+
+        const allowedPageIds = await getAllowedPageIds();
+        let query = supabase
+          .from("conversations")
+          .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))")
+          .in("id", matchingIds)
+          .order("is_pinned", { ascending: false })
+          .order("last_message_at", { ascending: false });
+
+        if (filterPageId) {
+          query = query.eq("page_id", filterPageId);
+        } else if (allowedPageIds !== null) {
+          query = allowedPageIds.length > 0
+            ? query.in("page_id", allowedPageIds)
+            : query.eq("page_id", "00000000-0000-0000-0000-000000000000");
+        }
+
+        const { data } = await query;
+        if (!cancelled) setTagFilteredFromServer((data ?? []) as Conversation[]);
+      } finally {
+        if (!cancelled) setTagFilterLoading(false);
+      }
+    }
+    void fetchTagFiltered();
+    return () => { cancelled = true; };
+  }, [filterTagIds, filterPageId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (enrichingBatchActiveRef.current) return;
     const targets = visibleConvs
@@ -952,7 +998,7 @@ export function ChatInbox({
 
             <div className="shrink-0 border-b border-slate-100 px-3 py-2">
               <div className="flex flex-wrap items-center gap-1.5">
-              {usedConvTags.length > 0 && (
+              {tags.length > 0 && (
                 <>
                   {filterTagIds.size > 0 && (
                     <button
@@ -962,7 +1008,7 @@ export function ChatInbox({
                       ล้าง
                     </button>
                   )}
-                  {usedConvTags.map((t) => {
+                  {tags.map((t) => {
                     const active = filterTagIds.has(t.id);
                     return (
                       <button
@@ -980,6 +1026,9 @@ export function ChatInbox({
                       </button>
                     );
                   })}
+                  {tagFilterLoading && (
+                    <span className="text-[10px] text-slate-400">กำลังค้นหา…</span>
+                  )}
                 </>
               )}
               <button
