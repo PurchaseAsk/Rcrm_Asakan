@@ -489,7 +489,7 @@ export function CaseDrawer({
 
         {/* Close reason dialog */}
         {closeReasonDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
               <h3 className="mb-1 text-base font-semibold text-slate-900">เลือกเหตุผลปิดเคส</h3>
               <p className="mb-5 text-sm text-slate-500">ปิดเคสนี้เนื่องจาก?</p>
