@@ -993,7 +993,21 @@ export function ChatInbox({
                   </select>
                 )}
               </div>
-              <p className="text-xs text-slate-500">{conversationCountLabel}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-slate-500">{conversationCountLabel}</p>
+                {hasActiveConversationFilters && (
+                  <button
+                    onClick={() => {
+                      setFilterTagIds(new Set());
+                      setFilterUnread(false);
+                      setFilterOverdue(false);
+                    }}
+                    className="text-[10px] text-blue-500 hover:underline"
+                  >
+                    ล้างทั้งหมด
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="shrink-0 border-b border-slate-100 px-3 py-2">
@@ -1044,7 +1058,7 @@ export function ChatInbox({
               </div>
             </div>
 
-            {overdueConvs.length > 0 && (
+            {(overdueConvs.length > 0 || filterOverdue) && (
               <button
                 onClick={() => setFilterOverdue((v) => !v)}
                 className={`flex w-full shrink-0 items-center gap-2 border-b px-3 py-2 text-xs font-medium transition-colors ${
@@ -1053,13 +1067,13 @@ export function ChatInbox({
                     : "border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100"
                 }`}
               >
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white ring-1 ring-white">
+                <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ring-1 ring-white ${filterOverdue ? "bg-white text-rose-500" : "bg-rose-500 text-white"}`}>
                   {overdueConvs.length > 9 ? "9+" : overdueConvs.length}
                 </span>
                 <span className="flex-1 text-left">
                   {overdueConvs.length} แชทรอตอบเกิน 1 ชม.
                 </span>
-                {filterOverdue && <span className="opacity-70">✕</span>}
+                {filterOverdue && <span className="opacity-70">✕ ล้างตัวกรอง</span>}
               </button>
             )}
 
