@@ -436,7 +436,7 @@ export function ChatInbox({
     void loadNotes(conv.id);
     void markRead(conv.id);
 
-    if (!conv.sender_name) {
+    if (!conv.sender_name || !conv.picture_url) {
       try {
         const res = await fetch("/api/facebook/enrich-name", {
           method: "POST",
@@ -444,8 +444,8 @@ export function ChatInbox({
           body: JSON.stringify({ conv_id: conv.id }),
         });
         if (res.ok) {
-          const result = (await res.json()) as { name?: string | null };
-          if (result.name) await refreshConversations();
+          const result = (await res.json()) as { name?: string | null; picture_url?: string | null };
+          if (result.name || result.picture_url) await refreshConversations();
         }
       } catch { /* non-critical */ }
     }
@@ -876,7 +876,7 @@ export function ChatInbox({
   useEffect(() => {
     if (enrichingBatchActiveRef.current) return;
     const targets = visibleConvs
-      .filter((conv) => !conv.sender_name && !enrichingConvIdsRef.current.has(conv.id))
+      .filter((conv) => (!conv.sender_name || !conv.picture_url) && !enrichingConvIdsRef.current.has(conv.id))
       .slice(0, 2);
     if (!targets.length) return;
 
@@ -891,10 +891,10 @@ export function ChatInbox({
             body: JSON.stringify({ conv_id: conv.id }),
           });
           if (!res.ok) { enrichingConvIdsRef.current.delete(conv.id); return false; }
-          const result = (await res.json()) as { name?: string | null; rate_limited?: boolean };
+          const result = (await res.json()) as { name?: string | null; picture_url?: string | null; rate_limited?: boolean };
           if (result.rate_limited) { enrichingConvIdsRef.current.delete(conv.id); return false; }
-          if (!result.name) enrichingConvIdsRef.current.delete(conv.id);
-          return Boolean(result.name);
+          if (!result.name && !result.picture_url) enrichingConvIdsRef.current.delete(conv.id);
+          return Boolean(result.name ?? result.picture_url);
         } catch {
           enrichingConvIdsRef.current.delete(conv.id);
           return false;
