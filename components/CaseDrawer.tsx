@@ -487,45 +487,6 @@ export function CaseDrawer({
           </div>
         )}
 
-        {/* Close reason dialog */}
-        {closeReasonDialog && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-              <h3 className="mb-1 text-base font-semibold text-slate-900">เลือกเหตุผลปิดเคส</h3>
-              <p className="mb-5 text-sm text-slate-500">ปิดเคสนี้เนื่องจาก?</p>
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => void approveClose("transferred")}
-                  disabled={busy}
-                  className="flex items-center gap-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-left hover:border-emerald-400 hover:bg-emerald-100 disabled:opacity-50"
-                >
-                  <span className="text-xl">✅</span>
-                  <div>
-                    <p className="font-semibold text-emerald-800">โอนแล้ว</p>
-                    <p className="text-xs text-emerald-600">ลูกค้าโอนกรรมสิทธิ์เรียบร้อยแล้ว</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => void approveClose("cancelled")}
-                  disabled={busy}
-                  className="flex items-center gap-3 rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-3 text-left hover:border-rose-400 hover:bg-rose-100 disabled:opacity-50"
-                >
-                  <span className="text-xl">❌</span>
-                  <div>
-                    <p className="font-semibold text-rose-800">ยกเลิกสัญญา</p>
-                    <p className="text-xs text-rose-600">ลูกค้ายกเลิกหรือถอนสัญญา</p>
-                  </div>
-                </button>
-              </div>
-              <button
-                onClick={() => setCloseReasonDialog(false)}
-                className="mt-4 w-full rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:bg-slate-50"
-              >
-                ยกเลิก
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Pending reminders */}
         {reminders.length > 0 && (
@@ -765,6 +726,44 @@ export function CaseDrawer({
         )}
       </div>
     </div>
+
+    {closeReasonDialog && createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+          <h3 className="mb-1 text-base font-semibold text-slate-900">เลือกเหตุผลปิดเคส</h3>
+          <p className="mb-5 text-sm text-slate-500">ปิดเคสนี้เนื่องจาก?</p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => void approveClose("transferred")}
+              className="flex items-center gap-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-left text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+            >
+              <span className="text-lg">✅</span>
+              <div>
+                <div className="font-semibold">โอนแล้ว</div>
+                <div className="text-xs font-normal text-emerald-600">ลูกค้าโอนเงินเรียบร้อยแล้ว</div>
+              </div>
+            </button>
+            <button
+              onClick={() => void approveClose("cancelled")}
+              className="flex items-center gap-3 rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-3 text-left text-sm font-medium text-rose-800 hover:bg-rose-100"
+            >
+              <span className="text-lg">❌</span>
+              <div>
+                <div className="font-semibold">ยกเลิกสัญญา</div>
+                <div className="text-xs font-normal text-rose-600">ลูกค้าขอยกเลิกหรือไม่ผ่านการอนุมัติ</div>
+              </div>
+            </button>
+          </div>
+          <button
+            onClick={() => setCloseReasonDialog(false)}
+            className="mt-4 w-full rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:bg-slate-50"
+          >
+            ยกเลิก
+          </button>
+        </div>
+      </div>,
+      document.body
+    )}
 
     {confirmEdit && createPortal(
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
