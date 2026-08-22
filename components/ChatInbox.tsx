@@ -130,6 +130,7 @@ export function ChatInbox({
 
   type ConvNote = { id: string; content: string; created_by: string | null; created_at: string };
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [pictureLightbox, setPictureLightbox] = useState<string | null>(null);
   const [notes, setNotes] = useState<ConvNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
@@ -1126,6 +1127,24 @@ export function ChatInbox({
                     </svg>
                   </button>
 
+                  {/* Avatar */}
+                  {selectedConv.picture_url ? (
+                    <button
+                      onClick={() => setPictureLightbox(selectedConv.picture_url!)}
+                      className="shrink-0 overflow-hidden rounded-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={selectedConv.picture_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+                    </button>
+                  ) : (
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                      style={{ backgroundColor: avatarColor(selectedConv.sender_name || selectedConv.sender_psid) }}
+                    >
+                      {(selectedConv.sender_name || selectedConv.sender_psid).charAt(0).toUpperCase()}
+                    </div>
+                  )}
+
                   {/* Name + page */}
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold text-slate-950">
@@ -1851,6 +1870,22 @@ export function ChatInbox({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Picture Lightbox */}
+      {pictureLightbox && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-6"
+          onClick={() => setPictureLightbox(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={pictureLightbox}
+            alt=""
+            className="max-h-[80vh] max-w-[80vw] rounded-2xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 
