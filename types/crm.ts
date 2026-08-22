@@ -152,6 +152,7 @@ export type Case = {
   created_by: string | null;
   closed_by: string | null;
   closed_at: string | null;
+  close_reason: "transferred" | "cancelled" | null;
   created_at: string;
   updated_at: string;
   assigned?: Profile | null;
