@@ -464,10 +464,41 @@ export function CaseDrawer({
 
         {/* Close workflow banners */}
         {isPendingClose && canClose && (
-          <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3">
-            <p className="flex-1 text-sm font-medium text-amber-800">📋 Sales ขอปิดเคสนี้</p>
-            <button onClick={() => setCloseReasonDialog(true)} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">อนุมัติปิด</button>
-            <button onClick={() => void rejectClose()} disabled={busy} className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">ไม่อนุมัติ</button>
+          <div className="border-b border-amber-200 bg-amber-50 px-5 py-3">
+            {!closeReasonDialog ? (
+              <div className="flex items-center gap-3">
+                <p className="flex-1 text-sm font-medium text-amber-800">📋 Sales ขอปิดเคสนี้</p>
+                <button onClick={() => setCloseReasonDialog(true)} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">อนุมัติปิด</button>
+                <button onClick={() => void rejectClose()} disabled={busy} className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">ไม่อนุมัติ</button>
+              </div>
+            ) : (
+              <div>
+                <p className="mb-2 text-xs font-semibold text-amber-800">เลือกเหตุผลปิดเคส:</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => void approveClose("transferred")}
+                    disabled={busy}
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    ✅ โอนแล้ว
+                  </button>
+                  <button
+                    onClick={() => void approveClose("cancelled")}
+                    disabled={busy}
+                    className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                  >
+                    ❌ ยกเลิกสัญญา
+                  </button>
+                  <button
+                    onClick={() => setCloseReasonDialog(false)}
+                    disabled={busy}
+                    className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                  >
+                    ย้อนกลับ
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
         {isPendingClose && !canClose && (
@@ -727,45 +758,8 @@ export function CaseDrawer({
       </div>
     </div>
 
-    {closeReasonDialog && createPortal(
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-          <h3 className="mb-1 text-base font-semibold text-slate-900">เลือกเหตุผลปิดเคส</h3>
-          <p className="mb-5 text-sm text-slate-500">ปิดเคสนี้เนื่องจาก?</p>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => void approveClose("transferred")}
-              className="flex items-center gap-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-left text-sm font-medium text-emerald-800 hover:bg-emerald-100"
-            >
-              <span className="text-lg">✅</span>
-              <div>
-                <div className="font-semibold">โอนแล้ว</div>
-                <div className="text-xs font-normal text-emerald-600">ลูกค้าโอนเงินเรียบร้อยแล้ว</div>
-              </div>
-            </button>
-            <button
-              onClick={() => void approveClose("cancelled")}
-              className="flex items-center gap-3 rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-3 text-left text-sm font-medium text-rose-800 hover:bg-rose-100"
-            >
-              <span className="text-lg">❌</span>
-              <div>
-                <div className="font-semibold">ยกเลิกสัญญา</div>
-                <div className="text-xs font-normal text-rose-600">ลูกค้าขอยกเลิกหรือไม่ผ่านการอนุมัติ</div>
-              </div>
-            </button>
-          </div>
-          <button
-            onClick={() => setCloseReasonDialog(false)}
-            className="mt-4 w-full rounded-lg border border-slate-200 py-2 text-sm text-slate-500 hover:bg-slate-50"
-          >
-            ยกเลิก
-          </button>
-        </div>
-      </div>,
-      document.body
-    )}
 
-    {confirmEdit && createPortal(
+{confirmEdit && createPortal(
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
         <div className="w-72 rounded-xl bg-white p-5 shadow-xl">
           <p className="mb-1 text-sm font-semibold text-slate-900">ต้องการแก้ไขข้อมูล?</p>
