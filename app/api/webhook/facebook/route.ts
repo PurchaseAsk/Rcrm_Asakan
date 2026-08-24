@@ -161,6 +161,8 @@ export async function POST(request: NextRequest) {
                     page_id: page.id,
                     post_message: postMessage,
                     permalink_url: permalinkUrl,
+                    thumbnail_url: postInfo.full_picture ?? null,
+                    fb_created_at: postInfo.created_time ?? null,
                   }, { onConflict: "fb_post_id" });
                 }
               }
@@ -767,13 +769,13 @@ async function autoTagCoupon(
 async function fetchPostInfo(
   postId: string,
   token: string,
-): Promise<{ message?: string; story?: string; permalink_url?: string } | null> {
+): Promise<{ message?: string; story?: string; permalink_url?: string; full_picture?: string; created_time?: string } | null> {
   try {
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${postId}?fields=message,story,permalink_url&access_token=${encodeURIComponent(token)}`,
+      `https://graph.facebook.com/v20.0/${postId}?fields=message,story,permalink_url,full_picture,created_time&access_token=${encodeURIComponent(token)}`,
     );
     if (!res.ok) return null;
-    return (await res.json()) as { message?: string; story?: string; permalink_url?: string };
+    return (await res.json()) as { message?: string; story?: string; permalink_url?: string; full_picture?: string; created_time?: string };
   } catch {
     return null;
   }
