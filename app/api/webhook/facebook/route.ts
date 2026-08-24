@@ -127,8 +127,15 @@ export async function POST(request: NextRequest) {
       if (change.field === "feed") {
         const val = change.value as FeedChangeValue;
         if (val.item === "comment" && val.verb === "add" && val.comment_id) {
-          // Skip our own replies echoed back
-          if (val.from?.id !== fbPageId && (!val.parent_id || !val.post_id || val.parent_id === val.post_id)) {
+          // Page replied to a comment from Facebook directly → auto-archive that comment
+          if (val.from?.id === fbPageId && val.parent_id && val.post_id && val.parent_id !== val.post_id) {
+            await supabase
+              .from("page_comments")
+              .update({ status: "archived", archive_reason: "done" })
+              .eq("fb_comment_id", val.parent_id)
+              .eq("status", "active");
+          // New top-level comment from a user (not the page itself)
+          } else if (val.from?.id !== fbPageId && (!val.parent_id || !val.post_id || val.parent_id === val.post_id)) {
             const postId = val.post_id ?? "";
             let postMessage: string | null = null;
             let permalinkUrl: string | null = null;
