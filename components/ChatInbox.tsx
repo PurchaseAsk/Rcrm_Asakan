@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Conversation, Message, Page, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import html2canvas from "html2canvas";
+import { FloatingChatWindow } from "./FloatingChatWindow";
 
 const supabase = createBrowserSupabase();
 const CONVERSATION_PAGE_SIZE = 30;
@@ -127,6 +128,17 @@ export function ChatInbox({
   const [qrDraft, setQrDraft] = useState<{ title: string; content: string } | null>(null);
   const [filterOverdue, setFilterOverdue] = useState(false);
   const [, setMinuteTick] = useState(0);
+  const [floatingConvs, setFloatingConvs] = useState<Conversation[]>([]);
+
+  function popOut(conv: Conversation) {
+    if (floatingConvs.some((f) => f.id === conv.id)) return;
+    if (floatingConvs.length >= 4) return;
+    setFloatingConvs((prev) => [...prev, conv]);
+  }
+
+  function closeFloat(convId: string) {
+    setFloatingConvs((prev) => prev.filter((f) => f.id !== convId));
+  }
 
   type ConvNote = { id: string; content: string; created_by: string | null; created_at: string };
   const [showNotesModal, setShowNotesModal] = useState(false);
@@ -1089,10 +1101,15 @@ export function ChatInbox({
                 </div>
               ) : (
                 <>
-                {visibleConvs.map((conv) => (
-                  <button
+                {visibleConvs.map((conv) => {
+                  const isFloating = floatingConvs.some((f) => f.id === conv.id);
+                  const canPopOut = !isFloating && floatingConvs.length < 4;
+                  return (
+                  <div
                     key={conv.id}
-                    className={`w-full border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${
+                    role="button"
+                    tabIndex={0}
+                    className={`relative w-full cursor-pointer border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${
                       conv.id === selectedConvId
                         ? "border-l-2 border-l-brand-700 bg-brand-50"
                         : isUnread(conv)
@@ -1100,6 +1117,7 @@ export function ChatInbox({
                           : ""
                     }`}
                     onClick={() => void openConversation(conv)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") void openConversation(conv); }}
                   >
                     <div className="flex items-start gap-2.5">
                       {conv.picture_url ? (
@@ -1144,6 +1162,23 @@ export function ChatInbox({
                               <path d="M16 12V4h1a1 1 0 000-2H7a1 1 0 000 2h1v8l-2 2v2h5v5l1 1 1-1v-5h5v-2l-2-2z"/>
                             </svg>
                           )}
+                          {/* Pop-out button — desktop only */}
+                          <button
+                            title={isFloating ? "เปิดอยู่แล้ว" : floatingConvs.length >= 4 ? "เปิดได้สูงสุด 4 หน้าต่าง" : "เปิดหน้าต่างลอย"}
+                            disabled={!canPopOut}
+                            onClick={(e) => { e.stopPropagation(); popOut(conv); }}
+                            className={`hidden md:flex h-5 w-5 items-center justify-center rounded transition-colors ${
+                              isFloating
+                                ? "text-brand-500"
+                                : canPopOut
+                                  ? "text-slate-300 hover:bg-slate-100 hover:text-slate-600"
+                                  : "cursor-not-allowed text-slate-200"
+                            }`}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </button>
                           <div className={`text-[10px] leading-tight text-right ${isUnread(conv) ? "font-medium text-blue-600" : "text-slate-400"}`}>
                             <div>{new Date(conv.last_message_at).toLocaleDateString("th-TH")}</div>
                             <div>{new Date(conv.last_message_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</div>
@@ -1163,8 +1198,9 @@ export function ChatInbox({
                         </div>
                       </div>
                     </div>
-                  </button>
-                ))}
+                  </div>
+                  );
+                })}
                 {hasMoreConversations && (
                   <div className="border-b border-slate-100 p-3 text-center text-xs text-slate-400">
                     {loadingMoreConvs ? "Loading more..." : "Scroll for older conversations"}
@@ -1951,6 +1987,18 @@ export function ChatInbox({
           />
         </div>
       )}
+
+      {/* Floating chat windows — desktop only, max 4 */}
+      {floatingConvs.map((conv, i) => (
+        <FloatingChatWindow
+          key={conv.id}
+          conv={conv}
+          index={i}
+          userId={userId}
+          toast={toast}
+          onClose={() => closeFloat(conv.id)}
+        />
+      ))}
 
       {/* Internal Notes Modal */}
       {showNotesModal && selectedConv && (
