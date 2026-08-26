@@ -105,7 +105,7 @@ export function RemindersTab({
     ]);
 
     const stageCounts = new Map<string, StageCount>();
-    for (const lead of (myActiveLeads || []) as LeadRow[]) {
+    for (const lead of (myActiveLeads || []) as unknown as LeadRow[]) {
       if (!lead.stage) continue;
       const s = lead.stage;
       const existing = stageCounts.get(s.id);
