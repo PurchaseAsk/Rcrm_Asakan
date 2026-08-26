@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, RefreshCcw, CheckCircle, X, Tag, Megaphone, Trash2, BriefcaseIcon, BarChart2, MessageSquare, UserCheck, Clock } from "lucide-react";
+import { Bell, RefreshCcw, CheckCircle, X, Tag, Megaphone, Trash2, BriefcaseIcon, BarChart2 } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Reminder, Role, TeamReminder } from "@/types/crm";
 
@@ -10,14 +10,14 @@ const supabase = createBrowserSupabase();
 type ReminderWithLead = Reminder & { leads?: { id: string; customer_name: string } | null };
 type TeamReminderWithProfile = TeamReminder & { profiles?: { id: string; full_name: string | null; email: string } | null };
 
-type StageCount = { id: string; name: string; color: string; count: number; position: number };
 type DashStats = {
-  newLeads: number;
-  activeLeads: number;
-  stageBreakdown: StageCount[];
+  allLeads: number;
+  couponLeads: number;
+  bookedLeads: number;
+  recalledThisMonth: number;
   teamConvs: number;
+  teamReplied5min: number;
   teamConverted: number;
-  teamPending: number;
 };
 
 export function RemindersTab({
@@ -74,55 +74,76 @@ export function RemindersTab({
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    type LeadRow = { stage: { id: string; name: string; color: string; position: number } | null };
+    // Get user's full_name for recall content matching
+    const { data: myProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .single();
+    const myName = myProfile?.full_name ?? "";
+
+    // Stage IDs for "ส่งคูปอง" and "จองแล้ว" across all pipelines
+    const [{ data: couponStages }, { data: bookedStages }] = await Promise.all([
+      supabase.from("funnel_stages").select("id").eq("name", "ส่งคูปอง"),
+      supabase.from("funnel_stages").select("id").eq("name", "จองแล้ว"),
+    ]);
+    const couponIds = (couponStages ?? []).map((s) => s.id);
+    const bookedIds = (bookedStages ?? []).map((s) => s.id);
 
     const [
-      { data: myLeadsMonth },
-      { data: myActiveLeads },
-      { count: teamConvs },
-      { count: teamConverted },
-      { count: teamPending },
+      { count: allLeads },
+      { count: couponLeads },
+      { count: bookedLeads },
+      { count: recalledThisMonth },
+      { data: chatStats },
     ] = await Promise.all([
-      supabase.from("leads").select("id").eq("assigned_to", userId).gte("created_at", monthStart),
+      // ลีดทั้งหมด — active leads assigned to me
       supabase
         .from("leads")
-        .select("id, stage:funnel_stages(id, name, color, position)")
+        .select("*", { count: "exact", head: true })
         .eq("assigned_to", userId)
         .eq("status", "active"),
-      supabase
-        .from("conversations")
-        .select("*", { count: "exact", head: true })
-        .gte("created_at", monthStart),
-      supabase
-        .from("conversations")
-        .select("*", { count: "exact", head: true })
-        .gte("created_at", monthStart)
-        .not("lead_id", "is", null),
-      supabase
-        .from("conversations")
-        .select("*", { count: "exact", head: true })
-        .eq("last_message_direction", "inbound"),
+      // ส่งคูปอง
+      couponIds.length > 0
+        ? supabase
+            .from("leads")
+            .select("*", { count: "exact", head: true })
+            .eq("assigned_to", userId)
+            .eq("status", "active")
+            .in("stage_id", couponIds)
+        : Promise.resolve({ count: 0 }),
+      // จองแล้ว
+      bookedIds.length > 0
+        ? supabase
+            .from("leads")
+            .select("*", { count: "exact", head: true })
+            .eq("assigned_to", userId)
+            .eq("status", "active")
+            .in("stage_id", bookedIds)
+        : Promise.resolve({ count: 0 }),
+      // Recall ที่โดนในเดือนนี้ — match by name in content
+      myName
+        ? supabase
+            .from("lead_activities")
+            .select("*", { count: "exact", head: true })
+            .eq("type", "recalled")
+            .ilike("content", `%${myName}%`)
+            .gte("created_at", monthStart)
+        : Promise.resolve({ count: 0 }),
+      // Chat stats via DB function (5-min response rate)
+      supabase.rpc("get_monthly_chat_stats", { p_month_start: monthStart }),
     ]);
 
-    const stageCounts = new Map<string, StageCount>();
-    for (const lead of (myActiveLeads || []) as unknown as LeadRow[]) {
-      if (!lead.stage) continue;
-      const s = lead.stage;
-      const existing = stageCounts.get(s.id);
-      if (existing) {
-        existing.count++;
-      } else {
-        stageCounts.set(s.id, { id: s.id, name: s.name, color: s.color, count: 1, position: s.position });
-      }
-    }
+    const cs = (chatStats as { total_convs: number; replied_in_5min: number; converted: number }[] | null)?.[0];
 
     setDashStats({
-      newLeads: myLeadsMonth?.length ?? 0,
-      activeLeads: myActiveLeads?.length ?? 0,
-      stageBreakdown: [...stageCounts.values()].sort((a, b) => a.position - b.position),
-      teamConvs: teamConvs ?? 0,
-      teamConverted: teamConverted ?? 0,
-      teamPending: teamPending ?? 0,
+      allLeads: allLeads ?? 0,
+      couponLeads: couponLeads ?? 0,
+      bookedLeads: bookedLeads ?? 0,
+      recalledThisMonth: recalledThisMonth ?? 0,
+      teamConvs: cs?.total_convs ?? 0,
+      teamReplied5min: cs?.replied_in_5min ?? 0,
+      teamConverted: cs?.converted ?? 0,
     });
     setDashLoading(false);
   }, [userId]);
@@ -351,76 +372,54 @@ export function RemindersTab({
                       {/* Personal stats */}
                       <div>
                         <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ผลงานของฉัน</p>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-                          <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3">
-                            <div className="text-2xl font-bold text-brand-700">{dashStats.newLeads}</div>
-                            <div className="mt-0.5 text-xs text-brand-600">Lead ใหม่เดือนนี้</div>
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          <div className="rounded-xl border border-brand-100 bg-brand-50 px-4 py-4">
+                            <div className="text-3xl font-bold text-brand-700">{dashStats.allLeads}</div>
+                            <div className="mt-1 text-xs font-medium text-brand-600">Lead ทั้งหมด</div>
                           </div>
-                          <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
-                            <div className="text-2xl font-bold text-emerald-700">{dashStats.activeLeads}</div>
-                            <div className="mt-0.5 text-xs text-emerald-600">กำลังดูแลอยู่</div>
+                          <div className="rounded-xl border px-4 py-4" style={{ borderColor: "#ec489940", backgroundColor: "#ec48990d" }}>
+                            <div className="text-3xl font-bold" style={{ color: "#ec4899" }}>{dashStats.couponLeads}</div>
+                            <div className="mt-1 text-xs font-medium" style={{ color: "#ec4899" }}>ส่งคูปอง</div>
                           </div>
-                          {dashStats.stageBreakdown.slice(0, 4).map((s) => (
-                            <div
-                              key={s.id}
-                              className="rounded-lg border px-4 py-3"
-                              style={{ borderColor: `${s.color}40`, backgroundColor: `${s.color}0d` }}
-                            >
-                              <div className="text-2xl font-bold" style={{ color: s.color }}>{s.count}</div>
-                              <div className="mt-0.5 truncate text-xs" style={{ color: s.color }}>{s.name}</div>
-                            </div>
-                          ))}
+                          <div className="rounded-xl border px-4 py-4" style={{ borderColor: "#2563eb40", backgroundColor: "#2563eb0d" }}>
+                            <div className="text-3xl font-bold" style={{ color: "#2563eb" }}>{dashStats.bookedLeads}</div>
+                            <div className="mt-1 text-xs font-medium" style={{ color: "#2563eb" }}>จองแล้ว</div>
+                          </div>
+                          <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-4">
+                            <div className="text-3xl font-bold text-rose-600">{dashStats.recalledThisMonth}</div>
+                            <div className="mt-1 text-xs font-medium text-rose-500">Recall เดือนนี้</div>
+                          </div>
                         </div>
-                        {/* Overflow stages as pills */}
-                        {dashStats.stageBreakdown.length > 4 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {dashStats.stageBreakdown.slice(4).map((s) => (
-                              <span
-                                key={s.id}
-                                className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-                                style={{ backgroundColor: `${s.color}22`, color: s.color }}
-                              >
-                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color }} />
-                                {s.name} · {s.count}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {dashStats.activeLeads === 0 && (
-                          <p className="mt-2 text-xs text-slate-400">ยังไม่มี lead ที่กำลังดูแล</p>
-                        )}
                       </div>
 
-                      {/* Team stats */}
+                      {/* Team chat stats */}
                       <div>
-                        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ทั้งทีม — เดือนนี้</p>
+                        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ทั้งทีม — แชทเดือนนี้</p>
                         <div className="grid grid-cols-3 gap-3">
-                          <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                            <MessageSquare size={18} className="shrink-0 text-slate-500" />
-                            <div>
-                              <div className="text-xl font-bold text-slate-800">{dashStats.teamConvs}</div>
-                              <div className="text-xs text-slate-500">แชทใหม่</div>
+                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 text-center">
+                            <div className="text-3xl font-bold text-slate-800">{dashStats.teamConvs}</div>
+                            <div className="mt-1 text-xs text-slate-500">แชทใหม่</div>
+                          </div>
+                          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-center">
+                            <div className="text-3xl font-bold text-emerald-600">{dashStats.teamReplied5min}</div>
+                            <div className="mt-1 text-xs text-emerald-600">
+                              ตอบใน 5 นาที
+                              {dashStats.teamConvs > 0 && (
+                                <span className="ml-1 font-semibold">
+                                  ({Math.round((dashStats.teamReplied5min / dashStats.teamConvs) * 100)}%)
+                                </span>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
-                            <UserCheck size={18} className="shrink-0 text-emerald-600" />
-                            <div>
-                              <div className="text-xl font-bold text-emerald-700">{dashStats.teamConverted}</div>
-                              <div className="text-xs text-emerald-600">
-                                แปลงเป็น Lead
-                                {dashStats.teamConvs > 0 && (
-                                  <span className="ml-1 text-emerald-500">
-                                    ({Math.round((dashStats.teamConverted / dashStats.teamConvs) * 100)}%)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
-                            <Clock size={18} className="shrink-0 text-amber-600" />
-                            <div>
-                              <div className="text-xl font-bold text-amber-700">{dashStats.teamPending}</div>
-                              <div className="text-xs text-amber-600">รอตอบ ณ ตอนนี้</div>
+                          <div className="rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 text-center">
+                            <div className="text-3xl font-bold text-blue-600">{dashStats.teamConverted}</div>
+                            <div className="mt-1 text-xs text-blue-600">
+                              เปลี่ยนเป็นลีด
+                              {dashStats.teamConvs > 0 && (
+                                <span className="ml-1 font-semibold">
+                                  ({Math.round((dashStats.teamConverted / dashStats.teamConvs) * 100)}%)
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
