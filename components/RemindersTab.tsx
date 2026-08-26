@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, RefreshCcw, CheckCircle, X, Tag, Megaphone, Trash2, BriefcaseIcon } from "lucide-react";
+import { Bell, RefreshCcw, CheckCircle, X, Tag, Megaphone, Trash2, BriefcaseIcon, BarChart2, MessageSquare, UserCheck, Clock } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Reminder, Role, TeamReminder } from "@/types/crm";
 
@@ -9,6 +9,16 @@ const supabase = createBrowserSupabase();
 
 type ReminderWithLead = Reminder & { leads?: { id: string; customer_name: string } | null };
 type TeamReminderWithProfile = TeamReminder & { profiles?: { id: string; full_name: string | null; email: string } | null };
+
+type StageCount = { id: string; name: string; color: string; count: number; position: number };
+type DashStats = {
+  newLeads: number;
+  activeLeads: number;
+  stageBreakdown: StageCount[];
+  teamConvs: number;
+  teamConverted: number;
+  teamPending: number;
+};
 
 export function RemindersTab({
   userId,
@@ -31,6 +41,9 @@ export function RemindersTab({
   const [saving, setSaving] = useState(false);
   const [teamDraft, setTeamDraft] = useState({ title: "", body: "" });
   const [teamSaving, setTeamSaving] = useState(false);
+  const [dashStats, setDashStats] = useState<DashStats | null>(null);
+  const [dashLoading, setDashLoading] = useState(true);
+  const [dashCollapsed, setDashCollapsed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,8 +69,67 @@ export function RemindersTab({
     setTeamLoading(false);
   }, []);
 
+  const loadDashboard = useCallback(async () => {
+    setDashLoading(true);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    type LeadRow = { stage: { id: string; name: string; color: string; position: number } | null };
+
+    const [
+      { data: myLeadsMonth },
+      { data: myActiveLeads },
+      { count: teamConvs },
+      { count: teamConverted },
+      { count: teamPending },
+    ] = await Promise.all([
+      supabase.from("leads").select("id").eq("assigned_to", userId).gte("created_at", monthStart),
+      supabase
+        .from("leads")
+        .select("id, stage:funnel_stages(id, name, color, position)")
+        .eq("assigned_to", userId)
+        .eq("status", "active"),
+      supabase
+        .from("conversations")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", monthStart),
+      supabase
+        .from("conversations")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", monthStart)
+        .not("lead_id", "is", null),
+      supabase
+        .from("conversations")
+        .select("*", { count: "exact", head: true })
+        .eq("last_message_direction", "inbound"),
+    ]);
+
+    const stageCounts = new Map<string, StageCount>();
+    for (const lead of (myActiveLeads || []) as LeadRow[]) {
+      if (!lead.stage) continue;
+      const s = lead.stage;
+      const existing = stageCounts.get(s.id);
+      if (existing) {
+        existing.count++;
+      } else {
+        stageCounts.set(s.id, { id: s.id, name: s.name, color: s.color, count: 1, position: s.position });
+      }
+    }
+
+    setDashStats({
+      newLeads: myLeadsMonth?.length ?? 0,
+      activeLeads: myActiveLeads?.length ?? 0,
+      stageBreakdown: [...stageCounts.values()].sort((a, b) => a.position - b.position),
+      teamConvs: teamConvs ?? 0,
+      teamConverted: teamConverted ?? 0,
+      teamPending: teamPending ?? 0,
+    });
+    setDashLoading(false);
+  }, [userId]);
+
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadTeamReminders(); }, [loadTeamReminders]);
+  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
 
   async function createTeamReminder() {
     if (!teamDraft.title.trim() || !canManageTeamReminders) return;
@@ -241,13 +313,125 @@ export function RemindersTab({
           )}
           <button
             className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-            onClick={() => { void load(); void loadTeamReminders(); }}
+            onClick={() => { void load(); void loadTeamReminders(); void loadDashboard(); }}
           >
             <RefreshCcw size={14} />
             รีเฟรช
           </button>
         </div>
       </div>
+
+        {/* ── Monthly Dashboard ─────────────────────────────── */}
+        {(() => {
+          const now = new Date();
+          const monthLabel = now.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+          return (
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <button
+                onClick={() => setDashCollapsed((v) => !v)}
+                className="flex w-full items-center gap-2 px-5 py-3.5 text-left"
+              >
+                <BarChart2 size={16} className="shrink-0 text-brand-600" />
+                <span className="flex-1 text-sm font-semibold text-slate-900">ยอดสรุปประจำเดือน {monthLabel}</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${dashCollapsed ? "-rotate-90" : ""}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {!dashCollapsed && (
+                <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-5">
+                  {dashLoading || !dashStats ? (
+                    <p className="text-sm text-slate-400">กำลังโหลด…</p>
+                  ) : (
+                    <>
+                      {/* Personal stats */}
+                      <div>
+                        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ผลงานของฉัน</p>
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                          <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3">
+                            <div className="text-2xl font-bold text-brand-700">{dashStats.newLeads}</div>
+                            <div className="mt-0.5 text-xs text-brand-600">Lead ใหม่เดือนนี้</div>
+                          </div>
+                          <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
+                            <div className="text-2xl font-bold text-emerald-700">{dashStats.activeLeads}</div>
+                            <div className="mt-0.5 text-xs text-emerald-600">กำลังดูแลอยู่</div>
+                          </div>
+                          {dashStats.stageBreakdown.slice(0, 4).map((s) => (
+                            <div
+                              key={s.id}
+                              className="rounded-lg border px-4 py-3"
+                              style={{ borderColor: `${s.color}40`, backgroundColor: `${s.color}0d` }}
+                            >
+                              <div className="text-2xl font-bold" style={{ color: s.color }}>{s.count}</div>
+                              <div className="mt-0.5 truncate text-xs" style={{ color: s.color }}>{s.name}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Overflow stages as pills */}
+                        {dashStats.stageBreakdown.length > 4 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {dashStats.stageBreakdown.slice(4).map((s) => (
+                              <span
+                                key={s.id}
+                                className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                style={{ backgroundColor: `${s.color}22`, color: s.color }}
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+                                {s.name} · {s.count}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {dashStats.activeLeads === 0 && (
+                          <p className="mt-2 text-xs text-slate-400">ยังไม่มี lead ที่กำลังดูแล</p>
+                        )}
+                      </div>
+
+                      {/* Team stats */}
+                      <div>
+                        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ทั้งทีม — เดือนนี้</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                            <MessageSquare size={18} className="shrink-0 text-slate-500" />
+                            <div>
+                              <div className="text-xl font-bold text-slate-800">{dashStats.teamConvs}</div>
+                              <div className="text-xs text-slate-500">แชทใหม่</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
+                            <UserCheck size={18} className="shrink-0 text-emerald-600" />
+                            <div>
+                              <div className="text-xl font-bold text-emerald-700">{dashStats.teamConverted}</div>
+                              <div className="text-xs text-emerald-600">
+                                แปลงเป็น Lead
+                                {dashStats.teamConvs > 0 && (
+                                  <span className="ml-1 text-emerald-500">
+                                    ({Math.round((dashStats.teamConverted / dashStats.teamConvs) * 100)}%)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+                            <Clock size={18} className="shrink-0 text-amber-600" />
+                            <div>
+                              <div className="text-xl font-bold text-amber-700">{dashStats.teamPending}</div>
+                              <div className="text-xs text-amber-600">รอตอบ ณ ตอนนี้</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <section className="space-y-4">
           {canManageTeamReminders && (
