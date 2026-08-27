@@ -103,23 +103,23 @@ export function RemindersTab({
         .select("*", { count: "exact", head: true })
         .eq("assigned_to", userId)
         .eq("status", "active"),
-      // ส่งคูปอง
+      // ส่งคูปอง — เดือนนี้ (stage_entered_at)
       couponIds.length > 0
         ? supabase
             .from("leads")
             .select("*", { count: "exact", head: true })
             .eq("assigned_to", userId)
-            .eq("status", "active")
             .in("stage_id", couponIds)
+            .gte("stage_entered_at", monthStart)
         : Promise.resolve({ count: 0 }),
-      // จองแล้ว
+      // จองแล้ว — เดือนนี้ (stage_entered_at)
       bookedIds.length > 0
         ? supabase
             .from("leads")
             .select("*", { count: "exact", head: true })
             .eq("assigned_to", userId)
-            .eq("status", "active")
             .in("stage_id", bookedIds)
+            .gte("stage_entered_at", monthStart)
         : Promise.resolve({ count: 0 }),
       // Recall ที่โดนในเดือนนี้ — match by name in content
       myName
