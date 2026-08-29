@@ -14,9 +14,33 @@ interface WebsiteLeadPayload {
   source_url?: string;
 }
 
+function parseField(params: URLSearchParams, key: string): string {
+  return params.get(`fields[${key}]`) ?? params.get(key) ?? "";
+}
+
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as WebsiteLeadPayload;
-  const { secret, project_slug, name, lastname, phone, email, message, appointment_date, source_url } = body;
+  let secret: string, project_slug: string, name: string, lastname: string | undefined;
+  let phone: string | undefined, email: string | undefined;
+  let message: string | undefined, appointment_date: string | undefined, source_url: string | undefined;
+
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    const body = (await request.json()) as WebsiteLeadPayload;
+    ({ secret, project_slug, name, lastname, phone, email, message, appointment_date, source_url } = body);
+  } else {
+    const text = await request.text();
+    const params = new URLSearchParams(text);
+    secret = parseField(params, "secret");
+    project_slug = parseField(params, "project_slug");
+    name = parseField(params, "name");
+    lastname = parseField(params, "lastname") || undefined;
+    phone = parseField(params, "phone") || undefined;
+    email = parseField(params, "email") || undefined;
+    message = parseField(params, "message") || undefined;
+    appointment_date = parseField(params, "appointment_date") || undefined;
+    source_url = parseField(params, "source_url") || undefined;
+  }
+
   const fullName = lastname ? `${name} ${lastname}`.trim() : name;
 
   if (!secret || !project_slug || !fullName) {
