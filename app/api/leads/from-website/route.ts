@@ -29,7 +29,9 @@ export async function POST(request: NextRequest) {
     ({ secret, project_slug, name, lastname, phone, email, message, appointment_date, source_url } = body);
   } else {
     const text = await request.text();
+    console.log("[from-website] raw body:", text.slice(0, 500));
     const params = new URLSearchParams(text);
+    console.log("[from-website] keys:", [...params.keys()].join(","));
     secret = parseField(params, "secret");
     project_slug = parseField(params, "project_slug");
     name = parseField(params, "name");
