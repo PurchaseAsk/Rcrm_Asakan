@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { sendTelegram, tg } from "@/lib/telegram";
 
@@ -29,9 +30,7 @@ export async function POST(request: NextRequest) {
     ({ secret, project_slug, name, lastname, phone, email, message, appointment_date, source_url } = body);
   } else {
     const text = await request.text();
-    console.log("[from-website] raw body:", text.slice(0, 500));
     const params = new URLSearchParams(text);
-    console.log("[from-website] keys:", [...params.keys()].join(","));
     secret = parseField(params, "secret");
     project_slug = parseField(params, "project_slug");
     name = parseField(params, "name");
@@ -49,25 +48,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  // Return 200 immediately so WordPress/Elementor doesn't timeout
+  // Process everything asynchronously after response
+  after(async () => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
 
-  // Verify secret + fetch rule in parallel
-  const [{ data: settings }, { data: rule }] = await Promise.all([
-    supabase.from("website_settings").select("webhook_secret").single(),
-    supabase
-      .from("website_lead_rules")
-      .select("pipeline_id, stage_id, assigned_to, facebook_page_id")
-      .eq("project_slug", project_slug)
-      .eq("is_active", true)
-      .maybeSingle(),
-  ]);
+    const [{ data: settings }, { data: rule }] = await Promise.all([
+      supabase.from("website_settings").select("webhook_secret").single(),
+      supabase
+        .from("website_lead_rules")
+        .select("pipeline_id, stage_id, assigned_to, facebook_page_id")
+        .eq("project_slug", project_slug)
+        .eq("is_active", true)
+        .maybeSingle(),
+    ]);
 
-  if (!settings || settings.webhook_secret !== secret) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    if (!settings || settings.webhook_secret !== secret) return;
 
   // Build metadata
   const metadata: Record<string, string> = {};
@@ -122,14 +121,14 @@ export async function POST(request: NextRequest) {
         `📂 ${tg(project_slug)}`,
       ].filter(Boolean);
       void sendTelegram(dupParts.join("\n"));
-      return NextResponse.json({ ok: true, lead_id: existingId, duplicate: true });
+      return;
     }
-    return NextResponse.json({ ok: true, duplicate: true });
+    return;
   }
 
   if (error || !lead) {
     console.error("[from-website] insert error:", error);
-    return NextResponse.json({ error: "Failed to create lead" }, { status: 500 });
+    return;
   }
 
   await supabase.from("lead_activities").insert({
@@ -153,7 +152,8 @@ export async function POST(request: NextRequest) {
     appointment_date ? `📅 นัด: ${tg(appointment_date)}` : null,
     `📂 ${tg(project_slug)}`,
   ].filter(Boolean);
-  void sendTelegram(parts.join("\n"));
+    void sendTelegram(parts.join("\n"));
+  });
 
-  return NextResponse.json({ ok: true, lead_id: lead.id });
+  return NextResponse.json({ ok: true });
 }
