@@ -54,23 +54,20 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  // Verify secret
-  const { data: settings } = await supabase
-    .from("website_settings")
-    .select("webhook_secret")
-    .single();
+  // Verify secret + fetch rule in parallel
+  const [{ data: settings }, { data: rule }] = await Promise.all([
+    supabase.from("website_settings").select("webhook_secret").single(),
+    supabase
+      .from("website_lead_rules")
+      .select("pipeline_id, stage_id, assigned_to, facebook_page_id")
+      .eq("project_slug", project_slug)
+      .eq("is_active", true)
+      .maybeSingle(),
+  ]);
 
   if (!settings || settings.webhook_secret !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  // Find matching active rule for this project_slug
-  const { data: rule } = await supabase
-    .from("website_lead_rules")
-    .select("pipeline_id, stage_id, assigned_to, facebook_page_id")
-    .eq("project_slug", project_slug)
-    .eq("is_active", true)
-    .maybeSingle();
 
   // Build metadata
   const metadata: Record<string, string> = {};
@@ -124,7 +121,7 @@ export async function POST(request: NextRequest) {
         message ? `💬 ${tg(message)}` : null,
         `📂 ${tg(project_slug)}`,
       ].filter(Boolean);
-      await sendTelegram(dupParts.join("\n"));
+      void sendTelegram(dupParts.join("\n"));
       return NextResponse.json({ ok: true, lead_id: existingId, duplicate: true });
     }
     return NextResponse.json({ ok: true, duplicate: true });
@@ -156,7 +153,7 @@ export async function POST(request: NextRequest) {
     appointment_date ? `📅 นัด: ${tg(appointment_date)}` : null,
     `📂 ${tg(project_slug)}`,
   ].filter(Boolean);
-  await sendTelegram(parts.join("\n"));
+  void sendTelegram(parts.join("\n"));
 
   return NextResponse.json({ ok: true, lead_id: lead.id });
 }
