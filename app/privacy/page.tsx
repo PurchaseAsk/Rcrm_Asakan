@@ -7,7 +7,7 @@ export default function PrivacyPage() {
       <section className="mb-6">
         <h2 className="mb-2 text-lg font-semibold">1. Overview</h2>
         <p className="text-sm leading-relaxed">
-          AsakanLeadFlow ("we", "our", "the app") is a CRM platform used internally by Asakan real
+          AsakanLeadFlow (&quot;we&quot;, &quot;our&quot;, &quot;the app&quot;) is a CRM platform used internally by Asakan real
           estate business to manage leads from advertising campaigns on Facebook and TikTok. This
           policy explains how we collect, use, and protect data.
         </p>
