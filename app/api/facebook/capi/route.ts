@@ -74,8 +74,10 @@ export async function POST(request: NextRequest) {
 
   if (leadData.phone) userData.ph = [sha256(normalizePhone(leadData.phone))];
   if (leadData.email) userData.em = [sha256(leadData.email.trim().toLowerCase())];
-  // PSID → external_id (hashed)
-  if (leadData.facebook_id) userData.external_id = [sha256(leadData.facebook_id)];
+  // external_id: always include internal lead_id; also include PSID if available
+  const extIds = [sha256(lead_id)];
+  if (leadData.facebook_id) extIds.push(sha256(leadData.facebook_id));
+  userData.external_id = extIds;
   // Facebook Lead Ad ID — strongest EMQ signal for lead ads, sent plain (not hashed)
   if (leadData.facebook_lead_id) userData.lead_id = leadData.facebook_lead_id;
   // First name from customer_name
