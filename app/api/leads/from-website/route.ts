@@ -6,6 +6,7 @@ interface WebsiteLeadPayload {
   secret: string;
   project_slug: string;
   name: string;
+  lastname?: string;
   phone?: string;
   email?: string;
   message?: string;
@@ -15,9 +16,10 @@ interface WebsiteLeadPayload {
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as WebsiteLeadPayload;
-  const { secret, project_slug, name, phone, email, message, appointment_date, source_url } = body;
+  const { secret, project_slug, name, lastname, phone, email, message, appointment_date, source_url } = body;
+  const fullName = lastname ? `${name} ${lastname}`.trim() : name;
 
-  if (!secret || !project_slug || !name) {
+  if (!secret || !project_slug || !fullName) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
   const { data: lead, error } = await supabase
     .from("leads")
     .insert({
-      customer_name: name,
+      customer_name: fullName,
       phone: phone ?? null,
       email: email ?? null,
       page_id: rule?.facebook_page_id ?? null,
