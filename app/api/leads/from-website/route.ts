@@ -15,7 +15,7 @@ interface WebsiteLeadPayload {
 }
 
 function parseField(params: URLSearchParams, key: string): string {
-  return params.get(`fields[${key}]`) ?? params.get(key) ?? "";
+  return params.get(`fields[${key}][value]`) ?? params.get(key) ?? "";
 }
 
 export async function POST(request: NextRequest) {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     email = parseField(params, "email") || undefined;
     message = parseField(params, "message") || undefined;
     appointment_date = parseField(params, "appointment_date") || undefined;
-    source_url = parseField(params, "source_url") || undefined;
+    source_url = parseField(params, "source_url") || params.get("meta[page_url][value]") || undefined;
   }
 
   const fullName = lastname ? `${name} ${lastname}`.trim() : name;
