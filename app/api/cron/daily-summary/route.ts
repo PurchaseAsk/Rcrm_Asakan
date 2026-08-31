@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
   // --- Activities by person ---
   type ActRow = { type: string; profiles: { full_name: string | null; email: string } | null };
   const actMap = new Map<string, { note: number; stage: number }>();
-  for (const r of (activityRes.data ?? []) as ActRow[]) {
+  for (const r of (activityRes.data ?? []) as unknown as ActRow[]) {
     const name = r.profiles?.full_name ?? r.profiles?.email ?? "ไม่ระบุ";
     const cur = actMap.get(name) ?? { note: 0, stage: 0 };
     if (r.type === "note") cur.note++;
