@@ -33,7 +33,7 @@ function fText(
     bold = false,
     color = "#333333",
     size = "sm",
-    wrap = false,
+    wrap = true,
     align = "start",
   }: { bold?: boolean; color?: string; size?: string; wrap?: boolean; align?: string } = {},
 ): object {
@@ -44,7 +44,7 @@ function fSep(): object {
   return { type: "separator", margin: "lg", color: "#e2e8f0" };
 }
 
-function fSectionTitle(text: string): object {
+function fTitle(text: string): object {
   return fText(text, { bold: true, color: "#1e40af", size: "sm" });
 }
 
@@ -54,8 +54,8 @@ function fStatRow(label: string, value: string | number): object {
     layout: "horizontal",
     margin: "xs",
     contents: [
-      fText(label, { color: "#6b7280", size: "sm" }),
-      fText(String(value), { bold: true, color: "#111827", size: "sm", align: "end" }),
+      { ...fText(label, { color: "#6b7280", size: "sm", wrap: false }), flex: 3 },
+      { ...fText(String(value), { bold: true, color: "#111827", size: "sm", align: "end", wrap: false }), flex: 2 },
     ],
   };
 }
@@ -66,11 +66,40 @@ function fPersonRow(name: string, detail: string): object {
     layout: "horizontal",
     margin: "xs",
     contents: [
-      fText(`• ${name}`, { color: "#374151", size: "sm" }),
-      fText(detail, { color: "#111827", size: "sm", bold: true, align: "end" }),
+      { ...fText(`• ${name}`, { color: "#374151", size: "sm", wrap: false }), flex: 3 },
+      { ...fText(detail, { bold: true, color: "#111827", size: "sm", align: "end", wrap: false }), flex: 2 },
     ],
   };
 }
+
+function makeBubble(headerBg: string, headerTexts: object[], bodyContents: object[]): object {
+  return {
+    type: "bubble",
+    size: "giga",
+    header: {
+      type: "box",
+      layout: "vertical",
+      backgroundColor: headerBg,
+      paddingAll: "14px",
+      contents: headerTexts,
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "xs",
+      paddingAll: "14px",
+      contents: bodyContents,
+    },
+  };
+}
+
+type PipelineStats = {
+  name: string;
+  leads: number;
+  unfollow: number;
+  recallMap: Map<string, number>;
+  actMap: Map<string, { note: number; stage: number }>;
+};
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -80,7 +109,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = adminSupabase();
 
-  // Today range in Thai time (UTC+7)
+  // Today range (UTC+7)
   const offsetMs = 7 * 60 * 60 * 1000;
   const nowThai = new Date(Date.now() + offsetMs);
   const todayStart = new Date(
@@ -88,237 +117,241 @@ export async function GET(request: NextRequest) {
   );
   const since = todayStart.toISOString();
   const dateLabel = todayStart.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Asia/Bangkok",
+    day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok",
   });
 
   const [
+    pipelinesRes,
+    leadsRes,
     recallRes,
     activityRes,
-    totalLeadsRes,
     unfollowRes,
-    fbConvRes,
-    lineConvRes,
+    fbConvNewRes,
+    fbConvAllRes,
+    lineConvNewRes,
     fbInboundRes,
     fbOutboundRes,
     lineInboundRes,
     lineOutboundRes,
   ] = await Promise.all([
-    // Recalls today
-    supabase.from("lead_activities").select("content").eq("type", "recalled").gte("created_at", since),
-    // Activities today by staff
-    supabase
-      .from("lead_activities")
-      .select("type, created_by, profiles(full_name, email)")
+    // Active pipelines
+    supabase.from("pipelines").select("id, name").eq("is_active", true),
+    // Leads today with pipeline
+    supabase.from("leads").select("id, pipeline_id").gte("created_at", since),
+    // Recalls today with pipeline (join leads)
+    supabase.from("lead_activities")
+      .select("content, leads(pipeline_id)")
+      .eq("type", "recalled")
+      .gte("created_at", since),
+    // Activities today with pipeline and person
+    supabase.from("lead_activities")
+      .select("type, created_by, leads(pipeline_id), profiles(full_name, email)")
       .in("type", ["note", "stage_change"])
       .gte("created_at", since)
       .not("created_by", "is", null),
-    // Total leads today
-    supabase.from("leads").select("id, source").gte("created_at", since),
-    // Unfollowed today (stage_change activity mentioning เลิกติดตาม)
-    supabase
-      .from("lead_activities")
-      .select("id")
+    // Unfollowed today with pipeline
+    supabase.from("lead_activities")
+      .select("leads(pipeline_id)")
       .eq("type", "stage_change")
       .gte("created_at", since)
       .ilike("content", "%เลิกติดตาม%"),
-    // Facebook conversations active today
+    // FB: new conversations today (created today)
+    supabase.from("conversations").select("id", { count: "exact", head: true }).gte("created_at", since),
+    // FB: all conversations active today
     supabase.from("conversations").select("id, lead_id").gte("last_message_at", since),
-    // LINE OA conversations active today
-    supabase.from("line_conversations").select("id, lead_id").gte("last_message_at", since),
-    // Facebook: first inbound per conversation today
-    supabase
-      .from("messages")
-      .select("conversation_id, created_at")
-      .eq("direction", "inbound")
-      .gte("created_at", since)
-      .order("created_at"),
-    // Facebook: first outbound per conversation today
-    supabase
-      .from("messages")
-      .select("conversation_id, created_at")
-      .eq("direction", "outbound")
-      .gte("created_at", since)
-      .order("created_at"),
+    // LINE OA: new conversations today
+    supabase.from("line_conversations").select("id", { count: "exact", head: true }).gte("created_at", since),
+    // FB: first inbound per conversation today (response time)
+    supabase.from("messages").select("conversation_id, created_at").eq("direction", "inbound").gte("created_at", since).order("created_at"),
+    // FB: first outbound per conversation today
+    supabase.from("messages").select("conversation_id, created_at").eq("direction", "outbound").gte("created_at", since).order("created_at"),
     // LINE: first inbound per conversation today
-    supabase
-      .from("line_messages")
-      .select("conversation_id, created_at")
-      .eq("direction", "inbound")
-      .gte("created_at", since)
-      .order("created_at"),
+    supabase.from("line_messages").select("conversation_id, created_at").eq("direction", "inbound").gte("created_at", since).order("created_at"),
     // LINE: first outbound per conversation today
-    supabase
-      .from("line_messages")
-      .select("conversation_id, created_at")
-      .eq("direction", "outbound")
-      .gte("created_at", since)
-      .order("created_at"),
+    supabase.from("line_messages").select("conversation_id, created_at").eq("direction", "outbound").gte("created_at", since).order("created_at"),
   ]);
 
-  // --- Recall by person ---
-  const recallMap = new Map<string, number>();
-  for (const { content } of recallRes.data ?? []) {
-    const match = content?.match(/ดึงลีดกลับเข้าส่วนกลางจาก (.+?) หลังอยู่ใน stage/);
+  // Build pipeline name map
+  const pipelineNames = new Map<string, string>();
+  for (const p of pipelinesRes.data ?? []) pipelineNames.set(p.id, p.name);
+
+  // Initialize stats per pipeline + "null" bucket for unassigned
+  const pipelineStats = new Map<string | null, PipelineStats>();
+  const getStats = (pid: string | null): PipelineStats => {
+    if (!pipelineStats.has(pid)) {
+      pipelineStats.set(pid, {
+        name: pid ? (pipelineNames.get(pid) ?? "ไม่ระบุ") : "ไม่ระบุ Pipeline",
+        leads: 0, unfollow: 0,
+        recallMap: new Map(), actMap: new Map(),
+      });
+    }
+    return pipelineStats.get(pid)!;
+  };
+
+  // Leads by pipeline
+  for (const lead of leadsRes.data ?? []) {
+    getStats(lead.pipeline_id).leads++;
+  }
+  const totalLeads = leadsRes.data?.length ?? 0;
+
+  // Recalls by pipeline and person
+  type RecallRow = { content: string | null; leads: { pipeline_id: string | null } | null };
+  for (const r of (recallRes.data ?? []) as unknown as RecallRow[]) {
+    const pid = r.leads?.pipeline_id ?? null;
+    const match = r.content?.match(/ดึงลีดกลับเข้าส่วนกลางจาก (.+?) หลังอยู่ใน stage/);
     const name = match?.[1] ?? "ไม่ระบุ";
-    recallMap.set(name, (recallMap.get(name) ?? 0) + 1);
+    const stats = getStats(pid);
+    stats.recallMap.set(name, (stats.recallMap.get(name) ?? 0) + 1);
   }
   const totalRecall = recallRes.data?.length ?? 0;
 
-  // --- Activities by person ---
-  type ActRow = { type: string; profiles: { full_name: string | null; email: string } | null };
-  const actMap = new Map<string, { note: number; stage: number }>();
+  // Activities by pipeline and person
+  type ActRow = { type: string; leads: { pipeline_id: string | null } | null; profiles: { full_name: string | null; email: string } | null };
   for (const r of (activityRes.data ?? []) as unknown as ActRow[]) {
+    const pid = r.leads?.pipeline_id ?? null;
     const name = r.profiles?.full_name ?? r.profiles?.email ?? "ไม่ระบุ";
-    const cur = actMap.get(name) ?? { note: 0, stage: 0 };
-    if (r.type === "note") cur.note++;
-    else cur.stage++;
-    actMap.set(name, cur);
+    const stats = getStats(pid);
+    const cur = stats.actMap.get(name) ?? { note: 0, stage: 0 };
+    if (r.type === "note") cur.note++; else cur.stage++;
+    stats.actMap.set(name, cur);
   }
 
-  // --- Lead totals ---
-  const totalLeads = totalLeadsRes.data?.length ?? 0;
+  // Unfollow by pipeline
+  type UnfollowRow = { leads: { pipeline_id: string | null } | null };
+  for (const r of (unfollowRes.data ?? []) as unknown as UnfollowRow[]) {
+    getStats(r.leads?.pipeline_id ?? null).unfollow++;
+  }
   const totalUnfollow = unfollowRes.data?.length ?? 0;
 
-  // --- Chat metrics (same logic as Dashboard Chat Metrics tab) ---
-  // Build firstIn / firstOut maps for Facebook
-  const fbFirstIn = new Map<string, string>();
-  for (const m of (fbInboundRes.data ?? []) as { conversation_id: string; created_at: string }[]) {
-    if (!fbFirstIn.has(m.conversation_id)) fbFirstIn.set(m.conversation_id, m.created_at);
+  // Chat response time (same logic as Dashboard Chat Metrics tab)
+  function buildFirstMap(rows: { conversation_id: string; created_at: string }[]): Map<string, string> {
+    const m = new Map<string, string>();
+    for (const r of rows) { if (!m.has(r.conversation_id)) m.set(r.conversation_id, r.created_at); }
+    return m;
   }
-  const fbFirstOut = new Map<string, string>();
-  for (const m of (fbOutboundRes.data ?? []) as { conversation_id: string; created_at: string }[]) {
-    if (!fbFirstOut.has(m.conversation_id)) fbFirstOut.set(m.conversation_id, m.created_at);
-  }
-
-  // Build firstIn / firstOut maps for LINE OA
-  const lineFirstIn = new Map<string, string>();
-  for (const m of (lineInboundRes.data ?? []) as { conversation_id: string; created_at: string }[]) {
-    if (!lineFirstIn.has(m.conversation_id)) lineFirstIn.set(m.conversation_id, m.created_at);
-  }
-  const lineFirstOut = new Map<string, string>();
-  for (const m of (lineOutboundRes.data ?? []) as { conversation_id: string; created_at: string }[]) {
-    if (!lineFirstOut.has(m.conversation_id)) lineFirstOut.set(m.conversation_id, m.created_at);
-  }
-
-  function calcResponseStats(
-    firstInMap: Map<string, string>,
-    firstOutMap: Map<string, string>,
-  ): { fast5: number; slow5: number } {
-    let fast5 = 0;
-    let withReply = 0;
-    for (const [convId, firstIn] of firstInMap) {
-      const firstOut = firstOutMap.get(convId);
-      if (!firstOut) continue;
+  function calcResponse(firstIn: Map<string, string>, firstOut: Map<string, string>) {
+    let fast5 = 0, withReply = 0;
+    for (const [id, inAt] of firstIn) {
+      const outAt = firstOut.get(id);
+      if (!outAt) continue;
       withReply++;
-      const diffMs = new Date(firstOut).getTime() - new Date(firstIn).getTime();
-      if (diffMs >= 0 && diffMs <= 5 * 60 * 1000) fast5++;
+      const diff = new Date(outAt).getTime() - new Date(inAt).getTime();
+      if (diff >= 0 && diff <= 5 * 60 * 1000) fast5++;
     }
     return { fast5, slow5: withReply - fast5 };
   }
 
-  const fbStats = calcResponseStats(fbFirstIn, fbFirstOut);
-  const lineStats = calcResponseStats(lineFirstIn, lineFirstOut);
+  const fbStats = calcResponse(
+    buildFirstMap((fbInboundRes.data ?? []) as { conversation_id: string; created_at: string }[]),
+    buildFirstMap((fbOutboundRes.data ?? []) as { conversation_id: string; created_at: string }[]),
+  );
+  const lineStats = calcResponse(
+    buildFirstMap((lineInboundRes.data ?? []) as { conversation_id: string; created_at: string }[]),
+    buildFirstMap((lineOutboundRes.data ?? []) as { conversation_id: string; created_at: string }[]),
+  );
 
-  const totalConvs = (fbConvRes.data?.length ?? 0) + (lineConvRes.data?.length ?? 0);
-  const convWithLead =
-    (fbConvRes.data?.filter((c) => c.lead_id).length ?? 0) +
-    (lineConvRes.data?.filter((c) => c.lead_id).length ?? 0);
+  const newChats = (fbConvNewRes.count ?? 0) + (lineConvNewRes.count ?? 0);
+  const convWithLead = (fbConvAllRes.data ?? []).filter(c => c.lead_id).length;
   const fast5 = fbStats.fast5 + lineStats.fast5;
   const slow5 = fbStats.slow5 + lineStats.slow5;
+  const totalResponded = fast5 + slow5;
+  const fast5Pct = totalResponded > 0 ? Math.round((fast5 / totalResponded) * 100) : 0;
 
-  // --- Build Flex Bubble ---
-  const body: object[] = [];
+  // --- Build Flex Carousel ---
+  const bubbles: object[] = [];
 
-  // Section: ลีดวันนี้
-  body.push({ type: "box", layout: "vertical", margin: "none", contents: [fSectionTitle("📥 ลีดวันนี้")] });
-  body.push(fStatRow("ลีดใหม่ทั้งหมด", totalLeads));
-  body.push(fStatRow("เลิกติดตามวันนี้", totalUnfollow));
+  // Bubble 1: Overall
+  const overallBody: object[] = [
+    fTitle("📥 ลีดวันนี้"),
+    fStatRow("ลีดใหม่ทั้งหมด", totalLeads),
+    fStatRow("เลิกติดตาม", totalUnfollow),
+    fStatRow("Recall", `${totalRecall} leads`),
+    fSep(),
+    { type: "box", layout: "vertical", margin: "lg", contents: [fTitle("💬 แชทวันนี้")] },
+    fStatRow("แชทใหม่", newChats),
+    fStatRow("เปลี่ยนเป็นลีด", convWithLead),
+    fStatRow("ตอบใน 5 นาที", `${fast5} (${fast5Pct}%)`),
+    fStatRow("ตอบช้า >5 นาที", slow5),
+  ];
 
-  // Section: แชท
-  body.push(fSep());
-  body.push({ type: "box", layout: "vertical", margin: "lg", contents: [fSectionTitle("💬 แชทวันนี้")] });
-  body.push(fStatRow("แชทที่มีการตอบ", totalConvs));
-  body.push(fStatRow("เปลี่ยนเป็นลีด", convWithLead));
-  body.push(fStatRow("ตอบใน 5 นาที", `${fast5} แชท`));
-  body.push(fStatRow("ตอบช้า >5 นาที", `${slow5} แชท`));
+  bubbles.push(makeBubble(
+    "#1e40af",
+    [
+      fText("📊 สรุปผลงาน Sales", { bold: true, color: "#ffffff", size: "xl" }),
+      fText(dateLabel, { color: "#bfdbfe", size: "sm" }),
+    ],
+    overallBody,
+  ));
 
-  // Section: Recall
-  body.push(fSep());
-  body.push({
-    type: "box",
-    layout: "vertical",
-    margin: "lg",
-    contents: [fSectionTitle(`🔄 Recall วันนี้ (${totalRecall} leads)`)],
-  });
-  if (recallMap.size === 0) {
-    body.push(fText("  ไม่มี recall วันนี้", { color: "#9ca3af", size: "sm" }));
-  } else {
-    for (const [name, count] of [...recallMap.entries()].sort((a, b) => b[1] - a[1])) {
-      body.push(fPersonRow(name, `${count} leads`));
+  // One bubble per pipeline (only pipelines with activity)
+  const PIPELINE_COLORS = ["#065f46", "#7c2d12", "#4c1d95", "#1e3a5f", "#713f12"];
+  let colorIdx = 0;
+
+  // Sort pipelines: those with data first
+  const activePipelineIds = [...pipelineStats.keys()].filter(
+    pid => pid !== null && pipelineStats.get(pid)!.leads + pipelineStats.get(pid)!.recallMap.size + pipelineStats.get(pid)!.actMap.size > 0
+  );
+
+  for (const pid of activePipelineIds) {
+    const stats = pipelineStats.get(pid)!;
+    const body: object[] = [];
+
+    // Leads
+    body.push(fTitle("📥 ลีดวันนี้"));
+    body.push(fStatRow("ลีดใหม่", stats.leads));
+    body.push(fStatRow("เลิกติดตาม", stats.unfollow));
+
+    // Recall
+    const recallTotal = [...stats.recallMap.values()].reduce((s, v) => s + v, 0);
+    body.push(fSep());
+    body.push({ type: "box", layout: "vertical", margin: "lg", contents: [fTitle(`🔄 Recall (${recallTotal} leads)`)] });
+    if (stats.recallMap.size === 0) {
+      body.push(fText("  ไม่มี recall วันนี้", { color: "#9ca3af", size: "sm" }));
+    } else {
+      for (const [name, count] of [...stats.recallMap.entries()].sort((a, b) => b[1] - a[1])) {
+        body.push(fPersonRow(name, `${count} leads`));
+      }
     }
-  }
 
-  // Section: กิจกรรมรายคน
-  body.push(fSep());
-  body.push({
-    type: "box",
-    layout: "vertical",
-    margin: "lg",
-    contents: [fSectionTitle("📋 กิจกรรมวันนี้ แยกรายคน")],
-  });
-  if (actMap.size === 0) {
-    body.push(fText("  ไม่มีกิจกรรมวันนี้", { color: "#9ca3af", size: "sm" }));
-  } else {
-    const sorted = [...actMap.entries()].sort((a, b) => b[1].note + b[1].stage - (a[1].note + a[1].stage));
-    for (const [name, { note, stage }] of sorted) {
-      const parts: string[] = [];
-      if (note > 0) parts.push(`comment ${note}`);
-      if (stage > 0) parts.push(`เลื่อน stage ${stage}`);
-      body.push(fPersonRow(name, parts.join(" · ")));
+    // Activities
+    body.push(fSep());
+    body.push({ type: "box", layout: "vertical", margin: "lg", contents: [fTitle("📋 กิจกรรมรายคน")] });
+    if (stats.actMap.size === 0) {
+      body.push(fText("  ไม่มีกิจกรรมวันนี้", { color: "#9ca3af", size: "sm" }));
+    } else {
+      const sorted = [...stats.actMap.entries()].sort((a, b) => (b[1].note + b[1].stage) - (a[1].note + a[1].stage));
+      for (const [name, { note, stage }] of sorted) {
+        const parts: string[] = [];
+        if (note > 0) parts.push(`comment ${note}`);
+        if (stage > 0) parts.push(`stage ${stage}`);
+        body.push(fPersonRow(name, parts.join(" · ")));
+      }
     }
+
+    const color = PIPELINE_COLORS[colorIdx % PIPELINE_COLORS.length];
+    colorIdx++;
+
+    bubbles.push(makeBubble(
+      color,
+      [fText(stats.name, { bold: true, color: "#ffffff", size: "xl" })],
+      body,
+    ));
   }
 
   const flexMsg = {
     type: "flex",
     altText: `📊 สรุปผลงานวันที่ ${dateLabel}`,
-    contents: {
-      type: "bubble",
-      size: "giga",
-      header: {
-        type: "box",
-        layout: "vertical",
-        backgroundColor: "#1e40af",
-        paddingAll: "16px",
-        contents: [
-          fText("📊 สรุปผลงาน Sales", { bold: true, color: "#ffffff", size: "xl" }),
-          fText(dateLabel, { color: "#bfdbfe", size: "sm" }),
-        ],
-      },
-      body: {
-        type: "box",
-        layout: "vertical",
-        spacing: "xs",
-        paddingAll: "16px",
-        contents: body,
-      },
-    },
+    contents: bubbles.length === 1
+      ? bubbles[0]
+      : { type: "carousel", contents: bubbles },
   };
 
   await pushLineGroup([flexMsg]);
 
   return NextResponse.json({
-    ok: true,
-    date: dateLabel,
-    totalLeads,
-    totalUnfollow,
-    totalConvs,
-    convWithLead,
-    fast5,
-    slow5,
-    totalRecall,
-    activityPersons: actMap.size,
+    ok: true, date: dateLabel,
+    totalLeads, totalUnfollow, totalRecall,
+    newChats, convWithLead, fast5, slow5, fast5Pct,
+    pipelines: activePipelineIds.length,
   });
 }
