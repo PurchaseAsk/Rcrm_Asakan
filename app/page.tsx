@@ -949,7 +949,8 @@ export default function HomePage() {
               </div>
             </nav>
             <div className="border-t border-slate-200 p-2">
-              {/* Availability self-toggle */}
+              {/* Availability self-toggle — disabled (ปุ่มถูก lock ไว้ชั่วคราว ทุกคน active เสมอ) */}
+              {/* ถ้าจะเปิดใช้อีกครั้ง ลบ block นี้และ uncomment block ด้านล่าง */}
               <div className="flex items-center justify-between rounded-lg px-3 py-2.5">
                 <div className="flex items-center gap-3 text-sm font-medium text-slate-600">
                   <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
@@ -962,6 +963,29 @@ export default function HomePage() {
                   <span className="inline-block h-4 w-4 translate-x-4 transform rounded-full bg-white shadow" />
                 </button>
               </div>
+              {/* ORIGINAL — uncomment เพื่อเปิดให้ user กดลาได้อีกครั้ง
+              <div className="flex items-center justify-between rounded-lg px-3 py-2.5">
+                <div className="flex items-center gap-3 text-sm font-medium text-slate-600">
+                  <span className={`inline-flex h-2 w-2 rounded-full ${profile?.is_available !== false ? "bg-emerald-500" : "bg-orange-400"}`} />
+                  {profile?.is_available !== false ? "พร้อมรับลีด" : "ลา / ไม่รับลีด"}
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!profile) return;
+                    if (profile.is_available) {
+                      const { data: ok } = await supabase.rpc("can_go_on_leave", { p_user_id: profile.id });
+                      if (!ok) { showToast("ไม่สามารถลาได้ เนื่องจากเป็นผู้รับลีดคนสุดท้ายในกฎกระจาย"); return; }
+                    }
+                    const { error } = await supabase.from("profiles").update({ is_available: !profile.is_available }).eq("id", profile.id);
+                    if (error) { showToast(error.message); return; }
+                    setProfile({ ...profile, is_available: !profile.is_available });
+                  }}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${profile?.is_available !== false ? "bg-emerald-500" : "bg-slate-300"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${profile?.is_available !== false ? "translate-x-4" : "translate-x-0"}`} />
+                </button>
+              </div>
+              */}
               <button
                 onClick={() => {
                   setShowChangePw(true);
