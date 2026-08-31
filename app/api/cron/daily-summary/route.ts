@@ -54,8 +54,8 @@ function fStatRow(label: string, value: string | number): object {
     layout: "horizontal",
     margin: "xs",
     contents: [
-      { ...fText(label, { color: "#6b7280", size: "sm", wrap: false }), flex: 3 },
-      { ...fText(String(value), { bold: true, color: "#111827", size: "sm", align: "end", wrap: false }), flex: 2 },
+      { ...fText(label, { color: "#6b7280", size: "sm", wrap: false }), flex: 3, maxLines: 1 },
+      { ...fText(String(value), { bold: true, color: "#111827", size: "sm", align: "end", wrap: false }), flex: 2, maxLines: 1 },
     ],
   };
 }
@@ -66,11 +66,13 @@ function fPersonRow(name: string, detail: string): object {
     layout: "horizontal",
     margin: "xs",
     contents: [
-      { ...fText(`• ${name}`, { color: "#374151", size: "sm", wrap: false }), flex: 3 },
-      { ...fText(detail, { bold: true, color: "#111827", size: "sm", align: "end", wrap: false }), flex: 2 },
+      { ...fText(`• ${name}`, { color: "#374151", size: "sm", wrap: false }), flex: 3, maxLines: 1 },
+      { ...fText(detail, { bold: true, color: "#111827", size: "sm", align: "end", wrap: false }), flex: 2, maxLines: 1 },
     ],
   };
 }
+
+const MAX_ROWS = 6;
 
 function makeBubble(headerBg: string, headerTexts: object[], bodyContents: object[]): object {
   return {
@@ -308,9 +310,9 @@ export async function GET(request: NextRequest) {
     if (stats.recallMap.size === 0) {
       body.push(fText("  ไม่มี recall วันนี้", { color: "#9ca3af", size: "sm" }));
     } else {
-      for (const [name, count] of [...stats.recallMap.entries()].sort((a, b) => b[1] - a[1])) {
-        body.push(fPersonRow(name, `${count} leads`));
-      }
+      const recallRows = [...stats.recallMap.entries()].sort((a, b) => b[1] - a[1]);
+      recallRows.slice(0, MAX_ROWS).forEach(([name, count]) => body.push(fPersonRow(name, `${count} leads`)));
+      if (recallRows.length > MAX_ROWS) body.push(fText(`  +${recallRows.length - MAX_ROWS} คนอื่น`, { color: "#9ca3af", size: "xs" }));
     }
 
     // Activities
@@ -319,13 +321,14 @@ export async function GET(request: NextRequest) {
     if (stats.actMap.size === 0) {
       body.push(fText("  ไม่มีกิจกรรมวันนี้", { color: "#9ca3af", size: "sm" }));
     } else {
-      const sorted = [...stats.actMap.entries()].sort((a, b) => (b[1].note + b[1].stage) - (a[1].note + a[1].stage));
-      for (const [name, { note, stage }] of sorted) {
+      const actRows = [...stats.actMap.entries()].sort((a, b) => (b[1].note + b[1].stage) - (a[1].note + a[1].stage));
+      actRows.slice(0, MAX_ROWS).forEach(([name, { note, stage }]) => {
         const parts: string[] = [];
         if (note > 0) parts.push(`comment ${note}`);
         if (stage > 0) parts.push(`stage ${stage}`);
         body.push(fPersonRow(name, parts.join(" · ")));
-      }
+      });
+      if (actRows.length > MAX_ROWS) body.push(fText(`  +${actRows.length - MAX_ROWS} คนอื่น`, { color: "#9ca3af", size: "xs" }));
     }
 
     const color = PIPELINE_COLORS[colorIdx % PIPELINE_COLORS.length];
