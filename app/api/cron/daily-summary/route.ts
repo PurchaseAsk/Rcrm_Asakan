@@ -63,6 +63,18 @@ function fStatRow(label: string, value: string | number): object {
 function fPersonRow(name: string, detail: string): object {
   return {
     type: "box",
+    layout: "vertical",
+    margin: "xs",
+    contents: [
+      { ...fText(`• ${name}`, { color: "#374151", size: "sm", bold: true, wrap: false }), maxLines: 1 },
+      { ...fText(`  ${detail}`, { color: "#6b7280", size: "xs", wrap: false }), margin: "none", maxLines: 1 },
+    ],
+  };
+}
+
+function fPersonRowInline(name: string, detail: string): object {
+  return {
+    type: "box",
     layout: "horizontal",
     margin: "xs",
     contents: [
@@ -311,7 +323,7 @@ export async function GET(request: NextRequest) {
       body.push(fText("  ไม่มี recall วันนี้", { color: "#9ca3af", size: "sm" }));
     } else {
       const recallRows = [...stats.recallMap.entries()].sort((a, b) => b[1] - a[1]);
-      recallRows.slice(0, MAX_ROWS).forEach(([name, count]) => body.push(fPersonRow(name, `${count} leads`)));
+      recallRows.slice(0, MAX_ROWS).forEach(([name, count]) => body.push(fPersonRowInline(name, `${count} leads`)));
       if (recallRows.length > MAX_ROWS) body.push(fText(`  +${recallRows.length - MAX_ROWS} คนอื่น`, { color: "#9ca3af", size: "xs" }));
     }
 
@@ -351,10 +363,19 @@ export async function GET(request: NextRequest) {
 
   await pushLineGroup([flexMsg]);
 
+  const debugPipelines = activePipelineIds.map(pid => ({
+    id: pid,
+    name: pipelineStats.get(pid)!.name,
+    leads: pipelineStats.get(pid)!.leads,
+    recall: [...pipelineStats.get(pid)!.recallMap.values()].reduce((s, v) => s + v, 0),
+    activity: pipelineStats.get(pid)!.actMap.size,
+  }));
+
   return NextResponse.json({
     ok: true, date: dateLabel,
     totalLeads, totalUnfollow, totalRecall,
     newChats, convWithLead, fast5, slow5, fast5Pct,
     pipelines: activePipelineIds.length,
+    debug: debugPipelines,
   });
 }
