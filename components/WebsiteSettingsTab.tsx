@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Copy, Plus, Trash2, RefreshCcw, Globe, Check } from "lucide-react";
+import { Copy, Plus, Trash2, RefreshCcw, Globe, Check, Pencil, X } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Pipeline, Stage, Profile, Page } from "@/types/crm";
 
@@ -36,6 +36,8 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles, pages }: {
     assigned_to: "",
     facebook_page_id: "",
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState({ pipeline_id: "", stage_id: "", assigned_to: "", facebook_page_id: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +91,36 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles, pages }: {
   async function toggleRule(id: string, isActive: boolean) {
     await supabase.from("website_lead_rules").update({ is_active: !isActive }).eq("id", id);
     setRules((prev) => prev.map((r) => r.id === id ? { ...r, is_active: !isActive } : r));
+  }
+
+  function startEdit(r: WebsiteLeadRule) {
+    setEditingId(r.id);
+    setEditValues({
+      pipeline_id: r.pipeline_id ?? "",
+      stage_id: r.stage_id ?? "",
+      assigned_to: r.assigned_to ?? "",
+      facebook_page_id: r.facebook_page_id ?? "",
+    });
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    setSaving(true);
+    await supabase.from("website_lead_rules").update({
+      pipeline_id: editValues.pipeline_id || null,
+      stage_id: editValues.stage_id || null,
+      assigned_to: editValues.assigned_to || null,
+      facebook_page_id: editValues.facebook_page_id || null,
+    }).eq("id", editingId);
+    setRules((prev) => prev.map((r) => r.id === editingId ? {
+      ...r,
+      pipeline_id: editValues.pipeline_id || null,
+      stage_id: editValues.stage_id || null,
+      assigned_to: editValues.assigned_to || null,
+      facebook_page_id: editValues.facebook_page_id || null,
+    } : r));
+    setEditingId(null);
+    setSaving(false);
   }
 
   async function deleteRule(id: string) {
@@ -187,18 +219,65 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles, pages }: {
                 const stage = stages.find((s) => s.id === r.stage_id);
                 const profile = profiles.find((p) => p.id === r.assigned_to);
                 const page = pages.find((p) => p.id === r.facebook_page_id);
+                const isEditing = editingId === r.id;
+                const editPipelineId = isEditing ? editValues.pipeline_id : r.pipeline_id ?? "";
                 return (
-                  <tr key={r.id} className={r.is_active ? "" : "opacity-40"}>
+                  <tr key={r.id} className={`${r.is_active ? "" : "opacity-40"} ${isEditing ? "bg-blue-50/40" : ""}`}>
                     <td className="px-4 py-3 font-mono text-xs">{r.project_slug}</td>
-                    <td className="px-4 py-3 text-slate-700">{pipeline?.name ?? <span className="text-slate-300">—</span>}</td>
-                    <td className="px-4 py-3 text-slate-700">{stage?.name ?? <span className="text-slate-300">—</span>}</td>
-                    <td className="px-4 py-3 text-slate-700">{profile?.full_name ?? profile?.email ?? <span className="text-slate-300">—</span>}</td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {page ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
-                          {page.name}
-                        </span>
-                      ) : <span className="text-slate-300">—</span>}
+                    <td className="px-3 py-2">
+                      {isEditing ? (
+                        <select
+                          className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-brand-600"
+                          value={editValues.pipeline_id}
+                          onChange={(e) => setEditValues((p) => ({ ...p, pipeline_id: e.target.value, stage_id: "" }))}
+                        >
+                          <option value="">— ไม่ระบุ —</option>
+                          {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      ) : <span className="text-slate-700">{pipeline?.name ?? <span className="text-slate-300">—</span>}</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isEditing ? (
+                        <select
+                          className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-brand-600 disabled:opacity-40"
+                          value={editValues.stage_id}
+                          disabled={!editPipelineId}
+                          onChange={(e) => setEditValues((p) => ({ ...p, stage_id: e.target.value }))}
+                        >
+                          <option value="">— ไม่ระบุ —</option>
+                          {stagesForPipeline(editPipelineId).map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      ) : <span className="text-slate-700">{stage?.name ?? <span className="text-slate-300">—</span>}</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isEditing ? (
+                        <select
+                          className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-brand-600"
+                          value={editValues.assigned_to}
+                          onChange={(e) => setEditValues((p) => ({ ...p, assigned_to: e.target.value }))}
+                        >
+                          <option value="">— กองกลาง —</option>
+                          {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name ?? p.email}</option>)}
+                        </select>
+                      ) : <span className="text-slate-700">{profile?.full_name ?? profile?.email ?? <span className="text-slate-300">—</span>}</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isEditing ? (
+                        <select
+                          className="h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-brand-600"
+                          value={editValues.facebook_page_id}
+                          onChange={(e) => setEditValues((p) => ({ ...p, facebook_page_id: e.target.value }))}
+                        >
+                          <option value="">— ไม่ระบุ —</option>
+                          {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      ) : (
+                        page ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">{page.name}</span>
+                        ) : <span className="text-slate-300">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
@@ -208,13 +287,41 @@ export function WebsiteSettingsTab({ pipelines, stages, profiles, pages }: {
                         <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${r.is_active ? "translate-x-4" : "translate-x-1"}`} />
                       </button>
                     </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => void deleteRule(r.id)}
-                        className="rounded p-1 text-slate-300 hover:text-rose-500"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => void saveEdit()}
+                              disabled={saving}
+                              className="rounded bg-brand-600 px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+                            >
+                              บันทึก
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="rounded p-1 text-slate-400 hover:text-slate-600"
+                            >
+                              <X size={14} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => startEdit(r)}
+                              className="rounded p-1 text-slate-300 hover:text-brand-600"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={() => void deleteRule(r.id)}
+                              className="rounded p-1 text-slate-300 hover:text-rose-500"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
