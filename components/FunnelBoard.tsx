@@ -65,6 +65,12 @@ export function FunnelBoard({
     return recallAt - now < 86400 * 1000; // within 24h of recall, or already overdue
   }
 
+  function isInactive(lead: Lead): boolean {
+    const lastActive = lead.last_activity_at ?? lead.stage_entered_at ?? lead.created_at;
+    if (!lastActive) return false;
+    return now - new Date(lastActive).getTime() > 4 * 86400 * 1000;
+  }
+
   function toggleTag(id: string) {
     if (!setTagFilter) return;
     const cur = tagFilter ?? [];
@@ -252,6 +258,8 @@ export function FunnelBoard({
                         className={`w-full min-w-0 rounded-md border shadow-sm ${
                           isPinned(lead)
                             ? "border-amber-300 bg-amber-50"
+                            : isInactive(lead)
+                            ? "border-slate-800 bg-slate-900"
                             : isNearRecall(lead)
                             ? "border-rose-200 bg-rose-50"
                             : "border-slate-200 bg-white"
@@ -259,7 +267,7 @@ export function FunnelBoard({
                       >
                         <div className="flex min-w-0 items-stretch">
                           <button
-                            className="flex shrink-0 cursor-grab items-center px-1.5 text-slate-300 active:cursor-grabbing md:touch-none"
+                            className={`flex shrink-0 cursor-grab items-center px-1.5 active:cursor-grabbing md:touch-none ${isInactive(lead) ? "text-slate-600" : "text-slate-300"}`}
                             onClick={(e) => { e.stopPropagation(); setMoveModal({ lead }); }}
                             onTouchEnd={(e) => { e.preventDefault(); setMoveModal({ lead }); }}
                             aria-label="ย้าย stage"
@@ -274,9 +282,9 @@ export function FunnelBoard({
                               {isPinned(lead) && (
                                 <MapPin size={10} className="shrink-0 text-amber-500" />
                               )}
-                              <span className="truncate text-[13px] font-medium text-slate-900">{lead.customer_name}</span>
+                              <span className={`truncate text-[13px] font-medium ${isInactive(lead) ? "text-white" : "text-slate-900"}`}>{lead.customer_name}</span>
                             </div>
-                            <div className="truncate text-[11px] text-slate-500">
+                            <div className={`truncate text-[11px] ${isInactive(lead) ? "text-slate-400" : "text-slate-500"}`}>
                               {isPinned(lead)
                                 ? `Pin ${pinDaysLeft(lead)} วัน · ${lead.phone || lead.email || "No contact"}`
                                 : lead.phone || lead.email || "No contact"}
