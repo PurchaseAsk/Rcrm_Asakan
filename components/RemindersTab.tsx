@@ -369,9 +369,9 @@ export function RemindersTab({
                     <p className="text-sm text-slate-400">กำลังโหลด…</p>
                   ) : (
                     <>
-                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <div className="flex flex-col gap-0 divide-y divide-slate-100 lg:flex-row lg:divide-x lg:divide-y-0">
                         {/* Left: Personal stats */}
-                        <div>
+                        <div className="flex-1 pr-0 pb-4 lg:pr-5 lg:pb-0">
                           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ผลงานของฉัน</p>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="rounded-xl border border-brand-100 bg-brand-50 px-4 py-3">
@@ -394,7 +394,7 @@ export function RemindersTab({
                         </div>
 
                         {/* Right: Team chat stats */}
-                        <div>
+                        <div className="flex-1 pt-4 pl-0 lg:pl-5 lg:pt-0">
                           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ทั้งทีม — แชทเดือนนี้</p>
                           <div className="grid grid-cols-3 gap-2">
                             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center">
