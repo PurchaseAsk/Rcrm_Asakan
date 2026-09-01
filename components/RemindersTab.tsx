@@ -369,58 +369,60 @@ export function RemindersTab({
                     <p className="text-sm text-slate-400">กำลังโหลด…</p>
                   ) : (
                     <>
-                      {/* Personal stats */}
-                      <div>
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ผลงานของฉัน</p>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          <div className="flex items-center justify-between rounded-lg border border-brand-100 bg-brand-50 px-3 py-2">
-                            <div className="text-xs font-medium text-brand-600">Lead ทั้งหมด</div>
-                            <div className="text-xl font-bold text-brand-700">{dashStats.allLeads}</div>
-                          </div>
-                          <div className="flex items-center justify-between rounded-lg border px-3 py-2" style={{ borderColor: "#ec489940", backgroundColor: "#ec48990d" }}>
-                            <div className="text-xs font-medium" style={{ color: "#ec4899" }}>ส่งคูปอง</div>
-                            <div className="text-xl font-bold" style={{ color: "#ec4899" }}>{dashStats.couponLeads}</div>
-                          </div>
-                          <div className="flex items-center justify-between rounded-lg border px-3 py-2" style={{ borderColor: "#2563eb40", backgroundColor: "#2563eb0d" }}>
-                            <div className="text-xs font-medium" style={{ color: "#2563eb" }}>จองแล้ว</div>
-                            <div className="text-xl font-bold" style={{ color: "#2563eb" }}>{dashStats.bookedLeads}</div>
-                          </div>
-                          <div className="flex items-center justify-between rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
-                            <div className="text-xs font-medium text-rose-500">Recall เดือนนี้</div>
-                            <div className="text-xl font-bold text-rose-600">{dashStats.recalledThisMonth}</div>
+                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        {/* Left: Personal stats */}
+                        <div>
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ผลงานของฉัน</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="rounded-xl border border-brand-100 bg-brand-50 px-4 py-3">
+                              <div className="text-2xl font-bold text-brand-700">{dashStats.allLeads}</div>
+                              <div className="mt-0.5 text-xs font-medium text-brand-600">Lead ทั้งหมด</div>
+                            </div>
+                            <div className="rounded-xl border px-4 py-3" style={{ borderColor: "#ec489940", backgroundColor: "#ec48990d" }}>
+                              <div className="text-2xl font-bold" style={{ color: "#ec4899" }}>{dashStats.couponLeads}</div>
+                              <div className="mt-0.5 text-xs font-medium" style={{ color: "#ec4899" }}>ส่งคูปอง</div>
+                            </div>
+                            <div className="rounded-xl border px-4 py-3" style={{ borderColor: "#2563eb40", backgroundColor: "#2563eb0d" }}>
+                              <div className="text-2xl font-bold" style={{ color: "#2563eb" }}>{dashStats.bookedLeads}</div>
+                              <div className="mt-0.5 text-xs font-medium" style={{ color: "#2563eb" }}>จองแล้ว</div>
+                            </div>
+                            <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+                              <div className="text-2xl font-bold text-rose-600">{dashStats.recalledThisMonth}</div>
+                              <div className="mt-0.5 text-xs font-medium text-rose-500">Recall เดือนนี้</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Team chat stats */}
-                      <div>
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ทั้งทีม — แชทเดือนนี้</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                            <div className="text-xs text-slate-500">แชทใหม่</div>
-                            <div className="text-xl font-bold text-slate-800">{dashStats.teamConvs}</div>
-                          </div>
-                          <div className="flex items-center justify-between rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
-                            <div className="text-xs text-emerald-600">
-                              ตอบใน 5 นาที
-                              {dashStats.teamConvs > 0 && (
-                                <span className="ml-1 font-semibold">
-                                  ({Math.round((dashStats.teamReplied5min / dashStats.teamConvs) * 100)}%)
-                                </span>
-                              )}
+                        {/* Right: Team chat stats */}
+                        <div>
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ทั้งทีม — แชทเดือนนี้</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center">
+                              <div className="text-2xl font-bold text-slate-800">{dashStats.teamConvs}</div>
+                              <div className="mt-0.5 text-xs text-slate-500">แชทใหม่</div>
                             </div>
-                            <div className="text-xl font-bold text-emerald-600">{dashStats.teamReplied5min}</div>
-                          </div>
-                          <div className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
-                            <div className="text-xs text-blue-600">
-                              เปลี่ยนเป็นลีด
-                              {dashStats.teamConvs > 0 && (
-                                <span className="ml-1 font-semibold">
-                                  ({Math.round((dashStats.teamConverted / dashStats.teamConvs) * 100)}%)
-                                </span>
-                              )}
+                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center">
+                              <div className="text-2xl font-bold text-emerald-600">{dashStats.teamReplied5min}</div>
+                              <div className="mt-0.5 text-xs text-emerald-600">
+                                ตอบใน 5 นาที
+                                {dashStats.teamConvs > 0 && (
+                                  <span className="ml-1 font-semibold">
+                                    ({Math.round((dashStats.teamReplied5min / dashStats.teamConvs) * 100)}%)
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-xl font-bold text-blue-600">{dashStats.teamConverted}</div>
+                            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-center">
+                              <div className="text-2xl font-bold text-blue-600">{dashStats.teamConverted}</div>
+                              <div className="mt-0.5 text-xs text-blue-600">
+                                เปลี่ยนเป็นลีด
+                                {dashStats.teamConvs > 0 && (
+                                  <span className="ml-1 font-semibold">
+                                    ({Math.round((dashStats.teamConverted / dashStats.teamConvs) * 100)}%)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
