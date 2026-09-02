@@ -1414,6 +1414,7 @@ export function ChatInbox({
                   <div className={`flex ${msg.direction === "outbound" ? "justify-end" : "justify-start"}`}>
                     {msg.direction === "inbound" && (
                       selectedConv.picture_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={selectedConv.picture_url} alt="" className="mr-2 mt-auto h-7 w-7 shrink-0 rounded-full object-cover" />
                       ) : (
                         <div className="mr-2 mt-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: avatarColor(selectedConv.sender_name || selectedConv.sender_psid) }}>
@@ -1431,6 +1432,27 @@ export function ChatInbox({
                           ↩ ตอบกลับ
                         </button>
                       )}
+                      {repliedMessage && (
+                        <div
+                          className={`mb-1.5 flex w-[min(100%,260px)] items-stretch overflow-hidden rounded-[16px] text-xs shadow-sm ${
+                            msg.direction === "outbound"
+                              ? "bg-[#cfe3ff] text-slate-700"
+                              : "bg-slate-200 text-slate-700"
+                          }`}
+                        >
+                          <div className={`w-1 shrink-0 ${msg.direction === "outbound" ? "bg-[#0084ff]" : "bg-slate-400"}`} />
+                          <div className="min-w-0 px-3 py-2">
+                            <div className={`mb-0.5 text-[10px] font-semibold ${msg.direction === "outbound" ? "text-[#1877f2]" : "text-slate-600"}`}>
+                              {repliedMessage.direction === "inbound"
+                                ? (selectedConv?.sender_name || "ลูกค้า")
+                                : "คุณ"}
+                            </div>
+                            <div className="line-clamp-2 leading-relaxed text-slate-600">
+                              {repliedMessage.attachment_type === "image" ? "รูปภาพ" : messagePreview(repliedMessage)}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <div
                         onClick={() => {
                           if (msg.direction === "inbound") setReplyTarget(msg);
@@ -1439,39 +1461,6 @@ export function ChatInbox({
                           msg.direction === "outbound" ? "bg-[#0084ff] text-white" : "bg-white text-slate-900 ring-1 ring-slate-200/80"
                         } ${msg.direction === "inbound" ? "cursor-pointer" : ""}`}
                       >
-                        {repliedMessage && (
-                          <div
-                          className={`mb-2 flex items-stretch gap-0 overflow-hidden rounded-xl text-xs ${
-                            msg.direction === "outbound"
-                                ? "bg-blue-600/45 ring-1 ring-white/20"
-                                : "bg-slate-100 ring-1 ring-slate-200"
-                            }`}
-                          >
-                            <div
-                              className={`w-[3px] shrink-0 ${
-                                msg.direction === "outbound" ? "bg-white/80" : "bg-[#0084ff]"
-                              }`}
-                            />
-                            <div className="min-w-0 px-2.5 py-1.5">
-                              <div
-                                className={`mb-0.5 text-[10px] font-bold ${
-                                  msg.direction === "outbound" ? "text-white" : "text-brand-600"
-                                }`}
-                              >
-                                {repliedMessage.direction === "inbound"
-                                  ? (selectedConv?.sender_name || "ลูกค้า")
-                                  : "คุณ"}
-                              </div>
-                              <div
-                                className={`line-clamp-2 leading-relaxed ${
-                                  msg.direction === "outbound" ? "text-white/85" : "text-slate-600"
-                                }`}
-                              >
-                                {repliedMessage.attachment_type === "image" ? "📷 รูปภาพ" : messagePreview(repliedMessage)}
-                              </div>
-                            </div>
-                          </div>
-                        )}
                         {msg.attachment_type === "image" && msg.attachment_url ? (
                           <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
