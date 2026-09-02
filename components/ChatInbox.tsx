@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ImagePlus, Paperclip, ThumbsUp } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Conversation, Message, Page, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import html2canvas from "html2canvas";
@@ -1378,7 +1379,7 @@ export function ChatInbox({
                 })()}
               </div>
 
-              <div ref={messagesAreaRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+              <div ref={messagesAreaRef} className="flex-1 space-y-3 overflow-y-auto bg-[#f7f8fa] px-3 py-4 md:px-5">
                 {(() => {
                   const lastOutboundIdx = (() => {
                     for (let i = messages.length - 1; i >= 0; i--) {
@@ -1410,9 +1411,16 @@ export function ChatInbox({
                         <div className="flex-1 border-t border-slate-200" />
                       </div>
                     )}
-                  <div
-                    className={`flex ${msg.direction === "outbound" ? "justify-end" : "justify-start"}`}
-                  >
+                  <div className={`flex ${msg.direction === "outbound" ? "justify-end" : "justify-start"}`}>
+                    {msg.direction === "inbound" && (
+                      selectedConv.picture_url ? (
+                        <img src={selectedConv.picture_url} alt="" className="mr-2 mt-auto h-7 w-7 shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <div className="mr-2 mt-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: avatarColor(selectedConv.sender_name || selectedConv.sender_psid) }}>
+                          {(selectedConv.sender_name || selectedConv.sender_psid).charAt(0).toUpperCase()}
+                        </div>
+                      )
+                    )}
                     <div className={`group flex max-w-[72%] flex-col ${msg.direction === "outbound" ? "items-end" : "items-start"}`}>
                       {msg.direction === "inbound" && (
                         <button
@@ -1427,21 +1435,21 @@ export function ChatInbox({
                         onClick={() => {
                           if (msg.direction === "inbound") setReplyTarget(msg);
                         }}
-                        className={`rounded-2xl px-3 py-2 text-sm ${
-                          msg.direction === "outbound" ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-900"
+                        className={`rounded-[18px] px-3 py-2 text-sm shadow-sm ${
+                          msg.direction === "outbound" ? "bg-[#0084ff] text-white" : "bg-white text-slate-900 ring-1 ring-slate-200/80"
                         } ${msg.direction === "inbound" ? "cursor-pointer" : ""}`}
                       >
                         {repliedMessage && (
                           <div
-                            className={`mb-2 flex items-stretch gap-0 overflow-hidden rounded-lg text-xs ${
-                              msg.direction === "outbound"
-                                ? "bg-white/20 ring-1 ring-white/25"
-                                : "bg-slate-200 ring-1 ring-slate-300"
+                          className={`mb-2 flex items-stretch gap-0 overflow-hidden rounded-xl text-xs ${
+                            msg.direction === "outbound"
+                                ? "bg-blue-600/45 ring-1 ring-white/20"
+                                : "bg-slate-100 ring-1 ring-slate-200"
                             }`}
                           >
                             <div
                               className={`w-[3px] shrink-0 ${
-                                msg.direction === "outbound" ? "bg-white/70" : "bg-brand-500"
+                                msg.direction === "outbound" ? "bg-white/80" : "bg-[#0084ff]"
                               }`}
                             />
                             <div className="min-w-0 px-2.5 py-1.5">
@@ -1505,7 +1513,7 @@ export function ChatInbox({
                 <div ref={messagesEndRef} />
               </div>
 
-              <div className="shrink-0 border-t border-slate-200">
+              <div className="shrink-0 border-t border-slate-200 bg-white">
                 {replyTarget && (
                   <div className="flex items-center gap-3 border-b border-slate-100 bg-brand-50 px-4 py-2">
                     <div className="h-8 w-0.5 shrink-0 rounded-full bg-brand-500" />
@@ -1526,7 +1534,7 @@ export function ChatInbox({
                     </button>
                   </div>
                 )}
-                <div className="flex gap-2 p-3">
+                <div className="flex min-h-[76px] items-end gap-1.5 rounded-xl border border-slate-300 bg-white p-2 shadow-sm transition-shadow focus-within:border-[#0084ff] focus-within:ring-2 focus-within:ring-[#0084ff]/15">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1542,11 +1550,9 @@ export function ChatInbox({
                   title="อัปโหลดรูป"
                   disabled={busy}
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                  </svg>
+                  <Paperclip size={20} strokeWidth={2} />
                 </button>
                 <button
                   title="รูปจากแอป"
@@ -1555,14 +1561,14 @@ export function ChatInbox({
                     setShowAppImages(true);
                     void loadAppImages(appImagesProject);
                   }}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v13.5A1.5 1.5 0 003.75 21zm8.25-7.5a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                  </svg>
+                  <ImagePlus size={20} strokeWidth={2} />
                 </button>
-                <input
-                  className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600 disabled:opacity-50"
+                <textarea
+                  rows={2}
+                  aria-label="ตอบกลับใน Messenger"
+                  className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-500 disabled:opacity-50"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   onKeyDown={(e) => {
@@ -1571,14 +1577,14 @@ export function ChatInbox({
                       void sendReply();
                     }
                   }}
-                  placeholder="Type a message… (Enter to send)"
+                  placeholder="ตอบกลับใน Messenger..."
                   disabled={busy}
-                />
+                ></textarea>
                 <div className="relative">
                   <button
                     title="Quick Reply"
                     onClick={() => { setShowQR((v) => !v); setQrDraft(null); }}
-                    className={`flex h-10 w-10 items-center justify-center rounded-lg border text-slate-500 hover:bg-slate-50 ${showQR ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200"}`}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 ${showQR ? "bg-blue-50 text-[#0084ff]" : ""}`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
@@ -1653,11 +1659,13 @@ export function ChatInbox({
                   )}
                 </div>
                 <button
-                  className="rounded-lg bg-brand-700 px-4 text-sm font-medium text-white disabled:opacity-50"
+                  title="ส่งข้อความ"
+                  aria-label="ส่งข้อความ"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0084ff] text-white transition-colors hover:bg-[#0077e6] disabled:opacity-50"
                   disabled={busy || !replyText.trim()}
                   onClick={() => void sendReply()}
                 >
-                  {busy ? "…" : "Send"}
+                  {busy ? "…" : <ThumbsUp size={18} fill="currentColor" strokeWidth={1.75} />}
                 </button>
               </div>
               </div>
