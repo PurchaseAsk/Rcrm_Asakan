@@ -107,6 +107,8 @@ export function ChatInbox({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
+  const messageNodeRefs = useRef(new Map<string, HTMLDivElement>());
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const enrichingConvIdsRef = useRef<Set<string>>(new Set());
   const enrichingBatchActiveRef = useRef(false);
 
@@ -130,6 +132,14 @@ export function ChatInbox({
   const [filterOverdue, setFilterOverdue] = useState(false);
   const [, setMinuteTick] = useState(0);
   const [floatingConvs, setFloatingConvs] = useState<Conversation[]>([]);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+
+  function scrollToReferencedMessage(messageId: string) {
+    messageNodeRefs.current.get(messageId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightedMessageId(null), 1600);
+  }
 
   function popOut(conv: Conversation) {
     if (floatingConvs.some((f) => f.id === conv.id)) return;
@@ -1433,16 +1443,28 @@ export function ChatInbox({
                         </button>
                       )}
                       <div
+                        ref={(node) => {
+                          if (node) messageNodeRefs.current.set(msg.id, node);
+                          else messageNodeRefs.current.delete(msg.id);
+                        }}
                         onClick={() => {
                           if (msg.direction === "inbound") setReplyTarget(msg);
                         }}
                         className={`rounded-[18px] px-3 py-2 text-sm shadow-sm ${
                           msg.direction === "outbound" ? "bg-[#0084ff] text-white" : "bg-white text-slate-900 ring-1 ring-slate-200/80"
-                        } ${msg.direction === "inbound" ? "cursor-pointer" : ""}`}
+                        } ${msg.direction === "inbound" ? "cursor-pointer" : ""} ${
+                          highlightedMessageId === msg.id ? "ring-4 ring-amber-300 ring-offset-2" : ""
+                        }`}
                       >
                         {repliedMessage && (
-                          <div
-                            className={`mb-2 overflow-hidden rounded-xl text-xs ${
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              scrollToReferencedMessage(repliedMessage.id);
+                            }}
+                            aria-label="ไปยังข้อความต้นทาง"
+                            className={`mb-2 block overflow-hidden rounded-xl text-left text-xs transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-amber-300 ${
                               msg.direction === "outbound"
                                 ? "bg-white/20 ring-1 ring-white/20"
                                 : "bg-slate-100 ring-1 ring-slate-200"
@@ -1458,7 +1480,7 @@ export function ChatInbox({
                                 {repliedMessage.attachment_type === "image" ? "รูปภาพ" : messagePreview(repliedMessage)}
                               </div>
                             </div>
-                          </div>
+                          </button>
                         )}
                         {msg.attachment_type === "image" && msg.attachment_url ? (
                           <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
