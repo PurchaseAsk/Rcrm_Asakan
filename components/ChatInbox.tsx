@@ -107,7 +107,6 @@ export function ChatInbox({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
-  const messageNodeRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const enrichingConvIdsRef = useRef<Set<string>>(new Set());
   const enrichingBatchActiveRef = useRef(false);
@@ -135,7 +134,7 @@ export function ChatInbox({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   function scrollToReferencedMessage(messageId: string) {
-    messageNodeRefs.current.get(messageId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document.getElementById(`chat-message-${messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     setHighlightedMessageId(messageId);
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     highlightTimerRef.current = setTimeout(() => setHighlightedMessageId(null), 1600);
@@ -1413,7 +1412,7 @@ export function ChatInbox({
                     ? messages.find((item) => item.id === msg.reply_to_message_id) ?? null
                     : null;
                   return (
-                  <div key={msg.id}>
+                  <div id={`chat-message-${msg.id}`} key={msg.id}>
                     {showDateSep && (
                       <div className="my-2 flex items-center gap-3">
                         <div className="flex-1 border-t border-slate-200" />
@@ -1443,10 +1442,6 @@ export function ChatInbox({
                         </button>
                       )}
                       <div
-                        ref={(node) => {
-                          if (node) messageNodeRefs.current.set(msg.id, node);
-                          else messageNodeRefs.current.delete(msg.id);
-                        }}
                         onClick={() => {
                           if (msg.direction === "inbound") setReplyTarget(msg);
                         }}
