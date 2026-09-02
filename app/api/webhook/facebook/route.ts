@@ -46,6 +46,7 @@ type FbEntry = {
       mid: string;
       text?: string;
       is_echo?: boolean;
+      reply_to?: { mid?: string; is_self_reply?: boolean };
       attachments?: { type: string; payload: { url?: string } }[];
     };
     referral?: FbReferral;
@@ -242,6 +243,7 @@ export async function POST(request: NextRequest) {
       if (!hasText && !hasAttachment) continue;
 
       const fbMessageId = event.message.mid;
+      const repliedToFbMessageId = event.message.reply_to?.mid ?? null;
       const text = event.message.text ?? null;
       const attachment = event.message.attachments?.[0] ?? null;
 
@@ -293,6 +295,20 @@ export async function POST(request: NextRequest) {
         void sendTelegram(`💬 <b>แชทใหม่</b>\n👤 ${senderLabel}\n📄 ${tg(page.name)}\n💬 ${msgPreview}`);
       }
 
+      // Messenger gives us the original message MID when either participant
+      // replies in the native UI. Resolve that external ID to our local UUID so
+      // ChatInbox can render the quote card for inbound replies too.
+      let replyToMessageId: string | null = null;
+      if (repliedToFbMessageId) {
+        const { data: replyTarget } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("conversation_id", conv.id)
+          .eq("fb_message_id", repliedToFbMessageId)
+          .maybeSingle();
+        replyToMessageId = replyTarget?.id ?? null;
+      }
+
       await supabase.from("messages").upsert(
         {
           conversation_id: conv.id,
@@ -301,6 +317,7 @@ export async function POST(request: NextRequest) {
           attachment_url: attachment?.payload?.url ?? null,
           attachment_type: attachment?.type ?? null,
           fb_message_id: fbMessageId,
+          reply_to_message_id: replyToMessageId,
         },
         { onConflict: "fb_message_id", ignoreDuplicates: true },
       );
