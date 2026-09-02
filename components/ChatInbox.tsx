@@ -1412,7 +1412,15 @@ export function ChatInbox({
                     ? messages.find((item) => item.id === msg.reply_to_message_id) ?? null
                     : null;
                   return (
-                  <div id={`chat-message-${msg.id}`} key={msg.id}>
+                  <div
+                    id={`chat-message-${msg.id}`}
+                    key={msg.id}
+                    className={`scroll-mt-6 rounded-2xl transition-colors duration-300 ${
+                      highlightedMessageId === msg.id
+                        ? "bg-amber-200/90 p-1.5 shadow-[0_0_0_3px_rgba(245,158,11,0.55)]"
+                        : ""
+                    }`}
+                  >
                     {showDateSep && (
                       <div className="my-2 flex items-center gap-3">
                         <div className="flex-1 border-t border-slate-200" />
@@ -1447,9 +1455,7 @@ export function ChatInbox({
                         }}
                         className={`rounded-[18px] px-3 py-2 text-sm shadow-sm ${
                           msg.direction === "outbound" ? "bg-[#0084ff] text-white" : "bg-white text-slate-900 ring-1 ring-slate-200/80"
-                        } ${msg.direction === "inbound" ? "cursor-pointer" : ""} ${
-                          highlightedMessageId === msg.id ? "ring-4 ring-amber-300 ring-offset-2" : ""
-                        }`}
+                        } ${msg.direction === "inbound" ? "cursor-pointer" : ""}`}
                       >
                         {repliedMessage && (
                           <button
