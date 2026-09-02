@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     reply_to_message_id?: string | null;
     reply_to_text?: string | null;
   };
-  const { conversation_id, text, sent_by, reply_to_message_id, reply_to_text } = body;
+  const { conversation_id, text, sent_by, reply_to_message_id } = body;
 
   if (!conversation_id || !text?.trim()) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -41,17 +41,27 @@ export async function POST(request: NextRequest) {
   const senderPsid = (conv as unknown as { sender_psid: string }).sender_psid;
 
   const trimmedText = text.trim();
-  const quoteText = reply_to_text?.trim();
-  const quotePreview = quoteText && quoteText.length > 180 ? `${quoteText.slice(0, 180)}...` : quoteText;
-  const outboundText = quotePreview ? `ตอบกลับ: "${quotePreview}"\n\n${trimmedText}` : trimmedText;
+  // Native Messenger replies are drawn by Facebook from the original message MID.
+  // Do not put the quoted text in the outbound body: customers would see it as one
+  // long blue bubble instead of Messenger's "Replying to…" card.
+  let replyToFbMessageId: string | null = null;
+  if (reply_to_message_id) {
+    const { data: replyTarget } = await supabase
+      .from("messages")
+      .select("fb_message_id")
+      .eq("id", reply_to_message_id)
+      .eq("conversation_id", conversation_id)
+      .maybeSingle();
+    replyToFbMessageId = replyTarget?.fb_message_id ?? null;
+  }
 
-  const messagePayload: Record<string, unknown> = { text: outboundText };
+  const messagePayload: Record<string, unknown> = { text: trimmedText };
   const sendMode = await resolveMessengerSendMode(supabase, conversation_id);
   if ("error" in sendMode) {
     return NextResponse.json({ error: sendMode.error }, { status: 400 });
   }
 
-  const sendToFacebook = async (payload: Record<string, unknown>) =>
+  const sendToFacebook = async (payload: Record<string, unknown>, replyMid = replyToFbMessageId) =>
     fetch(`https://graph.facebook.com/v20.0/${page.page_id}/messages`, {
       method: "POST",
       headers: {
@@ -61,13 +71,25 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         recipient: { id: senderPsid },
         message: messagePayload,
+        ...(replyMid ? { reply_to: { mid: replyMid } } : {}),
         ...payload,
       }),
     });
 
   let humanAgentFallback = false;
+  let nativeReplyFallback = false;
   let fbRes = await sendToFacebook(sendMode.payload);
   type FbError = { error?: { code?: number; message?: string } };
+
+  // Keep the reply visually clean even if Meta cannot reference this particular
+  // original message (for example, it was unsent). The fallback sends only the
+  // agent's answer — never the old quoted-text prefix.
+  if (!fbRes.ok && replyToFbMessageId) {
+    const nativeReplyError = (await fbRes.json()) as FbError;
+    console.warn("[send] native reply failed; sending clean text instead", nativeReplyError.error?.message);
+    fbRes = await sendToFacebook(sendMode.payload, null);
+    nativeReplyFallback = true;
+  }
 
   if (!fbRes.ok) {
     const err = (await fbRes.json()) as FbError;
@@ -109,5 +131,10 @@ export async function POST(request: NextRequest) {
       .eq("id", conversation_id),
   ]);
 
-  return NextResponse.json({ ok: true, send_mode: sendMode.mode, human_agent_fallback: humanAgentFallback });
+  return NextResponse.json({
+    ok: true,
+    send_mode: sendMode.mode,
+    human_agent_fallback: humanAgentFallback,
+    native_reply: Boolean(replyToFbMessageId) && !nativeReplyFallback,
+  });
 }
