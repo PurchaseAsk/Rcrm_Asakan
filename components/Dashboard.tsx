@@ -359,6 +359,7 @@ function ConversionsView({
   // Historical stage entries: leadId → set of stageIds the lead has ever entered
   const [stagesByLead, setStagesByLead] = useState<Map<string, Set<string>>>(new Map());
   const [activityLeadIds, setActivityLeadIds] = useState<Set<string>>(new Set());
+  const [duplicateCount, setDuplicateCount] = useState<number>(0);
 
   useEffect(() => {
     const ids = filteredLeads.map((l) => l.id);
@@ -398,6 +399,23 @@ function ConversionsView({
       .then(({ data }) => {
         if (cancelled) return;
         setActivityLeadIds(new Set((data ?? []).map((r: { lead_id: string }) => r.lead_id)));
+      });
+    return () => { cancelled = true; };
+  }, [dateFrom, dateTo]);
+
+  // Fetch duplicate lead form submissions (blocked by duplicate phone) in date range
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("lead_activities")
+      .select("id", { count: "exact", head: true })
+      .eq("type", "note")
+      .like("content", "ส่ง Lead Form ใหม่อีกครั้ง (เบอร์ซ้ำ%")
+      .gte("created_at", `${dateFrom}T00:00:00+07:00`)
+      .lte("created_at", `${dateTo}T23:59:59+07:00`)
+      .then(({ count }) => {
+        if (cancelled) return;
+        setDuplicateCount(count ?? 0);
       });
     return () => { cancelled = true; };
   }, [dateFrom, dateTo]);
@@ -607,7 +625,17 @@ function ConversionsView({
       {/* By user */}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
         <div className="border-b border-slate-200 px-4 py-3">
-          <h3 className="font-semibold text-slate-800">Lead Conversions แบ่งตามผู้ใช้งาน</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-slate-800">Lead Conversions แบ่งตามผู้ใช้งาน</h3>
+            {duplicateCount > 0 && (
+              <span
+                title={`มีลีดซ้ำ ${duplicateCount} รายที่ถูก block เพราะเบอร์ซ้ำ — ไม่ได้นับในตาราง`}
+                className="inline-flex cursor-default items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700"
+              >
+                ⚠ ลีดซ้ำ {duplicateCount}
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 text-xs text-slate-500">{dateFrom} — {dateTo}</p>
         </div>
         <table className="w-full text-sm">
@@ -670,7 +698,17 @@ function ConversionsView({
       {/* By source */}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
         <div className="border-b border-slate-200 px-4 py-3">
-          <h3 className="font-semibold text-slate-800">Lead Conversions แบ่งตามแหล่งที่มา</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-slate-800">Lead Conversions แบ่งตามแหล่งที่มา</h3>
+            {duplicateCount > 0 && (
+              <span
+                title={`มีลีดซ้ำ ${duplicateCount} รายที่ถูก block เพราะเบอร์ซ้ำ — ไม่ได้นับในตาราง`}
+                className="inline-flex cursor-default items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700"
+              >
+                ⚠ ลีดซ้ำ {duplicateCount}
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 text-xs text-slate-500">{dateFrom} — {dateTo}</p>
         </div>
         <table className="w-full text-sm">
