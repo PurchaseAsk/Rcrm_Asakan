@@ -1432,27 +1432,6 @@ export function ChatInbox({
                           ↩ ตอบกลับ
                         </button>
                       )}
-                      {repliedMessage && (
-                        <div
-                          className={`mb-1.5 flex w-[min(100%,260px)] items-stretch overflow-hidden rounded-[16px] text-xs shadow-sm ${
-                            msg.direction === "outbound"
-                              ? "bg-[#cfe3ff] text-slate-700"
-                              : "bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          <div className={`w-1 shrink-0 ${msg.direction === "outbound" ? "bg-[#0084ff]" : "bg-slate-400"}`} />
-                          <div className="min-w-0 px-3 py-2">
-                            <div className={`mb-0.5 text-[10px] font-semibold ${msg.direction === "outbound" ? "text-[#1877f2]" : "text-slate-600"}`}>
-                              {repliedMessage.direction === "inbound"
-                                ? (selectedConv?.sender_name || "ลูกค้า")
-                                : "คุณ"}
-                            </div>
-                            <div className="line-clamp-2 leading-relaxed text-slate-600">
-                              {repliedMessage.attachment_type === "image" ? "รูปภาพ" : messagePreview(repliedMessage)}
-                            </div>
-                          </div>
-                        </div>
-                      )}
                       <div
                         onClick={() => {
                           if (msg.direction === "inbound") setReplyTarget(msg);
@@ -1461,6 +1440,26 @@ export function ChatInbox({
                           msg.direction === "outbound" ? "bg-[#0084ff] text-white" : "bg-white text-slate-900 ring-1 ring-slate-200/80"
                         } ${msg.direction === "inbound" ? "cursor-pointer" : ""}`}
                       >
+                        {repliedMessage && (
+                          <div
+                            className={`mb-2 overflow-hidden rounded-xl text-xs ${
+                              msg.direction === "outbound"
+                                ? "bg-white/20 ring-1 ring-white/20"
+                                : "bg-slate-100 ring-1 ring-slate-200"
+                            }`}
+                          >
+                            <div className={`border-l-[3px] px-2.5 py-1.5 ${msg.direction === "outbound" ? "border-white/75" : "border-[#0084ff]"}`}>
+                              <div className={`mb-0.5 text-[10px] font-semibold ${msg.direction === "outbound" ? "text-white" : "text-[#1877f2]"}`}>
+                                {repliedMessage.direction === "inbound"
+                                  ? (selectedConv?.sender_name || "ลูกค้า")
+                                  : "คุณ"}
+                              </div>
+                              <div className={`line-clamp-2 leading-relaxed ${msg.direction === "outbound" ? "text-white/90" : "text-slate-600"}`}>
+                                {repliedMessage.attachment_type === "image" ? "รูปภาพ" : messagePreview(repliedMessage)}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         {msg.attachment_type === "image" && msg.attachment_url ? (
                           <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
