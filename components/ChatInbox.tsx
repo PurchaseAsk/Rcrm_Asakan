@@ -1119,12 +1119,12 @@ export function ChatInbox({
                     key={conv.id}
                     role="button"
                     tabIndex={0}
-                    className={`relative w-full cursor-pointer border-b border-slate-100 p-3 text-left hover:bg-slate-50 ${
+                    className={`relative w-full cursor-pointer border-b border-slate-100 p-3 text-left ${
                       conv.id === selectedConvId
-                        ? "border-l-2 border-l-brand-700 bg-brand-50"
+                        ? "border-l-2 border-l-brand-700 bg-brand-50 hover:bg-brand-50"
                         : isUnread(conv)
-                          ? "bg-blue-50/40"
-                          : ""
+                          ? "border-l-2 border-l-blue-400 bg-blue-50 hover:bg-blue-100/60"
+                          : "hover:bg-slate-50"
                     }`}
                     onClick={() => void openConversation(conv)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") void openConversation(conv); }}
@@ -1203,7 +1203,7 @@ export function ChatInbox({
                           ) : conv.last_message_direction === "outbound" ? (
                             <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">ตอบแล้ว ✓</span>
                           ) : isUnread(conv) ? (
-                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[9px] font-bold text-white">●</span>
+                            <span className="h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-100" />
                           ) : null}
                         </div>
                       </div>
