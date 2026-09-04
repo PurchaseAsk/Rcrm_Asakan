@@ -339,6 +339,16 @@ export default function HomePage() {
     return scoped;
   }, [activePipelineId, currentUserId, data.leads, myTeamMemberIds, profile]);
 
+  // Dashboard shows all users' leads (pipeline-scoped only, no role filter)
+  const dashboardLeads = useMemo(() => {
+    if (activePipelineId === "__no_pipeline__") {
+      return data.leads.filter((lead) => !lead.pipeline_id);
+    } else if (activePipelineId) {
+      return data.leads.filter((lead) => lead.pipeline_id === activePipelineId);
+    }
+    return data.leads;
+  }, [activePipelineId, data.leads]);
+
   const pipelineStages = useMemo(() => {
     if (!activePipelineId || activePipelineId === "__no_pipeline__") {
       return data.stages.filter((stage) => !stage.pipeline_id);
@@ -569,7 +579,7 @@ export default function HomePage() {
 
           {activeTab === "dashboard" && (
             <Dashboard
-              leads={visibleLeads}
+              leads={dashboardLeads}
               pipelineStages={pipelineStages}
               profiles={data.profiles}
               unfollowReasons={data.unfollowReasons}
