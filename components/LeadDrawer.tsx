@@ -357,14 +357,14 @@ export function LeadDrawer({
   return (
     <div className="fixed inset-0 z-40 bg-slate-950/30">
       <aside className="ml-auto flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 p-4">
-          <div>
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold text-slate-950">{lead.customer_name}</h2>
             <p className="text-sm text-slate-500">
               {lead.page?.name || "No page"} · อายุ {leadAge(lead.created_at)} · {recallCountdownText(lead, stages)}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             {/* Pin button */}
             <button
               title={isPinned(lead) ? `Pin หมดอายุใน ${pinDaysLeft(lead)} วัน — คลิกเพื่อ unpin` : "Pin lead 3 วัน (กัน recall)"}
@@ -417,7 +417,7 @@ export function LeadDrawer({
             >
               {editingInfo ? "Save" : "Edit"}
             </button>
-            <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>
+            <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm col-span-1 sm:col-span-auto" onClick={onClose}>
               Close
             </button>
           </div>
