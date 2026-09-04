@@ -50,6 +50,7 @@ export function CaseCustomerDetailSummary({
   onOpen: () => void;
 }) {
   const hasSalary = caseItem.main_salary != null;
+  const hasLoanAmount = caseItem.loan_amount != null;
   const hasDocs = !!caseItem.docs_submitted_at;
   const banks = (caseItem.bank_accepted ?? []).filter((b) => b.bank && b.date);
 
@@ -64,6 +65,11 @@ export function CaseCustomerDetailSummary({
         {hasSalary && (
           <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
             💰 รายได้ {fmt(caseItem.main_salary)} ฿
+          </span>
+        )}
+        {hasLoanAmount && (
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+            🏷️ วงเงิน {fmt(caseItem.loan_amount)} ฿
           </span>
         )}
         {caseItem.has_co_borrower && (
@@ -105,6 +111,7 @@ export function CaseCustomerDetailModal({
 }) {
   const [mainSalary, setMainSalary] = useState(fmt(caseItem.main_salary));
   const [mainDebt, setMainDebt] = useState(fmt(caseItem.main_debt));
+  const [loanAmount, setLoanAmount] = useState(fmt(caseItem.loan_amount));
   const [hasCo, setHasCo] = useState(caseItem.has_co_borrower);
   const [coSalary, setCoSalary] = useState(fmt(caseItem.co_salary));
   const [coDebt, setCoDebt] = useState(fmt(caseItem.co_debt));
@@ -133,6 +140,7 @@ export function CaseCustomerDetailModal({
 
     const newMainSalary = numOrNull(mainSalary);
     const newMainDebt = numOrNull(mainDebt);
+    const newLoanAmount = numOrNull(loanAmount);
     const newCoSalary = hasCo ? numOrNull(coSalary) : null;
     const newCoDebt = hasCo ? numOrNull(coDebt) : null;
     const newDocsDate = docsSubmitted ? docsDate || null : null;
@@ -143,6 +151,7 @@ export function CaseCustomerDetailModal({
     await supabase.from("cases").update({
       main_salary: newMainSalary,
       main_debt: newMainDebt,
+      loan_amount: newLoanAmount,
       has_co_borrower: hasCo,
       co_salary: newCoSalary,
       co_debt: newCoDebt,
@@ -212,6 +221,15 @@ export function CaseCustomerDetailModal({
                 />
               </label>
             </div>
+            <label className="mt-3 block space-y-1">
+              <span className="text-xs text-slate-500">วงเงินขออนุมัติ (บาท)</span>
+              <input
+                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-brand-400 focus:bg-white"
+                placeholder="เช่น 2,500,000"
+                value={loanAmount}
+                onChange={(e) => setLoanAmount(e.target.value)}
+              />
+            </label>
           </section>
 
           {/* ── กู้ร่วม ── */}
