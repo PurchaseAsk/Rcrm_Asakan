@@ -495,9 +495,8 @@ async function fetchAllLeads(
     let q = client.from("leads").select(SELECT)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
-    if (opts?.role === "staff" && opts?.userId) {
-      q = q.or(`assigned_to.eq.${opts.userId},assigned_to.is.null`);
-    }
+    // Role-based visibility is enforced in the frontend (visibleLeads in app/page.tsx)
+    // so the Dashboard can show all-staff data while Lead/Funnel panels stay scoped
     const { data, error } = await q;
     if (error) throw new Error(`Load leads failed: ${error.message}`);
     if (!data?.length) break;
