@@ -19,6 +19,12 @@ function parseField(params: URLSearchParams, key: string): string {
   return params.get(`fields[${key}][value]`) ?? params.get(key) ?? "";
 }
 
+// Strip leading email if form sends "email@domain.com ActualName"
+function sanitizeName(raw: string): string {
+  const stripped = raw.replace(/^\S+@\S+\.\S+\s*/, "").trim();
+  return stripped || raw.trim();
+}
+
 export async function POST(request: NextRequest) {
   let secret: string, project_slug: string, name: string, lastname: string | undefined;
   let phone: string | undefined, email: string | undefined;
@@ -42,7 +48,9 @@ export async function POST(request: NextRequest) {
     source_url = parseField(params, "source_url") || params.get("meta[page_url][value]") || undefined;
   }
 
-  const fullName = lastname ? `${name} ${lastname}`.trim() : name;
+  const fullName = lastname
+    ? `${sanitizeName(name)} ${sanitizeName(lastname)}`.trim()
+    : sanitizeName(name);
 
   if (!secret || !project_slug || !fullName) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });

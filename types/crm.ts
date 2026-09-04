@@ -139,6 +139,8 @@ export type Reminder = {
   leads?: { customer_name: string } | null;
 };
 
+export type BankAccepted = { bank: string; date: string };
+
 export type Case = {
   id: string;
   title: string;
@@ -147,6 +149,13 @@ export type Case = {
   customer_phone: string | null;
   payment_type: "cash" | "loan" | null;
   loan_banks: string[] | null;
+  main_salary: number | null;
+  main_debt: number | null;
+  has_co_borrower: boolean;
+  co_salary: number | null;
+  co_debt: number | null;
+  docs_submitted_at: string | null;
+  bank_accepted: BankAccepted[];
   status: "active" | "pending_close" | "closed";
   assigned_to: string | null;
   created_by: string | null;
