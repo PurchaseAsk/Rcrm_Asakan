@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X, Send, Bell, CheckCircle, BriefcaseIcon, Image as ImageIcon } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Case, CaseActivity, CaseReminder, Profile, Role } from "@/types/crm";
+import { CaseCustomerDetailModal, CaseCustomerDetailSummary } from "@/components/CaseCustomerDetailModal";
 
 const supabase = createBrowserSupabase();
 
@@ -84,6 +85,7 @@ export function CaseDrawer({
   const [editingFinance, setEditingFinance] = useState(false);
   const [assignTo, setAssignTo] = useState(caseItem.assigned_to ?? "");
   const [confirmEdit, setConfirmEdit] = useState<"title" | "customer" | "finance" | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [requestCloseOpen, setRequestCloseOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -462,6 +464,15 @@ export function CaseDrawer({
           )}
         </div>
 
+        {/* Customer financial detail */}
+        <div className="border-b bg-slate-50 px-5 py-3">
+          <CaseCustomerDetailSummary
+            caseItem={caseItem}
+            disabled={isClosed}
+            onOpen={() => !isClosed && setShowDetailModal(true)}
+          />
+        </div>
+
         {/* Close workflow banners */}
         {isPendingClose && canClose && (
           <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3">
@@ -745,6 +756,15 @@ export function CaseDrawer({
       </div>
     </div>
 
+
+{showDetailModal && (
+  <CaseCustomerDetailModal
+    caseItem={caseItem}
+    userId={userId}
+    onClose={() => setShowDetailModal(false)}
+    onSaved={async () => { await onUpdated(); await load(); }}
+  />
+)}
 
 {confirmEdit && createPortal(
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
