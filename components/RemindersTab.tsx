@@ -90,37 +90,34 @@ export function RemindersTab({
     const couponIds = (couponStages ?? []).map((s) => s.id);
     const bookedIds = (bookedStages ?? []).map((s) => s.id);
 
-    const [
-      { count: allLeads },
-      { count: couponLeads },
-      { count: bookedLeads },
-      { count: recalledThisMonth },
-      { data: chatStats },
-    ] = await Promise.all([
-      // ลีดทั้งหมด — active leads assigned to me
-      supabase
-        .from("leads")
-        .select("*", { count: "exact", head: true })
-        .eq("assigned_to", userId)
-        .eq("status", "active"),
-      // ส่งคูปอง — เดือนนี้ (stage_entered_at)
-      couponIds.length > 0
+    // ลีดที่ได้รับเดือนนี้ (assigned to me, created this month) — same basis as Dashboard
+    const { data: monthLeadsData } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("assigned_to", userId)
+      .gte("created_at", monthStart);
+    const monthLeadIds = (monthLeadsData ?? []).map((l) => l.id);
+    const allLeads = monthLeadIds.length;
+
+    // For stage visits: query lead_activities of this month's leads
+    // (counts distinct leads that ever passed through the target stage — matches Dashboard logic)
+    const [couponLeadIds, bookedLeadIds, recalledCount, chatStats] = await Promise.all([
+      couponIds.length > 0 && monthLeadIds.length > 0
         ? supabase
-            .from("leads")
-            .select("*", { count: "exact", head: true })
-            .eq("assigned_to", userId)
+            .from("lead_activities")
+            .select("lead_id")
+            .in("lead_id", monthLeadIds)
             .in("stage_id", couponIds)
-            .gte("stage_entered_at", monthStart)
-        : Promise.resolve({ count: 0 }),
-      // จองแล้ว — เดือนนี้ (stage_entered_at)
-      bookedIds.length > 0
+            .then(({ data }) => [...new Set((data ?? []).map((r) => r.lead_id))].length)
+        : Promise.resolve(0),
+      bookedIds.length > 0 && monthLeadIds.length > 0
         ? supabase
-            .from("leads")
-            .select("*", { count: "exact", head: true })
-            .eq("assigned_to", userId)
+            .from("lead_activities")
+            .select("lead_id")
+            .in("lead_id", monthLeadIds)
             .in("stage_id", bookedIds)
-            .gte("stage_entered_at", monthStart)
-        : Promise.resolve({ count: 0 }),
+            .then(({ data }) => [...new Set((data ?? []).map((r) => r.lead_id))].length)
+        : Promise.resolve(0),
       // Recall ที่โดนในเดือนนี้ — match by name in content
       myName
         ? supabase
@@ -129,18 +126,19 @@ export function RemindersTab({
             .eq("type", "recalled")
             .ilike("content", `%${myName}%`)
             .gte("created_at", monthStart)
-        : Promise.resolve({ count: 0 }),
+            .then(({ count }) => count ?? 0)
+        : Promise.resolve(0),
       // Chat stats via DB function (5-min response rate)
       supabase.rpc("get_monthly_chat_stats", { p_month_start: monthStart }),
     ]);
 
-    const cs = (chatStats as { total_convs: number; replied_in_5min: number; converted: number }[] | null)?.[0];
+    const cs = (chatStats.data as { total_convs: number; replied_in_5min: number; converted: number }[] | null)?.[0];
 
     setDashStats({
-      allLeads: allLeads ?? 0,
-      couponLeads: couponLeads ?? 0,
-      bookedLeads: bookedLeads ?? 0,
-      recalledThisMonth: recalledThisMonth ?? 0,
+      allLeads,
+      couponLeads: couponLeadIds,
+      bookedLeads: bookedLeadIds,
+      recalledThisMonth: recalledCount,
       teamConvs: cs?.total_convs ?? 0,
       teamReplied5min: cs?.replied_in_5min ?? 0,
       teamConverted: cs?.converted ?? 0,
