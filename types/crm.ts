@@ -154,6 +154,7 @@ export type Case = {
   has_co_borrower: boolean;
   co_salary: number | null;
   co_debt: number | null;
+  loan_amount: number | null;
   docs_submitted_at: string | null;
   bank_accepted: BankAccepted[];
   status: "active" | "pending_close" | "closed";
