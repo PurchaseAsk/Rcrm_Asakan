@@ -599,7 +599,7 @@ export function RemindersTab({
     const isCompleting = completingId === r.id;
 
     return (
-      <div className={`rounded-lg border p-3 transition-all ${r.is_done ? "border-slate-100 bg-slate-50 opacity-60" : isPast ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
+      <div className={`min-h-[112px] rounded-lg border p-3 shadow-sm transition-all ${r.is_done ? "border-slate-100 bg-slate-50 opacity-60" : isPast ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
         <div className="flex items-start gap-3">
           <Bell size={16} className={`mt-0.5 shrink-0 ${r.is_done ? "text-slate-400" : isPast ? "text-amber-500" : "text-brand-600"}`} />
           <div className="min-w-0 flex-1">
@@ -936,7 +936,7 @@ export function RemindersTab({
             ไม่มีการแจ้งเตือนสำหรับวันนี้
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5">
             {today.map((r) => <ReminderCard key={r.id} r={r} />)}
           </div>
         )}
@@ -951,7 +951,7 @@ export function RemindersTab({
             ไม่มีการแจ้งเตือนที่กำลังจะมาถึง
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5">
             {upcoming.map((r) => <ReminderCard key={r.id} r={r} />)}
           </div>
         )}
