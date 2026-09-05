@@ -56,6 +56,12 @@ const statusConfig: Record<Case["status"], { label: string; dot: string; bg: str
   closed:        { label: "ปิดแล้ว",        dot: "bg-slate-400",  bg: "bg-slate-100 text-slate-500" },
 };
 
+const labelConfig: Record<Case["label"], { label: string; dot: string; bg: string }> = {
+  in_progress:    { label: "กำลังดำเนินการ", dot: "bg-blue-500",    bg: "bg-blue-50 text-blue-700" },
+  docs_submitted: { label: "ยื่นเอกสารแล้ว",  dot: "bg-emerald-500", bg: "bg-emerald-50 text-emerald-700" },
+  bank_accepted:  { label: "รับเคสแล้ว",       dot: "bg-indigo-500",  bg: "bg-indigo-50 text-indigo-700" },
+};
+
 export function CasesPanel({
   cases,
   profiles,
@@ -297,7 +303,9 @@ export function CasesPanel({
       ) : (
         <div className="space-y-2">
           {filtered.map((c) => {
-            const cfg = statusConfig[c.status];
+            const cfg = c.status === "active"
+              ? labelConfig[c.label ?? "in_progress"]
+              : statusConfig[c.status];
             const lastAct = lastActivities[c.id];
             const nextRem = nextReminders[c.id];
             const isPast = nextRem && new Date(nextRem.remind_at) < new Date();

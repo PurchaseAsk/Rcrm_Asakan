@@ -148,6 +148,12 @@ export function CaseCustomerDetailModal({
       .filter((r) => r.checked && r.bank && r.date)
       .map((r) => ({ bank: r.bank, date: r.date }));
 
+    const newLabel = newBankAccepted.length > 0
+      ? "bank_accepted"
+      : newDocsDate
+        ? "docs_submitted"
+        : "in_progress";
+
     await supabase.from("cases").update({
       main_salary: newMainSalary,
       main_debt: newMainDebt,
@@ -157,6 +163,7 @@ export function CaseCustomerDetailModal({
       co_debt: newCoDebt,
       docs_submitted_at: newDocsDate,
       bank_accepted: newBankAccepted,
+      label: newLabel,
     }).eq("id", caseItem.id);
 
     // Build activity notes
