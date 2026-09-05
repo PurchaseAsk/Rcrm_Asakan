@@ -277,8 +277,50 @@ export function RemindersTab({
       touchedStatusMap = new Map((data ?? []).map(l => [l.id, l.status as string]));
     }
 
-    // ── First Contact Time (Median) per user ──────────────
-    // FCT = time from lead.created_at → first stage_change on that lead (attributed to current assigned_to)
+    // ── First Contact Time (Median) — two KPIs ────────────
+    // Elapsed FCT  : wall-clock minutes (what the customer actually waited)
+    // Working FCT  : minutes inside 9:00–18:00 Mon–Fri BKK (measures sales speed during work hours)
+    //   Lead arrives 09–18 → count from lead.created_at
+    //   Lead arrives before 09 → count from 09:00 that day
+    //   Lead arrives after 18 or on weekend → count from 09:00 next working day
+    const BKK_MS = 7 * 60 * 60 * 1000;
+
+    function workingStart(leadAt: Date): Date {
+      const bkk = new Date(leadAt.getTime() + BKK_MS);
+      const hm  = bkk.getUTCHours() * 60 + bkk.getUTCMinutes();
+      const day = bkk.getUTCDay();
+      if (day >= 1 && day <= 5 && hm >= 9 * 60 && hm < 18 * 60) return leadAt;
+      const next = new Date(bkk);
+      if (hm >= 18 * 60 || day === 0 || day === 6) next.setUTCDate(next.getUTCDate() + 1);
+      next.setUTCHours(9, 0, 0, 0);
+      while (next.getUTCDay() === 0 || next.getUTCDay() === 6) next.setUTCDate(next.getUTCDate() + 1);
+      return new Date(next.getTime() - BKK_MS);
+    }
+
+    function workingMinutes(from: Date, to: Date): number {
+      if (to <= from) return 0;
+      let total = 0;
+      let cur = new Date(from);
+      while (cur < to) {
+        const bkk = new Date(cur.getTime() + BKK_MS);
+        const day = bkk.getUTCDay();
+        if (day >= 1 && day <= 5) {
+          const ws = new Date(bkk); ws.setUTCHours(9, 0, 0, 0);
+          const we = new Date(bkk); we.setUTCHours(18, 0, 0, 0);
+          const winStart = new Date(ws.getTime() - BKK_MS);
+          const winEnd   = new Date(we.getTime() - BKK_MS);
+          const segStart = cur < winStart ? winStart : cur;
+          const segEnd   = to  < winEnd  ? to       : winEnd;
+          if (segEnd > segStart) total += (segEnd.getTime() - segStart.getTime()) / 60000;
+        }
+        const nextBKK = new Date(bkk);
+        nextBKK.setUTCDate(nextBKK.getUTCDate() + 1);
+        nextBKK.setUTCHours(9, 0, 0, 0);
+        cur = new Date(nextBKK.getTime() - BKK_MS);
+      }
+      return total;
+    }
+
     function medianOf(vals: number[]): number {
       if (!vals.length) return -1;
       const s = [...vals].sort((a, b) => a - b);
@@ -293,22 +335,28 @@ export function RemindersTab({
       if (h < 48) return `${h}ชม${mn > 0 ? ` ${mn}น` : ""}`;
       return `${Math.floor(h / 24)} วัน`;
     }
-    // Build: lead_id → first activity timestamp (from full-range fctActsData, already ordered ASC)
+
+    // Build: lead_id → first stage_change timestamp (already ordered ASC, no auto-activities)
     const firstActByLead = new Map<string, string>();
     for (const a of fctActsData) {
       if (!firstActByLead.has(a.lead_id)) firstActByLead.set(a.lead_id, a.created_at);
     }
-    // FCT attributed to lead's current assigned_to
-    const userFCT: Record<string, number[]> = {};
+    // Two FCT arrays per user: wall-clock and working-hours
+    const userElapsedFCT: Record<string, number[]> = {};
+    const userWorkingFCT: Record<string, number[]> = {};
     for (const lead of leads) {
       if (!lead.assigned_to) continue;
       const firstActAt = firstActByLead.get(lead.id);
       if (!firstActAt) continue;
-      const leadCreatedAt = (lead as { created_at: string }).created_at;
-      const mins = (new Date(firstActAt).getTime() - new Date(leadCreatedAt).getTime()) / 60000;
-      if (mins < 0) continue;
-      if (!userFCT[lead.assigned_to]) userFCT[lead.assigned_to] = [];
-      userFCT[lead.assigned_to].push(mins);
+      const contactTime   = new Date(firstActAt);
+      const leadCreatedAt = new Date((lead as { created_at: string }).created_at);
+      const elapsedMins   = (contactTime.getTime() - leadCreatedAt.getTime()) / 60000;
+      if (elapsedMins < 0) continue;
+      const workMins = workingMinutes(workingStart(leadCreatedAt), contactTime);
+      if (!userElapsedFCT[lead.assigned_to]) userElapsedFCT[lead.assigned_to] = [];
+      if (!userWorkingFCT[lead.assigned_to]) userWorkingFCT[lead.assigned_to] = [];
+      userElapsedFCT[lead.assigned_to].push(elapsedMins);
+      userWorkingFCT[lead.assigned_to].push(workMins);
     }
 
     // Build: lead_id → all activities in period (for Lead Activity section)
@@ -395,18 +443,20 @@ export function RemindersTab({
     if (unassignedLeads.length > 0) p += tRow("(ไม่มีผู้ดูแล)", funnelCols(unassignedLeads)) + "\n";
     p += tRow("รวม", funnelCols(leads)) + "\n";
 
-    // [1b] Median First Contact Time per user
+    // [1b] First Contact Time — two KPIs side-by-side
     const FCT_NAME_W = 22;
-    const FCT_COL1_W = 12;
-    const FCT_COL2_W = 8;
-    p += `\n[Median First Contact Time — ความเร็วในการ Contact ลีดแรก]\n`;
-    p += `(นับจากเวลาที่ระบบได้รับ Lead จนถึง Activity แรกที่ Sales บันทึก — ใช้ Median ไม่ใช่ Average)\n`;
-    p += "ผู้ใช้".padEnd(FCT_NAME_W) + "| " + "Median FCT".padStart(FCT_COL1_W) + " | " + "n ลีด".padStart(FCT_COL2_W) + "\n";
-    p += "─".repeat(FCT_NAME_W + 2 + FCT_COL1_W + 3 + FCT_COL2_W) + "\n";
+    const FCT_COL_W  = 13;
+    const FCT_N_W    = 6;
+    p += `\n[First Contact Time (FCT) — ความเร็วในการ Contact ลีดแรก | ใช้ Median]\n`;
+    p += `(Elapsed = เวลาจริงที่ลูกค้ารอ | Working-hrs = นับเฉพาะ 9:00–18:00 จ–ศ)\n`;
+    p += "ผู้ใช้".padEnd(FCT_NAME_W) + "| " + "Elapsed".padStart(FCT_COL_W) + " | " + "Working-hrs".padStart(FCT_COL_W) + " | " + "n".padStart(FCT_N_W) + "\n";
+    p += "─".repeat(FCT_NAME_W + 2 + (FCT_COL_W + 3) * 2 + FCT_N_W) + "\n";
     for (const sp of assignedProfiles) {
-      const times = userFCT[sp.id] ?? [];
-      const med   = medianOf(times);
-      p += (sp.full_name ?? sp.email ?? "").padEnd(FCT_NAME_W) + "| " + fmtMin(med).padStart(FCT_COL1_W) + " | " + String(times.length).padStart(FCT_COL2_W) + "\n";
+      const elTimes = userElapsedFCT[sp.id] ?? [];
+      const wkTimes = userWorkingFCT[sp.id] ?? [];
+      const elMed = medianOf(elTimes);
+      const wkMed = medianOf(wkTimes);
+      p += (sp.full_name ?? sp.email ?? "").padEnd(FCT_NAME_W) + "| " + fmtMin(elMed).padStart(FCT_COL_W) + " | " + fmtMin(wkMed).padStart(FCT_COL_W) + " | " + String(elTimes.length).padStart(FCT_N_W) + "\n";
     }
 
     // [2] Lead Conversions by source — use wider column so campaign names aren't truncated
