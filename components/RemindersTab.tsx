@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bell, RefreshCcw, CheckCircle, X, Tag, Megaphone, Trash2, BriefcaseIcon, BarChart2 } from "lucide-react";
+import { Bell, RefreshCcw, CheckCircle, X, Tag, Megaphone, Trash2, BriefcaseIcon, BarChart2, Sparkles, Copy } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Reminder, Role, TeamReminder } from "@/types/crm";
 
@@ -44,6 +44,9 @@ export function RemindersTab({
   const [dashStats, setDashStats] = useState<DashStats | null>(null);
   const [dashLoading, setDashLoading] = useState(true);
   const [dashCollapsed, setDashCollapsed] = useState(false);
+  const [promptText, setPromptText] = useState("");
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,6 +134,131 @@ export function RemindersTab({
     });
     setDashLoading(false);
   }, [userId]);
+
+  async function generatePrompt() {
+    setPromptLoading(true);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const monthLabel = now.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+
+    const [
+      { data: monthLeadsData },
+      { data: allStagesData },
+      { data: allProfilesData },
+      { data: allCasesData },
+      { data: recallData },
+    ] = await Promise.all([
+      supabase.from("leads").select("id, source, stage_id, assigned_to, metadata").gte("created_at", monthStart),
+      supabase.from("funnel_stages").select("id, name, position, is_unfollow"),
+      supabase.from("profiles").select("id, full_name, email, role"),
+      supabase.from("cases").select("id, label, status"),
+      supabase.from("lead_activities").select("id").eq("type", "recalled").gte("created_at", monthStart),
+    ]);
+
+    const leads = monthLeadsData ?? [];
+    const stages = allStagesData ?? [];
+    const profiles = allProfilesData ?? [];
+    const cases = allCasesData ?? [];
+    const recallCount = (recallData ?? []).length;
+
+    const stagePos = new Map(stages.map((s) => [s.id, s.position]));
+    const orderedStages = stages.filter((s) => !s.is_unfollow).sort((a, b) => a.position - b.position);
+
+    // Source breakdown
+    const sourceCount: Record<string, number> = {};
+    for (const l of leads) {
+      const src = l.source ?? "Facebook";
+      sourceCount[src] = (sourceCount[src] ?? 0) + 1;
+    }
+
+    // Top ad campaigns from metadata
+    const campaignCount: Record<string, number> = {};
+    for (const l of leads) {
+      const meta = l.metadata as { campaign_name?: string } | null;
+      if (meta?.campaign_name) campaignCount[meta.campaign_name] = (campaignCount[meta.campaign_name] ?? 0) + 1;
+    }
+    const topCampaigns = Object.entries(campaignCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    // Funnel counts (cumulative — same as dashboard)
+    const stageCounts = orderedStages.map((s) => ({
+      name: s.name,
+      count: leads.filter((l) => {
+        const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1;
+        return pos >= s.position;
+      }).length,
+    }));
+
+    // Team performance
+    const teamCount: Record<string, number> = {};
+    for (const l of leads) {
+      if (l.assigned_to) teamCount[l.assigned_to] = (teamCount[l.assigned_to] ?? 0) + 1;
+    }
+    const salesProfiles = profiles.filter((p) => p.role === "staff" || p.role === "team_lead");
+
+    // Cases
+    const activeCases = cases.filter((c) => c.status === "active" || c.status === "pending_close");
+    const caseStats = {
+      in_progress: activeCases.filter((c) => c.label === "in_progress").length,
+      docs_submitted: activeCases.filter((c) => c.label === "docs_submitted").length,
+      bank_accepted: activeCases.filter((c) => c.label === "bank_accepted").length,
+      closed: cases.filter((c) => c.status === "closed").length,
+    };
+
+    const totalLeads = leads.length;
+    const bookedCount = stageCounts.find((s) => s.name === "จองแล้ว")?.count ?? 0;
+    const convRate = totalLeads > 0 ? ((bookedCount / totalLeads) * 100).toFixed(1) : "0";
+
+    // Build prompt
+    let p = `คุณคือที่ปรึกษาด้านการตลาดและ Sales สำหรับโครงการอสังหาริมทรัพย์ที่มีความเชี่ยวชาญด้านการวิเคราะห์ข้อมูล CRM\n\n`;
+    p += `📊 ข้อมูล Performance ประจำเดือน ${monthLabel}\n`;
+    p += `${"─".repeat(50)}\n\n`;
+
+    p += `[ภาพรวมลีด]\n`;
+    p += `- ลีดเข้าใหม่ทั้งหมด: ${totalLeads} ราย\n`;
+    const srcLines = Object.entries(sourceCount).sort((a, b) => b[1] - a[1]).map(([s, n]) => `  • ${s}: ${n} ราย`).join("\n");
+    if (srcLines) p += `- แหล่งที่มา:\n${srcLines}\n`;
+    if (topCampaigns.length > 0) {
+      p += `- แคมเปญโฆษณาที่มีลีดสูงสุด:\n`;
+      for (const [name, n] of topCampaigns) p += `  • ${name}: ${n} ราย\n`;
+    }
+
+    p += `\n[Funnel Sales]\n`;
+    for (const { name, count } of stageCounts) {
+      const pct = totalLeads > 0 ? ((count / totalLeads) * 100).toFixed(0) : "0";
+      p += `- ${name}: ${count} ราย (${pct}%)\n`;
+    }
+    p += `- Conversion Rate (ลีด → จอง): ${convRate}%\n`;
+
+    p += `\n[ทีม Sales — ${salesProfiles.length} คน]\n`;
+    for (const sp of salesProfiles) {
+      const n = teamCount[sp.id] ?? 0;
+      p += `- ${sp.full_name ?? sp.email}: ${n} ลีด\n`;
+    }
+    p += `- Recall เดือนนี้: ${recallCount} ครั้ง\n`;
+
+    p += `\n[เคสรอโอน]\n`;
+    p += `- กำลังดำเนินการ: ${caseStats.in_progress} เคส\n`;
+    p += `- ยื่นเอกสารแล้ว: ${caseStats.docs_submitted} เคส\n`;
+    p += `- รับเคสแล้ว: ${caseStats.bank_accepted} เคส\n`;
+    p += `- ปิดแล้ว (ทั้งหมด): ${caseStats.closed} เคส\n`;
+
+    p += `\n${"─".repeat(50)}\n`;
+    p += `กรุณาวิเคราะห์ข้อมูลข้างต้นและให้คำแนะนำใน 5 ประเด็น:\n\n`;
+    p += `1. ภาพรวม Performance — Ads และ Sales เดือนนี้เป็นอย่างไร? จุดแข็ง/จุดอ่อนหลักคืออะไร?\n`;
+    p += `2. จุดที่ต้องปรับปรุงเร่งด่วน — ขั้นตอน Funnel ไหนที่ลีด Drop off มากที่สุด? แก้ได้อย่างไร?\n`;
+    p += `3. แนวทางการตลาดสำหรับเดือนหน้า — ควรเน้น Ad ชุดไหน? ปรับ targeting อย่างไร?\n`;
+    p += `4. เพิ่ม Conversion Rate — วิธีเพิ่มโอกาสปิดจองจากลีดที่มีอยู่?\n`;
+    p += `5. ข้อเสนอแนะเฉพาะ — มีอะไรที่ควรลองทำทันทีจากข้อมูลเดือนนี้?\n`;
+
+    setPromptText(p);
+    setPromptLoading(false);
+  }
+
+  async function copyPrompt() {
+    await navigator.clipboard.writeText(promptText);
+    setPromptCopied(true);
+    setTimeout(() => setPromptCopied(false), 2000);
+  }
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadTeamReminders(); }, [loadTeamReminders]);
@@ -417,6 +545,42 @@ export function RemindersTab({
             </div>
           );
         })()}
+
+      {/* ── AI Prompt Generator ─────────────────────────────── */}
+      {canManageTeamReminders && (
+        <div className="rounded-xl border border-violet-200 bg-white shadow-sm">
+          <div className="flex items-center gap-2 px-5 py-3.5">
+            <Sparkles size={16} className="shrink-0 text-violet-500" />
+            <span className="flex-1 text-sm font-semibold text-slate-900">วิเคราะห์ Performance ด้วย AI</span>
+            <button
+              onClick={() => void generatePrompt()}
+              disabled={promptLoading}
+              className="rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {promptLoading ? "กำลังสร้าง…" : "สร้าง Prompt"}
+            </button>
+          </div>
+          {promptText && (
+            <div className="border-t border-violet-100 px-5 pb-5 pt-4">
+              <div className="relative">
+                <textarea
+                  readOnly
+                  className="h-52 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-xs leading-relaxed text-slate-700 outline-none"
+                  value={promptText}
+                />
+                <button
+                  onClick={() => void copyPrompt()}
+                  className="absolute right-3 top-3 flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 transition"
+                >
+                  <Copy size={12} />
+                  {promptCopied ? "คัดลอกแล้ว ✓" : "คัดลอก"}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">นำ Prompt นี้ไปวางใน Claude, ChatGPT หรือ AI อื่นๆ</p>
+            </div>
+          )}
+        </div>
+      )}
 
         <section className="space-y-4">
           {canManageTeamReminders && (
