@@ -307,8 +307,20 @@ export function RemindersTab({
 
     // ── Build prompt ───────────────────────────────────────
     const projectName = promptProjectName.trim() || "โครงการอสังหาริมทรัพย์";
-    const salesProfiles = profiles.filter(p => p.role === "staff" || p.role === "team_lead");
-    const totalLeads    = leads.length;
+    const totalLeads  = leads.length;
+
+    // Users that actually have leads assigned in this period (any role), sorted by lead count desc
+    const assignedUserIds = new Set(leads.map(l => l.assigned_to).filter(Boolean) as string[]);
+    const assignedProfiles = profiles
+      .filter(p => assignedUserIds.has(p.id))
+      .sort((a, b) => leads.filter(l => l.assigned_to === b.id).length - leads.filter(l => l.assigned_to === a.id).length);
+    const unassignedLeads = leads.filter(l => !l.assigned_to);
+
+    // Users that touched leads in this period (any role)
+    const touchedUserIds = new Set(Object.keys(touchedByUser));
+    const actProfiles = profiles
+      .filter(p => touchedUserIds.has(p.id))
+      .sort((a, b) => (touchedByUser[b.id]?.size ?? 0) - (touchedByUser[a.id]?.size ?? 0));
 
     let p = `คุณคือที่ปรึกษาด้านการตลาดและ Sales ที่มีความเชี่ยวชาญด้านการวิเคราะห์ข้อมูล CRM\n\n`;
     p += `🏢 โครงการ: ${projectName}\n`;
@@ -319,7 +331,8 @@ export function RemindersTab({
     p += `[Lead Conversions แบ่งตามผู้ใช้งาน — ลีดที่ได้รับช่วงนี้]\n`;
     p += `(นับแบบสะสม • เลิกติดตาม = ปัจจุบันอยู่ที่ stage เลิกติดตาม)\n`;
     p += tHead("ผู้ใช้", convHeaders) + "\n" + tDiv(convHeaders.length) + "\n";
-    for (const sp of salesProfiles) p += tRow(sp.full_name ?? sp.email ?? "", funnelCols(leads.filter(l => l.assigned_to === sp.id))) + "\n";
+    for (const sp of assignedProfiles) p += tRow(sp.full_name ?? sp.email ?? "", funnelCols(leads.filter(l => l.assigned_to === sp.id))) + "\n";
+    if (unassignedLeads.length > 0) p += tRow("(ไม่มีผู้ดูแล)", funnelCols(unassignedLeads)) + "\n";
     p += tRow("รวม", funnelCols(leads)) + "\n";
 
     // [2] Lead Conversions by source
@@ -332,7 +345,7 @@ export function RemindersTab({
     p += `\n[Lead Activity แบ่งตามผู้ใช้งาน — ลีดที่ถูกแก้ไขช่วงนี้ รวม ${allTouchedIds.length} ลีด]\n`;
     p += `(รวมลีดเก่าที่ Sales touch ในช่วงนี้ด้วย)\n`;
     p += tHead("ผู้ใช้", actHeaders) + "\n" + tDiv(actHeaders.length) + "\n";
-    for (const sp of salesProfiles) p += tRow(sp.full_name ?? sp.email ?? "", actCols(touchedByUser[sp.id] ?? new Set(), touchedStageMap, touchedStatusMap)) + "\n";
+    for (const sp of actProfiles) p += tRow(sp.full_name ?? sp.email ?? "", actCols(touchedByUser[sp.id] ?? new Set(), touchedStageMap, touchedStatusMap)) + "\n";
 
     // [4] Chat Metrics
     p += `\n[Chat Metrics — แชทใหม่ช่วงนี้]\n`;
