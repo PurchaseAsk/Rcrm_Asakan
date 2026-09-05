@@ -160,7 +160,7 @@ export function RemindersTab({
       { data: unfollowReasonsData },
       chatStatsResult,
     ] = await Promise.all([
-      supabase.from("leads").select("id, source, stage_id, assigned_to, metadata, pipeline_id, unfollow_reason_id").gte("created_at", fromISO).lte("created_at", toISO),
+      supabase.from("leads").select("id, source, stage_id, assigned_to, metadata, pipeline_id, unfollow_reason_id, status").gte("created_at", fromISO).lte("created_at", toISO),
       supabase.from("funnel_stages").select("id, name, position, is_unfollow, pipeline_id"),
       supabase.from("profiles").select("id, full_name, email, role"),
       supabase.from("cases").select("id, label, status"),
@@ -181,8 +181,7 @@ export function RemindersTab({
     const unfollowReasons = unfollowReasonsData ?? [];
 
     // ── Stage maps ─────────────────────────────────────────
-    const stagePos        = new Map(allStages.map(s => [s.id, s.position]));
-    const unfollowStageIds = new Set(allStages.filter(s => s.is_unfollow).map(s => s.id));
+    const stagePos = new Map(allStages.map(s => [s.id, s.position]));
 
     // ── Top pipeline ───────────────────────────────────────
     const pipelineCount: Record<string, number> = {};
@@ -203,24 +202,25 @@ export function RemindersTab({
 
     // Funnel cols: [total, stage2_cumulative, ..., unfollow_exact]
     function funnelCols(arr: typeof leads): string[] {
-      const total = arr.length;
-      const mid   = orderedStages.slice(1).map(s => {
-        const n = arr.filter(l => { const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1; return pos >= s.position; }).length;
+      const active = arr.filter(l => l.status !== "unfollowed");
+      const total  = arr.length;
+      const mid    = orderedStages.slice(1).map(s => {
+        const n = active.filter(l => { const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1; return pos >= s.position; }).length;
         return n > 0 ? String(n) : "-";
       });
-      const unf = arr.filter(l => l.stage_id && unfollowStageIds.has(l.stage_id)).length;
+      const unf = arr.filter(l => l.status === "unfollowed").length;
       return [String(total), ...mid, unf > 0 ? String(unf) : "-"];
     }
 
     // Activity cols for touched leads
-    function actCols(ids: Set<string>, stageMap: Map<string, string | null>): string[] {
-      const total = ids.size;
-      const arr   = [...ids].map(id => stageMap.get(id) ?? null);
-      const mid   = orderedStages.slice(1).map(s => {
-        const n = arr.filter(sid => { const pos = sid ? (stagePos.get(sid) ?? -1) : -1; return pos >= s.position; }).length;
+    function actCols(ids: Set<string>, stageMap: Map<string, string | null>, statusMap: Map<string, string>): string[] {
+      const total  = ids.size;
+      const active = [...ids].filter(id => statusMap.get(id) !== "unfollowed");
+      const mid    = orderedStages.slice(1).map(s => {
+        const n = active.filter(id => { const sid = stageMap.get(id) ?? null; const pos = sid ? (stagePos.get(sid) ?? -1) : -1; return pos >= s.position; }).length;
         return n > 0 ? String(n) : "-";
       });
-      const unf = arr.filter(sid => sid && unfollowStageIds.has(sid)).length;
+      const unf = [...ids].filter(id => statusMap.get(id) === "unfollowed").length;
       return [String(total), ...mid, unf > 0 ? String(unf) : "-"];
     }
 
@@ -244,10 +244,12 @@ export function RemindersTab({
       touchedByUser[a.created_by].add(a.lead_id);
     }
     const allTouchedIds = [...new Set(periodActs.map(a => a.lead_id))];
-    let touchedStageMap = new Map<string, string | null>();
+    let touchedStageMap  = new Map<string, string | null>();
+    let touchedStatusMap = new Map<string, string>();
     if (allTouchedIds.length > 0) {
-      const { data } = await supabase.from("leads").select("id, stage_id").in("id", allTouchedIds);
-      touchedStageMap = new Map((data ?? []).map(l => [l.id, l.stage_id]));
+      const { data } = await supabase.from("leads").select("id, stage_id, status").in("id", allTouchedIds);
+      touchedStageMap  = new Map((data ?? []).map(l => [l.id, l.stage_id]));
+      touchedStatusMap = new Map((data ?? []).map(l => [l.id, l.status as string]));
     }
 
     // ── Source / campaign grouping ─────────────────────────
@@ -266,7 +268,7 @@ export function RemindersTab({
     const reasonName = new Map(unfollowReasons.map(r => [r.id, r.name]));
     const reasonCount: Record<string, number> = {};
     for (const l of leads) {
-      if (l.unfollow_reason_id) {
+      if (l.status === "unfollowed" && l.unfollow_reason_id) {
         const n = reasonName.get(l.unfollow_reason_id) ?? "ไม่ระบุ";
         reasonCount[n] = (reasonCount[n] ?? 0) + 1;
       }
@@ -324,7 +326,7 @@ export function RemindersTab({
     p += `\n[Lead Activity แบ่งตามผู้ใช้งาน — ลีดที่ถูกแก้ไขช่วงนี้ รวม ${allTouchedIds.length} ลีด]\n`;
     p += `(รวมลีดเก่าที่ Sales touch ในช่วงนี้ด้วย)\n`;
     p += tHead("ผู้ใช้", actHeaders) + "\n" + tDiv(actHeaders.length) + "\n";
-    for (const sp of salesProfiles) p += tRow(sp.full_name ?? sp.email ?? "", actCols(touchedByUser[sp.id] ?? new Set(), touchedStageMap)) + "\n";
+    for (const sp of salesProfiles) p += tRow(sp.full_name ?? sp.email ?? "", actCols(touchedByUser[sp.id] ?? new Set(), touchedStageMap, touchedStatusMap)) + "\n";
 
     // [4] Chat Metrics
     p += `\n[Chat Metrics — แชทใหม่ช่วงนี้]\n`;
