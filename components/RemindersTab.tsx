@@ -192,6 +192,18 @@ export function RemindersTab({
     const periodActs  = (periodActsData ?? []).filter(a => pipelineLeadIds.has(a.lead_id));
     const periodConvs = periodConvsData ?? [];
 
+    // Fetch FCT activities separately — no date filter on activity so we catch first contacts after toISO
+    let fctActsData: { lead_id: string; created_at: string }[] = [];
+    if (pipelineLeadIds.size > 0) {
+      const { data } = await supabase
+        .from("lead_activities")
+        .select("lead_id, created_at")
+        .in("lead_id", [...pipelineLeadIds])
+        .neq("type", "recalled")
+        .order("created_at", { ascending: true });
+      fctActsData = (data ?? []) as { lead_id: string; created_at: string }[];
+    }
+
     // ── Stage maps ─────────────────────────────────────────
     const stagePos = new Map(allStages.map(s => [s.id, s.position]));
 
@@ -281,23 +293,29 @@ export function RemindersTab({
       if (h < 48) return `${h}ชม${mn > 0 ? ` ${mn}น` : ""}`;
       return `${Math.floor(h / 24)} วัน`;
     }
-    // Build: lead_id → sorted activities by assigned user
-    const actsByLead: Record<string, { created_by: string; created_at: string }[]> = {};
-    for (const a of periodActs) {
-      if (!actsByLead[a.lead_id]) actsByLead[a.lead_id] = [];
-      actsByLead[a.lead_id].push(a as { created_by: string; created_at: string });
+    // Build: lead_id → first activity timestamp (from full-range fctActsData, already ordered ASC)
+    const firstActByLead = new Map<string, string>();
+    for (const a of fctActsData) {
+      if (!firstActByLead.has(a.lead_id)) firstActByLead.set(a.lead_id, a.created_at);
     }
+    // FCT attributed to lead's current assigned_to
     const userFCT: Record<string, number[]> = {};
     for (const lead of leads) {
       if (!lead.assigned_to) continue;
-      const firstAct = (actsByLead[lead.id] ?? [])
-        .filter((a) => a.created_by === lead.assigned_to)
-        .sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
-      if (!firstAct) continue;
-      const mins = (new Date(firstAct.created_at).getTime() - new Date((lead as { created_at: string }).created_at).getTime()) / 60000;
+      const firstActAt = firstActByLead.get(lead.id);
+      if (!firstActAt) continue;
+      const leadCreatedAt = (lead as { created_at: string }).created_at;
+      const mins = (new Date(firstActAt).getTime() - new Date(leadCreatedAt).getTime()) / 60000;
       if (mins < 0) continue;
       if (!userFCT[lead.assigned_to]) userFCT[lead.assigned_to] = [];
       userFCT[lead.assigned_to].push(mins);
+    }
+
+    // Build: lead_id → all activities in period (for Lead Activity section)
+    const actsByLead: Record<string, { created_by: string }[]> = {};
+    for (const a of periodActs) {
+      if (!actsByLead[a.lead_id]) actsByLead[a.lead_id] = [];
+      actsByLead[a.lead_id].push(a as { created_by: string });
     }
 
     // ── Source / campaign grouping ─────────────────────────
