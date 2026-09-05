@@ -157,6 +157,7 @@ export type Case = {
   loan_amount: number | null;
   docs_submitted_at: string | null;
   bank_accepted: BankAccepted[];
+  label: "in_progress" | "docs_submitted" | "bank_accepted";
   status: "active" | "pending_close" | "closed";
   assigned_to: string | null;
   created_by: string | null;
