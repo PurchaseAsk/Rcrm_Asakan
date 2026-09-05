@@ -195,52 +195,57 @@ export function RemindersTab({
     // ── Stage maps ─────────────────────────────────────────
     const stagePos = new Map(allStages.map(s => [s.id, s.position]));
 
-    // ── Ordered stages for selected pipeline (deduplicated) ─
+    // ── Ordered stages for selected pipeline (deduplicated, pruned) ─
     const seenNames = new Set<string>();
-    const orderedStages = allStages
+    let orderedStages = allStages
       .filter(s => !s.is_unfollow && (s.pipeline_id === promptPipelineId || s.pipeline_id === null))
       .sort((a, b) => a.position - b.position)
       .filter(s => { if (seenNames.has(s.name)) return false; seenNames.add(s.name); return true; });
 
+    // Prune stages whose cumulative count equals the previous stage — they're redundant metrics
+    const stageCounts = orderedStages.map(s =>
+      leads.filter(l => { const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1; return pos >= s.position; }).length
+    );
+    orderedStages = orderedStages.filter((_, i) => i === 0 || stageCounts[i] !== stageCounts[i - 1]);
+
     // ── Table helpers ──────────────────────────────────────
-    const NAME_W = 22;
+    const NAME_W = 22;  // user/label column width
+    const CAMP_W = 52;  // wider column for campaign names
     const COL_W  = 9;
 
-    // Funnel cols: [total, stage2_cumulative, ..., unfollow_exact]
+    // Cumulative milestone counts (ALL leads incl. unfollowed) — "0" = not reached
+    // stage_id of unfollowed leads = last active stage before unfollow
     function funnelCols(arr: typeof leads): string[] {
-      const active = arr.filter(l => l.status !== "unfollowed");
-      const total  = arr.length;
-      const mid    = orderedStages.slice(1).map(s => {
-        const n = active.filter(l => { const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1; return pos >= s.position; }).length;
-        return n > 0 ? String(n) : "-";
+      const total = arr.length;
+      const mid   = orderedStages.slice(1).map(s => {
+        const n = arr.filter(l => { const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1; return pos >= s.position; }).length;
+        return String(n);
       });
       const unf = arr.filter(l => l.status === "unfollowed").length;
-      return [String(total), ...mid, unf > 0 ? String(unf) : "-"];
+      return [String(total), ...mid, String(unf)];
     }
 
-    // Activity cols for touched leads
     function actCols(ids: Set<string>, stageMap: Map<string, string | null>, statusMap: Map<string, string>): string[] {
-      const total  = ids.size;
-      const active = [...ids].filter(id => statusMap.get(id) !== "unfollowed");
-      const mid    = orderedStages.slice(1).map(s => {
-        const n = active.filter(id => { const sid = stageMap.get(id) ?? null; const pos = sid ? (stagePos.get(sid) ?? -1) : -1; return pos >= s.position; }).length;
-        return n > 0 ? String(n) : "-";
+      const total = ids.size;
+      const mid   = orderedStages.slice(1).map(s => {
+        const n = [...ids].filter(id => { const sid = stageMap.get(id) ?? null; const pos = sid ? (stagePos.get(sid) ?? -1) : -1; return pos >= s.position; }).length;
+        return String(n);
       });
       const unf = [...ids].filter(id => statusMap.get(id) === "unfollowed").length;
-      return [String(total), ...mid, unf > 0 ? String(unf) : "-"];
+      return [String(total), ...mid, String(unf)];
     }
 
     const stageNames  = orderedStages.map(s => s.name);
     const convHeaders = [stageNames[0] ?? "ลีดใหม่", ...stageNames.slice(1), "เลิกติดตาม"];
     const actHeaders  = ["ลีดทั้งหมด", ...stageNames.slice(1), "เลิกติดตาม"];
 
-    function tRow(name: string, cols: string[]) {
-      return name.slice(0, NAME_W - 1).padEnd(NAME_W) + "| " + cols.map(c => c.padStart(COL_W)).join(" | ");
+    function tRow(name: string, cols: string[], w = NAME_W) {
+      return name.padEnd(w) + "| " + cols.map(c => c.padStart(COL_W)).join(" | ");
     }
-    function tHead(label: string, headers: string[]) {
-      return label.padEnd(NAME_W) + "| " + headers.map(h => h.slice(0, COL_W).padStart(COL_W)).join(" | ");
+    function tHead(label: string, headers: string[], w = NAME_W) {
+      return label.padEnd(w) + "| " + headers.map(h => h.slice(0, COL_W).padStart(COL_W)).join(" | ");
     }
-    function tDiv(n: number) { return "─".repeat(NAME_W + 2 + (COL_W + 3) * n - 1); }
+    function tDiv(n: number, w = NAME_W) { return "─".repeat(w + 2 + (COL_W + 3) * n - 1); }
 
     // ── Lead Activity: touched leads per user ──────────────
     const touchedByUser: Record<string, Set<string>> = {};
@@ -249,7 +254,9 @@ export function RemindersTab({
       if (!touchedByUser[a.created_by]) touchedByUser[a.created_by] = new Set();
       touchedByUser[a.created_by].add(a.lead_id);
     }
+    // Fetch stage/status for ALL touched leads (for stageMap), but display total from known-user sets only
     const allTouchedIds = [...new Set(periodActs.map(a => a.lead_id))];
+    const knownTouchedIds = new Set([...Object.values(touchedByUser)].flatMap(s => [...s]));
     let touchedStageMap  = new Map<string, string | null>();
     let touchedStatusMap = new Map<string, string>();
     if (allTouchedIds.length > 0) {
@@ -274,8 +281,8 @@ export function RemindersTab({
     const reasonName = new Map(unfollowReasons.map(r => [r.id, r.name]));
     const reasonCount: Record<string, number> = {};
     for (const l of leads) {
-      if (l.status === "unfollowed" && l.unfollow_reason_id) {
-        const n = reasonName.get(l.unfollow_reason_id) ?? "ไม่ระบุ";
+      if (l.status === "unfollowed") {
+        const n = l.unfollow_reason_id ? (reasonName.get(l.unfollow_reason_id) ?? "ไม่ระบุ") : "ไม่ระบุเหตุผล";
         reasonCount[n] = (reasonCount[n] ?? 0) + 1;
       }
     }
@@ -306,7 +313,7 @@ export function RemindersTab({
     };
 
     // ── Build prompt ───────────────────────────────────────
-    const projectName = promptProjectName.trim() || "โครงการอสังหาริมทรัพย์";
+    const projectName = promptProjectName.trim() || pipelineName;
     const totalLeads  = leads.length;
 
     // Users that actually have leads assigned in this period (any role), sorted by lead count desc
@@ -325,24 +332,24 @@ export function RemindersTab({
     let p = `คุณคือที่ปรึกษาด้านการตลาดและ Sales ที่มีความเชี่ยวชาญด้านการวิเคราะห์ข้อมูล CRM\n\n`;
     p += `🏢 โครงการ: ${projectName}\n`;
     p += `📊 ช่วงเวลา: ${dateRangeLabel}  |  Pipeline: ${pipelineName}  |  ลีดใหม่: ${totalLeads} ราย\n`;
+    p += `(หมายเหตุ: ตัวเลขในตารางนับแบบสะสม Lead เดียวกันนับได้ทั้งในช่อง Milestone และช่องเลิกติดตาม, 0 = ยังไม่ถึง stage นี้)\n`;
     p += `${"─".repeat(60)}\n\n`;
 
     // [1] Lead Conversions by user
     p += `[Lead Conversions แบ่งตามผู้ใช้งาน — ลีดที่ได้รับช่วงนี้]\n`;
-    p += `(นับแบบสะสม • เลิกติดตาม = ปัจจุบันอยู่ที่ stage เลิกติดตาม)\n`;
     p += tHead("ผู้ใช้", convHeaders) + "\n" + tDiv(convHeaders.length) + "\n";
     for (const sp of assignedProfiles) p += tRow(sp.full_name ?? sp.email ?? "", funnelCols(leads.filter(l => l.assigned_to === sp.id))) + "\n";
     if (unassignedLeads.length > 0) p += tRow("(ไม่มีผู้ดูแล)", funnelCols(unassignedLeads)) + "\n";
     p += tRow("รวม", funnelCols(leads)) + "\n";
 
-    // [2] Lead Conversions by source
+    // [2] Lead Conversions by source — use wider column so campaign names aren't truncated
     p += `\n[Lead Conversions แบ่งตามแหล่งที่มา/แคมเปญ]\n`;
-    p += tHead("แหล่งที่มา / แคมเปญ", convHeaders) + "\n" + tDiv(convHeaders.length) + "\n";
-    for (const [grp, gl] of sortedSrc) p += tRow(grp, funnelCols(gl)) + "\n";
-    p += tRow("รวม", funnelCols(leads)) + "\n";
+    p += tHead("แหล่งที่มา / แคมเปญ", convHeaders, CAMP_W) + "\n" + tDiv(convHeaders.length, CAMP_W) + "\n";
+    for (const [grp, gl] of sortedSrc) p += tRow(grp, funnelCols(gl), CAMP_W) + "\n";
+    p += tRow("รวม", funnelCols(leads), CAMP_W) + "\n";
 
     // [3] Lead Activity by user
-    p += `\n[Lead Activity แบ่งตามผู้ใช้งาน — ลีดที่ถูกแก้ไขช่วงนี้ รวม ${allTouchedIds.length} ลีด]\n`;
+    p += `\n[Lead Activity แบ่งตามผู้ใช้งาน — ลีดที่ถูกแก้ไขช่วงนี้ รวม ${knownTouchedIds.size} ลีด]\n`;
     p += `(รวมลีดเก่าที่ Sales touch ในช่วงนี้ด้วย)\n`;
     p += tHead("ผู้ใช้", actHeaders) + "\n" + tDiv(actHeaders.length) + "\n";
     for (const sp of actProfiles) p += tRow(sp.full_name ?? sp.email ?? "", actCols(touchedByUser[sp.id] ?? new Set(), touchedStageMap, touchedStatusMap)) + "\n";
@@ -356,7 +363,7 @@ export function RemindersTab({
       p += `- แยกตามแคมเปญ:\n`;
       for (const [name, stats] of topChatCampaigns) {
         const pct = stats.total > 0 ? Math.round(stats.converted / stats.total * 100) : 0;
-        p += `  • ${name.slice(0, 45)}: ${stats.total} แชท → ลีด ${stats.converted} (${pct}%)\n`;
+        p += `  • ${name}: ${stats.total} แชท → ลีด ${stats.converted} (${pct}%)\n`;
       }
     }
 
