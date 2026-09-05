@@ -192,14 +192,14 @@ export function RemindersTab({
     const periodActs  = (periodActsData ?? []).filter(a => pipelineLeadIds.has(a.lead_id));
     const periodConvs = periodConvsData ?? [];
 
-    // Fetch FCT activities separately — no date filter on activity so we catch first contacts after toISO
+    // Fetch FCT activities separately — stage_change only (excludes auto-generated activities at lead creation), no date filter so we catch contacts after toISO
     let fctActsData: { lead_id: string; created_at: string }[] = [];
     if (pipelineLeadIds.size > 0) {
       const { data } = await supabase
         .from("lead_activities")
         .select("lead_id, created_at")
         .in("lead_id", [...pipelineLeadIds])
-        .neq("type", "recalled")
+        .eq("type", "stage_change")
         .order("created_at", { ascending: true });
       fctActsData = (data ?? []) as { lead_id: string; created_at: string }[];
     }
@@ -278,7 +278,7 @@ export function RemindersTab({
     }
 
     // ── First Contact Time (Median) per user ──────────────
-    // FCT = time from lead.created_at → first activity by the assigned user on that lead
+    // FCT = time from lead.created_at → first stage_change on that lead (attributed to current assigned_to)
     function medianOf(vals: number[]): number {
       if (!vals.length) return -1;
       const s = [...vals].sort((a, b) => a - b);
