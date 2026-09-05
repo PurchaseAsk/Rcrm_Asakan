@@ -484,7 +484,6 @@ export async function bootstrap(
 
 async function fetchAllLeads(
   client: SupabaseClient,
-  opts?: { role?: Role; userId?: string },
 ) {
   const SELECT = "*, stage:funnel_stages(*), page:facebook_pages(id,page_id,name,is_active), assigned:profiles!leads_assigned_to_fkey(id,email,full_name,role), lead_tags(tag_id, tags(id,name,color,type,created_by))";
   const PAGE = 1000;
@@ -492,7 +491,7 @@ async function fetchAllLeads(
   let all: Lead[] = [];
   let from = 0;
   while (true) {
-    let q = client.from("leads").select(SELECT)
+    const q = client.from("leads").select(SELECT)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
     // Role-based visibility is enforced in the frontend (visibleLeads in app/page.tsx)
@@ -512,7 +511,7 @@ export async function loadCrmData(
   opts?: { role?: Role; userId?: string },
 ): Promise<AppData> {
   const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases] = await Promise.all([
-    fetchAllLeads(client, opts),
+    fetchAllLeads(client),
     client.from("funnel_stages").select("*").order("position"),
     client
       .from("pipelines")
