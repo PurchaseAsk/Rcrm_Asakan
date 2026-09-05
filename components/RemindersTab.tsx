@@ -144,126 +144,223 @@ export function RemindersTab({
   async function generatePrompt() {
     setPromptLoading(true);
     const fromISO = `${promptDateFrom}T00:00:00+07:00`;
-    const toISO = `${promptDateTo}T23:59:59+07:00`;
-    const fromLabel = new Date(promptDateFrom).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
-    const toLabel = new Date(promptDateTo).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
-    const dateRangeLabel = promptDateFrom === promptDateTo ? fromLabel : `${fromLabel} – ${toLabel}`;
+    const toISO   = `${promptDateTo}T23:59:59+07:00`;
+    const fmtD = (d: string) => new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+    const dateRangeLabel = promptDateFrom === promptDateTo ? fmtD(promptDateFrom) : `${fmtD(promptDateFrom)} – ${fmtD(promptDateTo)}`;
 
+    // ── Fetch all data in parallel ─────────────────────────
     const [
       { data: monthLeadsData },
       { data: allStagesData },
       { data: allProfilesData },
       { data: allCasesData },
-      { data: recallData },
+      { data: pipelinesData },
+      { data: periodActsData },
+      { data: periodConvsData },
+      { data: unfollowReasonsData },
+      chatStatsResult,
     ] = await Promise.all([
-      supabase.from("leads").select("id, source, stage_id, assigned_to, metadata").gte("created_at", fromISO).lte("created_at", toISO),
-      supabase.from("funnel_stages").select("id, name, position, is_unfollow"),
+      supabase.from("leads").select("id, source, stage_id, assigned_to, metadata, pipeline_id, unfollow_reason_id").gte("created_at", fromISO).lte("created_at", toISO),
+      supabase.from("funnel_stages").select("id, name, position, is_unfollow, pipeline_id"),
       supabase.from("profiles").select("id, full_name, email, role"),
       supabase.from("cases").select("id, label, status"),
-      supabase.from("lead_activities").select("id").eq("type", "recalled").gte("created_at", fromISO).lte("created_at", toISO),
+      supabase.from("pipelines").select("id, name"),
+      supabase.from("lead_activities").select("lead_id, created_by").gte("created_at", fromISO).lte("created_at", toISO).neq("type", "recalled"),
+      supabase.from("conversations").select("id, ad_name, lead_id").gte("created_at", fromISO).lte("created_at", toISO),
+      supabase.from("unfollow_reasons").select("id, name"),
+      supabase.rpc("get_monthly_chat_stats", { p_month_start: fromISO }),
     ]);
 
-    const leads = monthLeadsData ?? [];
-    const stages = allStagesData ?? [];
-    const profiles = allProfilesData ?? [];
-    const cases = allCasesData ?? [];
-    const recallCount = (recallData ?? []).length;
+    const leads          = monthLeadsData ?? [];
+    const allStages      = allStagesData ?? [];
+    const profiles       = allProfilesData ?? [];
+    const cases          = allCasesData ?? [];
+    const pipelines      = pipelinesData ?? [];
+    const periodActs     = periodActsData ?? [];
+    const periodConvs    = periodConvsData ?? [];
+    const unfollowReasons = unfollowReasonsData ?? [];
 
-    const stagePos = new Map(stages.map((s) => [s.id, s.position]));
-    // Deduplicate stages by name across pipelines (keep first occurrence per name, sorted by position)
+    // ── Stage maps ─────────────────────────────────────────
+    const stagePos        = new Map(allStages.map(s => [s.id, s.position]));
+    const unfollowStageIds = new Set(allStages.filter(s => s.is_unfollow).map(s => s.id));
+
+    // ── Top pipeline ───────────────────────────────────────
+    const pipelineCount: Record<string, number> = {};
+    for (const l of leads) { const pid = l.pipeline_id ?? "__none__"; pipelineCount[pid] = (pipelineCount[pid] ?? 0) + 1; }
+    const topPipelineId   = Object.entries(pipelineCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "__none__";
+    const topPipelineName = pipelines.find(p => p.id === topPipelineId)?.name ?? "ไม่ระบุ";
+
+    // ── Ordered stages for top pipeline (deduplicated) ─────
     const seenNames = new Set<string>();
-    const orderedStages = stages
-      .filter((s) => !s.is_unfollow)
+    const orderedStages = allStages
+      .filter(s => !s.is_unfollow && (s.pipeline_id === topPipelineId || s.pipeline_id === null))
       .sort((a, b) => a.position - b.position)
-      .filter((s) => { if (seenNames.has(s.name)) return false; seenNames.add(s.name); return true; });
+      .filter(s => { if (seenNames.has(s.name)) return false; seenNames.add(s.name); return true; });
 
-    // Source breakdown
-    const sourceCount: Record<string, number> = {};
-    for (const l of leads) {
-      const src = l.source ?? "Facebook";
-      sourceCount[src] = (sourceCount[src] ?? 0) + 1;
+    // ── Table helpers ──────────────────────────────────────
+    const NAME_W = 22;
+    const COL_W  = 9;
+
+    // Funnel cols: [total, stage2_cumulative, ..., unfollow_exact]
+    function funnelCols(arr: typeof leads): string[] {
+      const total = arr.length;
+      const mid   = orderedStages.slice(1).map(s => {
+        const n = arr.filter(l => { const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1; return pos >= s.position; }).length;
+        return n > 0 ? String(n) : "-";
+      });
+      const unf = arr.filter(l => l.stage_id && unfollowStageIds.has(l.stage_id)).length;
+      return [String(total), ...mid, unf > 0 ? String(unf) : "-"];
     }
 
-    // Top ad campaigns from metadata
-    const campaignCount: Record<string, number> = {};
-    for (const l of leads) {
+    // Activity cols for touched leads
+    function actCols(ids: Set<string>, stageMap: Map<string, string | null>): string[] {
+      const total = ids.size;
+      const arr   = [...ids].map(id => stageMap.get(id) ?? null);
+      const mid   = orderedStages.slice(1).map(s => {
+        const n = arr.filter(sid => { const pos = sid ? (stagePos.get(sid) ?? -1) : -1; return pos >= s.position; }).length;
+        return n > 0 ? String(n) : "-";
+      });
+      const unf = arr.filter(sid => sid && unfollowStageIds.has(sid)).length;
+      return [String(total), ...mid, unf > 0 ? String(unf) : "-"];
+    }
+
+    const stageNames  = orderedStages.map(s => s.name);
+    const convHeaders = [stageNames[0] ?? "ลีดใหม่", ...stageNames.slice(1), "เลิกติดตาม"];
+    const actHeaders  = ["ลีดทั้งหมด", ...stageNames.slice(1), "เลิกติดตาม"];
+
+    function tRow(name: string, cols: string[]) {
+      return name.slice(0, NAME_W - 1).padEnd(NAME_W) + "| " + cols.map(c => c.padStart(COL_W)).join(" | ");
+    }
+    function tHead(label: string, headers: string[]) {
+      return label.padEnd(NAME_W) + "| " + headers.map(h => h.slice(0, COL_W).padStart(COL_W)).join(" | ");
+    }
+    function tDiv(n: number) { return "─".repeat(NAME_W + 2 + (COL_W + 3) * n - 1); }
+
+    // ── Lead Activity: touched leads per user ──────────────
+    const touchedByUser: Record<string, Set<string>> = {};
+    for (const a of periodActs) {
+      if (!a.created_by) continue;
+      if (!touchedByUser[a.created_by]) touchedByUser[a.created_by] = new Set();
+      touchedByUser[a.created_by].add(a.lead_id);
+    }
+    const allTouchedIds = [...new Set(periodActs.map(a => a.lead_id))];
+    let touchedStageMap = new Map<string, string | null>();
+    if (allTouchedIds.length > 0) {
+      const { data } = await supabase.from("leads").select("id, stage_id").in("id", allTouchedIds);
+      touchedStageMap = new Map((data ?? []).map(l => [l.id, l.stage_id]));
+    }
+
+    // ── Source / campaign grouping ─────────────────────────
+    function leadGroup(l: typeof leads[0]): string {
       const meta = l.metadata as { campaign_name?: string } | null;
-      if (meta?.campaign_name) campaignCount[meta.campaign_name] = (campaignCount[meta.campaign_name] ?? 0) + 1;
+      if (meta?.campaign_name) return meta.campaign_name;
+      if (l.source === "website") return "Website";
+      if (l.source === "chat")    return "Chat (Inbox)";
+      return l.source ?? "other";
     }
-    const topCampaigns = Object.entries(campaignCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const srcGroups: Record<string, typeof leads> = {};
+    for (const l of leads) { const g = leadGroup(l); if (!srcGroups[g]) srcGroups[g] = []; srcGroups[g].push(l); }
+    const sortedSrc = Object.entries(srcGroups).sort((a, b) => b[1].length - a[1].length);
 
-    // Funnel counts (cumulative — same as dashboard)
-    const stageCounts = orderedStages.map((s) => ({
-      name: s.name,
-      count: leads.filter((l) => {
-        const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1;
-        return pos >= s.position;
-      }).length,
-    }));
-
-    // Team performance
-    const teamCount: Record<string, number> = {};
+    // ── Unfollow reasons ───────────────────────────────────
+    const reasonName = new Map(unfollowReasons.map(r => [r.id, r.name]));
+    const reasonCount: Record<string, number> = {};
     for (const l of leads) {
-      if (l.assigned_to) teamCount[l.assigned_to] = (teamCount[l.assigned_to] ?? 0) + 1;
+      if (l.unfollow_reason_id) {
+        const n = reasonName.get(l.unfollow_reason_id) ?? "ไม่ระบุ";
+        reasonCount[n] = (reasonCount[n] ?? 0) + 1;
+      }
     }
-    const salesProfiles = profiles.filter((p) => p.role === "staff" || p.role === "team_lead");
+    const totalUnfollowed = Object.values(reasonCount).reduce((s, n) => s + n, 0);
+    const sortedReasons   = Object.entries(reasonCount).sort((a, b) => b[1] - a[1]);
 
-    // Cases
-    const activeCases = cases.filter((c) => c.status === "active" || c.status === "pending_close");
+    // ── Chat ───────────────────────────────────────────────
+    const chatCS        = (chatStatsResult.data as { total_convs: number; replied_in_5min: number; converted: number }[] | null)?.[0];
+    const chatTotal     = periodConvs.length > 0 ? periodConvs.length : (chatCS?.total_convs ?? 0);
+    const chatReplied5  = chatCS?.replied_in_5min ?? 0;
+    const chatConverted = periodConvs.filter(c => c.lead_id).length || (chatCS?.converted ?? 0);
+    const chatByCampaign: Record<string, { total: number; converted: number }> = {};
+    for (const c of periodConvs) {
+      const key = c.ad_name ?? "Organic / Direct";
+      if (!chatByCampaign[key]) chatByCampaign[key] = { total: 0, converted: 0 };
+      chatByCampaign[key].total++;
+      if (c.lead_id) chatByCampaign[key].converted++;
+    }
+    const topChatCampaigns = Object.entries(chatByCampaign).sort((a, b) => b[1].total - a[1].total).slice(0, 8);
+
+    // ── Cases ──────────────────────────────────────────────
+    const activeCases = cases.filter(c => c.status === "active" || c.status === "pending_close");
     const caseStats = {
-      in_progress: activeCases.filter((c) => c.label === "in_progress").length,
-      docs_submitted: activeCases.filter((c) => c.label === "docs_submitted").length,
-      bank_accepted: activeCases.filter((c) => c.label === "bank_accepted").length,
-      closed: cases.filter((c) => c.status === "closed").length,
+      in_progress:    activeCases.filter(c => c.label === "in_progress").length,
+      docs_submitted: activeCases.filter(c => c.label === "docs_submitted").length,
+      bank_accepted:  activeCases.filter(c => c.label === "bank_accepted").length,
+      closed:         cases.filter(c => c.status === "closed").length,
     };
 
-    const totalLeads = leads.length;
-    const bookedCount = stageCounts.find((s) => s.name === "จองแล้ว")?.count ?? 0;
-    const convRate = totalLeads > 0 ? ((bookedCount / totalLeads) * 100).toFixed(1) : "0";
-
-    // Build prompt
+    // ── Build prompt ───────────────────────────────────────
     const projectName = promptProjectName.trim() || "โครงการอสังหาริมทรัพย์";
+    const salesProfiles = profiles.filter(p => p.role === "staff" || p.role === "team_lead");
+    const totalLeads    = leads.length;
+
     let p = `คุณคือที่ปรึกษาด้านการตลาดและ Sales ที่มีความเชี่ยวชาญด้านการวิเคราะห์ข้อมูล CRM\n\n`;
     p += `🏢 โครงการ: ${projectName}\n`;
-    p += `📊 ข้อมูล Performance ช่วง ${dateRangeLabel}\n`;
-    p += `${"─".repeat(50)}\n\n`;
+    p += `📊 ช่วงเวลา: ${dateRangeLabel}  |  Pipeline หลัก: ${topPipelineName}  |  ลีดใหม่: ${totalLeads} ราย\n`;
+    p += `${"─".repeat(60)}\n\n`;
 
-    p += `[ภาพรวมลีด]\n`;
-    p += `- ลีดเข้าใหม่ทั้งหมด: ${totalLeads} ราย\n`;
-    const srcLines = Object.entries(sourceCount).sort((a, b) => b[1] - a[1]).map(([s, n]) => `  • ${s}: ${n} ราย`).join("\n");
-    if (srcLines) p += `- แหล่งที่มา:\n${srcLines}\n`;
-    if (topCampaigns.length > 0) {
-      p += `- แคมเปญโฆษณาที่มีลีดสูงสุด:\n`;
-      for (const [name, n] of topCampaigns) p += `  • ${name}: ${n} ราย\n`;
+    // [1] Lead Conversions by user
+    p += `[Lead Conversions แบ่งตามผู้ใช้งาน — ลีดที่ได้รับช่วงนี้]\n`;
+    p += `(นับแบบสะสม • เลิกติดตาม = ปัจจุบันอยู่ที่ stage เลิกติดตาม)\n`;
+    p += tHead("ผู้ใช้", convHeaders) + "\n" + tDiv(convHeaders.length) + "\n";
+    for (const sp of salesProfiles) p += tRow(sp.full_name ?? sp.email ?? "", funnelCols(leads.filter(l => l.assigned_to === sp.id))) + "\n";
+    p += tRow("รวม", funnelCols(leads)) + "\n";
+
+    // [2] Lead Conversions by source
+    p += `\n[Lead Conversions แบ่งตามแหล่งที่มา/แคมเปญ]\n`;
+    p += tHead("แหล่งที่มา / แคมเปญ", convHeaders) + "\n" + tDiv(convHeaders.length) + "\n";
+    for (const [grp, gl] of sortedSrc) p += tRow(grp, funnelCols(gl)) + "\n";
+    p += tRow("รวม", funnelCols(leads)) + "\n";
+
+    // [3] Lead Activity by user
+    p += `\n[Lead Activity แบ่งตามผู้ใช้งาน — ลีดที่ถูกแก้ไขช่วงนี้ รวม ${allTouchedIds.length} ลีด]\n`;
+    p += `(รวมลีดเก่าที่ Sales touch ในช่วงนี้ด้วย)\n`;
+    p += tHead("ผู้ใช้", actHeaders) + "\n" + tDiv(actHeaders.length) + "\n";
+    for (const sp of salesProfiles) p += tRow(sp.full_name ?? sp.email ?? "", actCols(touchedByUser[sp.id] ?? new Set(), touchedStageMap)) + "\n";
+
+    // [4] Chat Metrics
+    p += `\n[Chat Metrics — แชทใหม่ช่วงนี้]\n`;
+    p += `- แชทใหม่: ${chatTotal} บทสนทนา\n`;
+    p += `- ตอบใน 5 นาที: ${chatReplied5} (${chatTotal > 0 ? Math.round(chatReplied5 / chatTotal * 100) : 0}%)\n`;
+    p += `- เปลี่ยนเป็นลีด: ${chatConverted} (${chatTotal > 0 ? Math.round(chatConverted / chatTotal * 100) : 0}%)\n`;
+    if (topChatCampaigns.length > 0) {
+      p += `- แยกตามแคมเปญ:\n`;
+      for (const [name, stats] of topChatCampaigns) {
+        const pct = stats.total > 0 ? Math.round(stats.converted / stats.total * 100) : 0;
+        p += `  • ${name.slice(0, 45)}: ${stats.total} แชท → ลีด ${stats.converted} (${pct}%)\n`;
+      }
     }
 
-    p += `\n[Funnel Sales]\n`;
-    for (const { name, count } of stageCounts) {
-      const pct = totalLeads > 0 ? ((count / totalLeads) * 100).toFixed(0) : "0";
-      p += `- ${name}: ${count} ราย (${pct}%)\n`;
+    // [5] Unfollow Reasons
+    if (totalUnfollowed > 0) {
+      p += `\n[เหตุผลที่เลิกติดตาม — รวม ${totalUnfollowed} ราย]\n`;
+      for (const [reason, cnt] of sortedReasons) {
+        p += `- ${reason}: ${cnt} ราย (${((cnt / totalUnfollowed) * 100).toFixed(1)}%)\n`;
+      }
     }
-    p += `- Conversion Rate (ลีด → จอง): ${convRate}%\n`;
 
-    p += `\n[ทีม Sales — ${salesProfiles.length} คน]\n`;
-    for (const sp of salesProfiles) {
-      const n = teamCount[sp.id] ?? 0;
-      p += `- ${sp.full_name ?? sp.email}: ${n} ลีด\n`;
-    }
-    p += `- Recall เดือนนี้: ${recallCount} ครั้ง\n`;
-
+    // [6] Cases
     p += `\n[เคสรอโอน]\n`;
     p += `- กำลังดำเนินการ: ${caseStats.in_progress} เคส\n`;
     p += `- ยื่นเอกสารแล้ว: ${caseStats.docs_submitted} เคส\n`;
     p += `- รับเคสแล้ว: ${caseStats.bank_accepted} เคส\n`;
     p += `- ปิดแล้ว (ทั้งหมด): ${caseStats.closed} เคส\n`;
 
-    p += `\n${"─".repeat(50)}\n`;
+    p += `\n${"─".repeat(60)}\n`;
     p += `กรุณาวิเคราะห์ข้อมูลข้างต้นและให้คำแนะนำใน 5 ประเด็น:\n\n`;
-    p += `1. ภาพรวม Performance — Ads และ Sales เดือนนี้เป็นอย่างไร? จุดแข็ง/จุดอ่อนหลักคืออะไร?\n`;
-    p += `2. จุดที่ต้องปรับปรุงเร่งด่วน — ขั้นตอน Funnel ไหนที่ลีด Drop off มากที่สุด? แก้ได้อย่างไร?\n`;
-    p += `3. แนวทางการตลาดสำหรับเดือนหน้า — ควรเน้น Ad ชุดไหน? ปรับ targeting อย่างไร?\n`;
-    p += `4. เพิ่ม Conversion Rate — วิธีเพิ่มโอกาสปิดจองจากลีดที่มีอยู่?\n`;
-    p += `5. ข้อเสนอแนะเฉพาะ — มีอะไรที่ควรลองทำทันทีจากข้อมูลเดือนนี้?\n`;
+    p += `1. ภาพรวม Performance — Ads, Sales และ Chat ช่วงนี้เป็นอย่างไร? จุดแข็ง/จุดอ่อนหลัก?\n`;
+    p += `2. จุดที่ต้องปรับปรุงเร่งด่วน — Funnel ไหน Drop off มาก? เหตุผลเลิกติดตามที่น่าเป็นห่วงคืออะไร?\n`;
+    p += `3. ประเมิน Sales รายบุคคล — ใครทำได้ดี/ต้องช่วยเหลือ? เหตุผลและแนวทางพัฒนา?\n`;
+    p += `4. แนวทางการตลาด — ควรเน้น Ad/แคมเปญไหน? Chat conversion rate ดีแค่ไหน? ปรับ targeting อย่างไร?\n`;
+    p += `5. ข้อเสนอแนะเฉพาะ — มีอะไรที่ควรลองทำทันทีจากข้อมูลชุดนี้?\n`;
 
     setPromptText(p);
     setPromptLoading(false);
