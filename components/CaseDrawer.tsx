@@ -281,9 +281,9 @@ export function CaseDrawer({
     closed:        { label: "ปิดเคสแล้ว",     cls: "bg-slate-100 text-slate-500" },
   };
   const labelBadge: Record<Case["label"], { label: string; cls: string }> = {
-    in_progress:    { label: "กำลังดำเนินการ", cls: "bg-blue-100 text-blue-700" },
-    docs_submitted: { label: "ยื่นเอกสารแล้ว",  cls: "bg-emerald-100 text-emerald-700" },
-    bank_accepted:  { label: "รับเคสแล้ว",       cls: "bg-indigo-100 text-indigo-700" },
+    in_progress:    { label: "กำลังดำเนินการ", cls: "bg-slate-100 text-slate-600" },
+    docs_submitted: { label: "ยื่นเอกสารแล้ว",  cls: "bg-amber-100 text-amber-700" },
+    bank_accepted:  { label: "รับเคสแล้ว",       cls: "bg-emerald-100 text-emerald-700" },
   };
   const badge = caseItem.status === "active"
     ? labelBadge[caseItem.label ?? "in_progress"]

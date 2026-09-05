@@ -57,9 +57,9 @@ const statusConfig: Record<Case["status"], { label: string; dot: string; bg: str
 };
 
 const labelConfig: Record<Case["label"], { label: string; dot: string; bg: string }> = {
-  in_progress:    { label: "กำลังดำเนินการ", dot: "bg-blue-500",    bg: "bg-blue-50 text-blue-700" },
-  docs_submitted: { label: "ยื่นเอกสารแล้ว",  dot: "bg-emerald-500", bg: "bg-emerald-50 text-emerald-700" },
-  bank_accepted:  { label: "รับเคสแล้ว",       dot: "bg-indigo-500",  bg: "bg-indigo-50 text-indigo-700" },
+  in_progress:    { label: "กำลังดำเนินการ", dot: "bg-slate-400",   bg: "bg-slate-100 text-slate-600" },
+  docs_submitted: { label: "ยื่นเอกสารแล้ว",  dot: "bg-amber-500",   bg: "bg-amber-100 text-amber-700" },
+  bank_accepted:  { label: "รับเคสแล้ว",       dot: "bg-emerald-500", bg: "bg-emerald-100 text-emerald-700" },
 };
 
 export function CasesPanel({
