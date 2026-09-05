@@ -74,70 +74,56 @@ export function RemindersTab({
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    // Get user's full_name for recall content matching
-    const { data: myProfile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", userId)
-      .single();
+    const [{ data: myProfile }, { data: allStagesData }, { data: monthLeadsData }, chatStats] =
+      await Promise.all([
+        supabase.from("profiles").select("full_name").eq("id", userId).single(),
+        supabase.from("funnel_stages").select("id, name, position"),
+        supabase.from("leads").select("id, stage_id").eq("assigned_to", userId).gte("created_at", monthStart),
+        supabase.rpc("get_monthly_chat_stats", { p_month_start: monthStart }),
+      ]);
+
     const myName = myProfile?.full_name ?? "";
+    const allStages = allStagesData ?? [];
+    const monthLeads = monthLeadsData ?? [];
 
-    // Stage IDs for "ส่งคูปอง" and "จองแล้ว" across all pipelines
-    const [{ data: couponStages }, { data: bookedStages }] = await Promise.all([
-      supabase.from("funnel_stages").select("id").eq("name", "ส่งคูปอง"),
-      supabase.from("funnel_stages").select("id").eq("name", "จองแล้ว"),
-    ]);
-    const couponIds = (couponStages ?? []).map((s) => s.id);
-    const bookedIds = (bookedStages ?? []).map((s) => s.id);
+    // position map: stage_id → position
+    const stagePos = new Map(allStages.map((s) => [s.id, s.position]));
 
-    // ลีดที่ได้รับเดือนนี้ (assigned to me, created this month) — same basis as Dashboard
-    const { data: monthLeadsData } = await supabase
-      .from("leads")
-      .select("id")
-      .eq("assigned_to", userId)
-      .gte("created_at", monthStart);
-    const monthLeadIds = (monthLeadsData ?? []).map((l) => l.id);
-    const allLeads = monthLeadIds.length;
+    // min position for target stage name across all pipelines
+    const minPosOf = (name: string) => {
+      const ps = allStages.filter((s) => s.name === name).map((s) => s.position);
+      return ps.length > 0 ? Math.min(...ps) : Infinity;
+    };
+    const couponMinPos = minPosOf("ส่งคูปอง");
+    const bookedMinPos = minPosOf("จองแล้ว");
 
-    // For stage visits: query lead_activities of this month's leads
-    // (counts distinct leads that ever passed through the target stage — matches Dashboard logic)
-    const [couponLeadIds, bookedLeadIds, recalledCount, chatStats] = await Promise.all([
-      couponIds.length > 0 && monthLeadIds.length > 0
-        ? supabase
-            .from("lead_activities")
-            .select("lead_id")
-            .in("lead_id", monthLeadIds)
-            .in("stage_id", couponIds)
-            .then(({ data }) => [...new Set((data ?? []).map((r) => r.lead_id))].length)
-        : Promise.resolve(0),
-      bookedIds.length > 0 && monthLeadIds.length > 0
-        ? supabase
-            .from("lead_activities")
-            .select("lead_id")
-            .in("lead_id", monthLeadIds)
-            .in("stage_id", bookedIds)
-            .then(({ data }) => [...new Set((data ?? []).map((r) => r.lead_id))].length)
-        : Promise.resolve(0),
-      // Recall ที่โดนในเดือนนี้ — match by name in content
-      myName
-        ? supabase
-            .from("lead_activities")
-            .select("*", { count: "exact", head: true })
-            .eq("type", "recalled")
-            .ilike("content", `%${myName}%`)
-            .gte("created_at", monthStart)
-            .then(({ count }) => count ?? 0)
-        : Promise.resolve(0),
-      // Chat stats via DB function (5-min response rate)
-      supabase.rpc("get_monthly_chat_stats", { p_month_start: monthStart }),
-    ]);
+    // cumulative position logic — same as Dashboard's expandedStagesByLead:
+    // lead counts for a stage if current stage position >= that stage's position
+    const couponLeads = monthLeads.filter((l) => {
+      const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1;
+      return pos >= couponMinPos;
+    }).length;
+    const bookedLeads = monthLeads.filter((l) => {
+      const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1;
+      return pos >= bookedMinPos;
+    }).length;
+
+    const recalledCount = myName
+      ? await supabase
+          .from("lead_activities")
+          .select("*", { count: "exact", head: true })
+          .eq("type", "recalled")
+          .ilike("content", `%${myName}%`)
+          .gte("created_at", monthStart)
+          .then(({ count }) => count ?? 0)
+      : 0;
 
     const cs = (chatStats.data as { total_convs: number; replied_in_5min: number; converted: number }[] | null)?.[0];
 
     setDashStats({
-      allLeads,
-      couponLeads: couponLeadIds,
-      bookedLeads: bookedLeadIds,
+      allLeads: monthLeads.length,
+      couponLeads,
+      bookedLeads,
       recalledThisMonth: recalledCount,
       teamConvs: cs?.total_convs ?? 0,
       teamReplied5min: cs?.replied_in_5min ?? 0,
