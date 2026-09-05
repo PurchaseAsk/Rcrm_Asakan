@@ -52,6 +52,7 @@ export function RemindersTab({
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
   });
   const [promptDateTo, setPromptDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [promptProjectName, setPromptProjectName] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -169,7 +170,12 @@ export function RemindersTab({
     const recallCount = (recallData ?? []).length;
 
     const stagePos = new Map(stages.map((s) => [s.id, s.position]));
-    const orderedStages = stages.filter((s) => !s.is_unfollow).sort((a, b) => a.position - b.position);
+    // Deduplicate stages by name across pipelines (keep first occurrence per name, sorted by position)
+    const seenNames = new Set<string>();
+    const orderedStages = stages
+      .filter((s) => !s.is_unfollow)
+      .sort((a, b) => a.position - b.position)
+      .filter((s) => { if (seenNames.has(s.name)) return false; seenNames.add(s.name); return true; });
 
     // Source breakdown
     const sourceCount: Record<string, number> = {};
@@ -216,7 +222,9 @@ export function RemindersTab({
     const convRate = totalLeads > 0 ? ((bookedCount / totalLeads) * 100).toFixed(1) : "0";
 
     // Build prompt
-    let p = `คุณคือที่ปรึกษาด้านการตลาดและ Sales สำหรับโครงการอสังหาริมทรัพย์ที่มีความเชี่ยวชาญด้านการวิเคราะห์ข้อมูล CRM\n\n`;
+    const projectName = promptProjectName.trim() || "โครงการอสังหาริมทรัพย์";
+    let p = `คุณคือที่ปรึกษาด้านการตลาดและ Sales ที่มีความเชี่ยวชาญด้านการวิเคราะห์ข้อมูล CRM\n\n`;
+    p += `🏢 โครงการ: ${projectName}\n`;
     p += `📊 ข้อมูล Performance ช่วง ${dateRangeLabel}\n`;
     p += `${"─".repeat(50)}\n\n`;
 
@@ -556,34 +564,42 @@ export function RemindersTab({
       {/* ── AI Prompt Generator ─────────────────────────────── */}
       {canManageTeamReminders && (
         <div className="rounded-xl border border-violet-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center gap-3 px-5 py-3.5">
-            <Sparkles size={16} className="shrink-0 text-violet-500" />
-            <span className="text-sm font-semibold text-slate-900">วิเคราะห์ Performance ด้วย AI</span>
-            <div className="flex flex-1 flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <div className="px-5 py-3.5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="shrink-0 text-violet-500" />
+              <span className="text-sm font-semibold text-slate-900">วิเคราะห์ Performance ด้วย AI</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                className="h-8 flex-1 min-w-40 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-violet-400 placeholder:text-slate-400"
+                placeholder="ชื่อโครงการ เช่น Wela Asakan"
+                value={promptProjectName}
+                onChange={(e) => setPromptProjectName(e.target.value)}
+              />
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
                 <span>จาก</span>
                 <input
                   type="date"
-                  className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-400"
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-400"
                   value={promptDateFrom}
                   onChange={(e) => setPromptDateFrom(e.target.value)}
                 />
                 <span>ถึง</span>
                 <input
                   type="date"
-                  className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-400"
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-400"
                   value={promptDateTo}
                   onChange={(e) => setPromptDateTo(e.target.value)}
                 />
               </div>
+              <button
+                onClick={() => void generatePrompt()}
+                disabled={promptLoading}
+                className="shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+              >
+                {promptLoading ? "กำลังสร้าง…" : "สร้าง Prompt"}
+              </button>
             </div>
-            <button
-              onClick={() => void generatePrompt()}
-              disabled={promptLoading}
-              className="shrink-0 rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-            >
-              {promptLoading ? "กำลังสร้าง…" : "สร้าง Prompt"}
-            </button>
           </div>
           {promptText && (
             <div className="border-t border-violet-100 px-5 pb-5 pt-4">
