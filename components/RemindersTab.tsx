@@ -162,12 +162,12 @@ export function RemindersTab({
       { data: unfollowReasonsData },
       chatStatsResult,
     ] = await Promise.all([
-      supabase.from("leads").select("id, source, stage_id, assigned_to, metadata, pipeline_id, unfollow_reason_id, status").gte("created_at", fromISO).lte("created_at", toISO),
+      supabase.from("leads").select("id, source, stage_id, assigned_to, metadata, pipeline_id, unfollow_reason_id, status, created_at").gte("created_at", fromISO).lte("created_at", toISO),
       supabase.from("funnel_stages").select("id, name, position, is_unfollow, pipeline_id"),
       supabase.from("profiles").select("id, full_name, email, role"),
       supabase.from("cases").select("id, label, status"),
       supabase.from("pipelines").select("id, name"),
-      supabase.from("lead_activities").select("lead_id, created_by").gte("created_at", fromISO).lte("created_at", toISO).neq("type", "recalled"),
+      supabase.from("lead_activities").select("lead_id, created_by, created_at").gte("created_at", fromISO).lte("created_at", toISO).neq("type", "recalled"),
       supabase.from("conversations").select("id, ad_name, lead_id").gte("created_at", fromISO).lte("created_at", toISO),
       supabase.from("unfollow_reasons").select("id, name"),
       supabase.rpc("get_monthly_chat_stats", { p_month_start: fromISO }),
@@ -265,6 +265,41 @@ export function RemindersTab({
       touchedStatusMap = new Map((data ?? []).map(l => [l.id, l.status as string]));
     }
 
+    // ── First Contact Time (Median) per user ──────────────
+    // FCT = time from lead.created_at → first activity by the assigned user on that lead
+    function medianOf(vals: number[]): number {
+      if (!vals.length) return -1;
+      const s = [...vals].sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    }
+    function fmtMin(m: number): string {
+      if (m < 0) return "—";
+      if (m < 60) return `${Math.round(m)} นาที`;
+      const h = Math.floor(m / 60);
+      const mn = Math.round(m % 60);
+      if (h < 48) return `${h}ชม${mn > 0 ? ` ${mn}น` : ""}`;
+      return `${Math.floor(h / 24)} วัน`;
+    }
+    // Build: lead_id → sorted activities by assigned user
+    const actsByLead: Record<string, { created_by: string; created_at: string }[]> = {};
+    for (const a of periodActs) {
+      if (!actsByLead[a.lead_id]) actsByLead[a.lead_id] = [];
+      actsByLead[a.lead_id].push(a as { created_by: string; created_at: string });
+    }
+    const userFCT: Record<string, number[]> = {};
+    for (const lead of leads) {
+      if (!lead.assigned_to) continue;
+      const firstAct = (actsByLead[lead.id] ?? [])
+        .filter((a) => a.created_by === lead.assigned_to)
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
+      if (!firstAct) continue;
+      const mins = (new Date(firstAct.created_at).getTime() - new Date((lead as { created_at: string }).created_at).getTime()) / 60000;
+      if (mins < 0) continue;
+      if (!userFCT[lead.assigned_to]) userFCT[lead.assigned_to] = [];
+      userFCT[lead.assigned_to].push(mins);
+    }
+
     // ── Source / campaign grouping ─────────────────────────
     function leadGroup(l: typeof leads[0]): string {
       const meta = l.metadata as { campaign_name?: string } | null;
@@ -341,6 +376,20 @@ export function RemindersTab({
     for (const sp of assignedProfiles) p += tRow(sp.full_name ?? sp.email ?? "", funnelCols(leads.filter(l => l.assigned_to === sp.id))) + "\n";
     if (unassignedLeads.length > 0) p += tRow("(ไม่มีผู้ดูแล)", funnelCols(unassignedLeads)) + "\n";
     p += tRow("รวม", funnelCols(leads)) + "\n";
+
+    // [1b] Median First Contact Time per user
+    const FCT_NAME_W = 22;
+    const FCT_COL1_W = 12;
+    const FCT_COL2_W = 8;
+    p += `\n[Median First Contact Time — ความเร็วในการ Contact ลีดแรก]\n`;
+    p += `(นับจากเวลาที่ระบบได้รับ Lead จนถึง Activity แรกที่ Sales บันทึก — ใช้ Median ไม่ใช่ Average)\n`;
+    p += "ผู้ใช้".padEnd(FCT_NAME_W) + "| " + "Median FCT".padStart(FCT_COL1_W) + " | " + "n ลีด".padStart(FCT_COL2_W) + "\n";
+    p += "─".repeat(FCT_NAME_W + 2 + FCT_COL1_W + 3 + FCT_COL2_W) + "\n";
+    for (const sp of assignedProfiles) {
+      const times = userFCT[sp.id] ?? [];
+      const med   = medianOf(times);
+      p += (sp.full_name ?? sp.email ?? "").padEnd(FCT_NAME_W) + "| " + fmtMin(med).padStart(FCT_COL1_W) + " | " + String(times.length).padStart(FCT_COL2_W) + "\n";
+    }
 
     // [2] Lead Conversions by source — use wider column so campaign names aren't truncated
     p += `\n[Lead Conversions แบ่งตามแหล่งที่มา/แคมเปญ]\n`;
