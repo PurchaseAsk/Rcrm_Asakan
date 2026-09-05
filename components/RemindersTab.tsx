@@ -53,6 +53,8 @@ export function RemindersTab({
   });
   const [promptDateTo, setPromptDateTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [promptProjectName, setPromptProjectName] = useState("");
+  const [promptPipelineId, setPromptPipelineId] = useState("");
+  const [promptPipelines, setPromptPipelines] = useState<{ id: string; name: string }[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -171,28 +173,32 @@ export function RemindersTab({
       supabase.rpc("get_monthly_chat_stats", { p_month_start: fromISO }),
     ]);
 
-    const leads          = monthLeadsData ?? [];
+    const allLeadsRaw    = monthLeadsData ?? [];
     const allStages      = allStagesData ?? [];
     const profiles       = allProfilesData ?? [];
     const cases          = allCasesData ?? [];
     const pipelines      = pipelinesData ?? [];
-    const periodActs     = periodActsData ?? [];
-    const periodConvs    = periodConvsData ?? [];
     const unfollowReasons = unfollowReasonsData ?? [];
+
+    // ── Pipeline filter ────────────────────────────────────
+    const selectedPipeline = pipelines.find(p => p.id === promptPipelineId);
+    const pipelineName     = selectedPipeline?.name ?? "ทุก Pipeline";
+    const leads            = promptPipelineId
+      ? allLeadsRaw.filter(l => l.pipeline_id === promptPipelineId)
+      : allLeadsRaw;
+
+    // Filter activities to only leads in this pipeline
+    const pipelineLeadIds  = new Set(leads.map(l => l.id));
+    const periodActs  = (periodActsData ?? []).filter(a => pipelineLeadIds.has(a.lead_id));
+    const periodConvs = periodConvsData ?? [];
 
     // ── Stage maps ─────────────────────────────────────────
     const stagePos = new Map(allStages.map(s => [s.id, s.position]));
 
-    // ── Top pipeline ───────────────────────────────────────
-    const pipelineCount: Record<string, number> = {};
-    for (const l of leads) { const pid = l.pipeline_id ?? "__none__"; pipelineCount[pid] = (pipelineCount[pid] ?? 0) + 1; }
-    const topPipelineId   = Object.entries(pipelineCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "__none__";
-    const topPipelineName = pipelines.find(p => p.id === topPipelineId)?.name ?? "ไม่ระบุ";
-
-    // ── Ordered stages for top pipeline (deduplicated) ─────
+    // ── Ordered stages for selected pipeline (deduplicated) ─
     const seenNames = new Set<string>();
     const orderedStages = allStages
-      .filter(s => !s.is_unfollow && (s.pipeline_id === topPipelineId || s.pipeline_id === null))
+      .filter(s => !s.is_unfollow && (s.pipeline_id === promptPipelineId || s.pipeline_id === null))
       .sort((a, b) => a.position - b.position)
       .filter(s => { if (seenNames.has(s.name)) return false; seenNames.add(s.name); return true; });
 
@@ -306,7 +312,7 @@ export function RemindersTab({
 
     let p = `คุณคือที่ปรึกษาด้านการตลาดและ Sales ที่มีความเชี่ยวชาญด้านการวิเคราะห์ข้อมูล CRM\n\n`;
     p += `🏢 โครงการ: ${projectName}\n`;
-    p += `📊 ช่วงเวลา: ${dateRangeLabel}  |  Pipeline หลัก: ${topPipelineName}  |  ลีดใหม่: ${totalLeads} ราย\n`;
+    p += `📊 ช่วงเวลา: ${dateRangeLabel}  |  Pipeline: ${pipelineName}  |  ลีดใหม่: ${totalLeads} ราย\n`;
     p += `${"─".repeat(60)}\n\n`;
 
     // [1] Lead Conversions by user
@@ -377,6 +383,15 @@ export function RemindersTab({
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadTeamReminders(); }, [loadTeamReminders]);
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+  useEffect(() => {
+    if (!canManageTeamReminders) return;
+    supabase.from("pipelines").select("id, name").eq("is_active", true).order("name")
+      .then(({ data }) => {
+        const list = data ?? [];
+        setPromptPipelines(list);
+        if (list.length > 0) setPromptPipelineId(list[0].id);
+      });
+  }, [canManageTeamReminders]);
 
   async function createTeamReminder() {
     if (!teamDraft.title.trim() || !canManageTeamReminders) return;
@@ -670,11 +685,21 @@ export function RemindersTab({
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <input
-                className="h-8 flex-1 min-w-40 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-violet-400 placeholder:text-slate-400"
+                className="h-8 flex-1 min-w-36 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-violet-400 placeholder:text-slate-400"
                 placeholder="ชื่อโครงการ เช่น Wela Asakan"
                 value={promptProjectName}
                 onChange={(e) => setPromptProjectName(e.target.value)}
               />
+              <select
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-400"
+                value={promptPipelineId}
+                onChange={(e) => setPromptPipelineId(e.target.value)}
+              >
+                <option value="">ทุก Pipeline</option>
+                {promptPipelines.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
               <div className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
                 <span>จาก</span>
                 <input
@@ -693,7 +718,7 @@ export function RemindersTab({
               </div>
               <button
                 onClick={() => void generatePrompt()}
-                disabled={promptLoading}
+                disabled={promptLoading || (!promptPipelineId && promptPipelines.length > 0)}
                 className="shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
               >
                 {promptLoading ? "กำลังสร้าง…" : "สร้าง Prompt"}
