@@ -47,6 +47,11 @@ export function RemindersTab({
   const [promptText, setPromptText] = useState("");
   const [promptLoading, setPromptLoading] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
+  const [promptDateFrom, setPromptDateFrom] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  });
+  const [promptDateTo, setPromptDateTo] = useState(() => new Date().toISOString().slice(0, 10));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,9 +142,11 @@ export function RemindersTab({
 
   async function generatePrompt() {
     setPromptLoading(true);
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const monthLabel = now.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+    const fromISO = `${promptDateFrom}T00:00:00+07:00`;
+    const toISO = `${promptDateTo}T23:59:59+07:00`;
+    const fromLabel = new Date(promptDateFrom).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+    const toLabel = new Date(promptDateTo).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+    const dateRangeLabel = promptDateFrom === promptDateTo ? fromLabel : `${fromLabel} – ${toLabel}`;
 
     const [
       { data: monthLeadsData },
@@ -148,11 +155,11 @@ export function RemindersTab({
       { data: allCasesData },
       { data: recallData },
     ] = await Promise.all([
-      supabase.from("leads").select("id, source, stage_id, assigned_to, metadata").gte("created_at", monthStart),
+      supabase.from("leads").select("id, source, stage_id, assigned_to, metadata").gte("created_at", fromISO).lte("created_at", toISO),
       supabase.from("funnel_stages").select("id, name, position, is_unfollow"),
       supabase.from("profiles").select("id, full_name, email, role"),
       supabase.from("cases").select("id, label, status"),
-      supabase.from("lead_activities").select("id").eq("type", "recalled").gte("created_at", monthStart),
+      supabase.from("lead_activities").select("id").eq("type", "recalled").gte("created_at", fromISO).lte("created_at", toISO),
     ]);
 
     const leads = monthLeadsData ?? [];
@@ -210,7 +217,7 @@ export function RemindersTab({
 
     // Build prompt
     let p = `คุณคือที่ปรึกษาด้านการตลาดและ Sales สำหรับโครงการอสังหาริมทรัพย์ที่มีความเชี่ยวชาญด้านการวิเคราะห์ข้อมูล CRM\n\n`;
-    p += `📊 ข้อมูล Performance ประจำเดือน ${monthLabel}\n`;
+    p += `📊 ข้อมูล Performance ช่วง ${dateRangeLabel}\n`;
     p += `${"─".repeat(50)}\n\n`;
 
     p += `[ภาพรวมลีด]\n`;
@@ -549,13 +556,31 @@ export function RemindersTab({
       {/* ── AI Prompt Generator ─────────────────────────────── */}
       {canManageTeamReminders && (
         <div className="rounded-xl border border-violet-200 bg-white shadow-sm">
-          <div className="flex items-center gap-2 px-5 py-3.5">
+          <div className="flex flex-wrap items-center gap-3 px-5 py-3.5">
             <Sparkles size={16} className="shrink-0 text-violet-500" />
-            <span className="flex-1 text-sm font-semibold text-slate-900">วิเคราะห์ Performance ด้วย AI</span>
+            <span className="text-sm font-semibold text-slate-900">วิเคราะห์ Performance ด้วย AI</span>
+            <div className="flex flex-1 flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span>จาก</span>
+                <input
+                  type="date"
+                  className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-400"
+                  value={promptDateFrom}
+                  onChange={(e) => setPromptDateFrom(e.target.value)}
+                />
+                <span>ถึง</span>
+                <input
+                  type="date"
+                  className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-400"
+                  value={promptDateTo}
+                  onChange={(e) => setPromptDateTo(e.target.value)}
+                />
+              </div>
+            </div>
             <button
               onClick={() => void generatePrompt()}
               disabled={promptLoading}
-              className="rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {promptLoading ? "กำลังสร้าง…" : "สร้าง Prompt"}
             </button>
