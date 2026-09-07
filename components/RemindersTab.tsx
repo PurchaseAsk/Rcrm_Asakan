@@ -85,22 +85,20 @@ export function RemindersTab({
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [{ data: myProfile }, { data: allStagesData }, { data: monthLeadsData }, chatStats] =
+    const [{ data: myProfile }, { data: allStagesData }, { data: monthLeadsData }, { data: convData }] =
       await Promise.all([
         supabase.from("profiles").select("full_name").eq("id", userId).single(),
         supabase.from("funnel_stages").select("id, name, position"),
         supabase.from("leads").select("id, stage_id").eq("assigned_to", userId).gte("created_at", monthStart),
-        supabase.rpc("get_monthly_chat_stats", { p_month_start: monthStart }),
+        supabase.from("conversations").select("id, lead_id").gte("created_at", monthStart).limit(5000),
       ]);
 
-    const myName = myProfile?.full_name ?? "";
-    const allStages = allStagesData ?? [];
+    const myName     = myProfile?.full_name ?? "";
+    const allStages  = allStagesData ?? [];
     const monthLeads = monthLeadsData ?? [];
+    const convs      = convData ?? [];
 
-    // position map: stage_id → position
     const stagePos = new Map(allStages.map((s) => [s.id, s.position]));
-
-    // min position for target stage name across all pipelines
     const minPosOf = (name: string) => {
       const ps = allStages.filter((s) => s.name === name).map((s) => s.position);
       return ps.length > 0 ? Math.min(...ps) : Infinity;
@@ -108,8 +106,6 @@ export function RemindersTab({
     const couponMinPos = minPosOf("ส่งคูปอง");
     const bookedMinPos = minPosOf("จองแล้ว");
 
-    // cumulative position logic — same as Dashboard's expandedStagesByLead:
-    // lead counts for a stage if current stage position >= that stage's position
     const couponLeads = monthLeads.filter((l) => {
       const pos = l.stage_id ? (stagePos.get(l.stage_id) ?? -1) : -1;
       return pos >= couponMinPos;
@@ -129,16 +125,45 @@ export function RemindersTab({
           .then(({ count }) => count ?? 0)
       : 0;
 
-    const cs = (chatStats.data as { total_convs: number; replied_in_5min: number; converted: number }[] | null)?.[0];
+    // ── Chat stats: same logic as Dashboard ChatMetricsView ────────────────
+    // first inbound → first outbound per conv, diff ≤ 5 min = fast reply
+    const convIds = convs.map(c => c.id);
+    let teamReplied5min = 0;
+    if (convIds.length > 0) {
+      const [{ data: inboundData }, { data: outboundData }] = await Promise.all([
+        supabase.from("messages").select("conversation_id, created_at")
+          .in("conversation_id", convIds).eq("direction", "inbound")
+          .gte("created_at", monthStart).order("created_at", { ascending: true }).limit(5000),
+        supabase.from("messages").select("conversation_id, created_at")
+          .in("conversation_id", convIds).eq("direction", "outbound")
+          .gte("created_at", monthStart).order("created_at", { ascending: true }).limit(5000),
+      ]);
+      const firstInMap  = new Map<string, string>();
+      for (const m of inboundData ?? []) {
+        if (!firstInMap.has(m.conversation_id)) firstInMap.set(m.conversation_id, m.created_at);
+      }
+      const firstOutMap = new Map<string, string>();
+      for (const m of outboundData ?? []) {
+        if (!firstOutMap.has(m.conversation_id)) firstOutMap.set(m.conversation_id, m.created_at);
+      }
+      for (const conv of convs) {
+        const firstIn  = firstInMap.get(conv.id);
+        const firstOut = firstOutMap.get(conv.id);
+        if (firstIn && firstOut) {
+          const diffMs = new Date(firstOut).getTime() - new Date(firstIn).getTime();
+          if (diffMs >= 0 && diffMs <= 5 * 60 * 1000) teamReplied5min++;
+        }
+      }
+    }
 
     setDashStats({
       allLeads: monthLeads.length,
       couponLeads,
       bookedLeads,
       recalledThisMonth: recalledCount,
-      teamConvs: cs?.total_convs ?? 0,
-      teamReplied5min: cs?.replied_in_5min ?? 0,
-      teamConverted: cs?.converted ?? 0,
+      teamConvs: convs.length,
+      teamReplied5min,
+      teamConverted: convs.filter(c => c.lead_id).length,
     });
     setDashLoading(false);
   }, [userId]);

@@ -8,9 +8,10 @@ export async function POST(req: Request) {
       customerName: string;
       phone: string;
       salesSuffix: string;
+      leadId: string;
     };
 
-    const { webhookUrl, projectKey, customerName, phone, salesSuffix } = body;
+    const { webhookUrl, projectKey, customerName, phone, salesSuffix, leadId } = body;
 
     if (!webhookUrl || !projectKey || !customerName || !phone || !salesSuffix) {
       return NextResponse.json({ ok: false, error: "Missing required fields" }, { status: 400 });
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
         name: customerName,
         phone: phone,
         sales: salesSuffix,
+        lead_id: leadId ?? "",
       }),
     });
 

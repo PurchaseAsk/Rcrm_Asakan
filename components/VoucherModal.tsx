@@ -47,6 +47,7 @@ export function VoucherModal({
           customerName: customerName.trim(),
           phone: phone.trim(),
           salesSuffix: salesSuffix,
+          leadId: lead.id,
         }),
       });
       const json = (await res.json()) as { ok: boolean; error?: string };
