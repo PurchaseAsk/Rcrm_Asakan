@@ -665,7 +665,10 @@ export function RemindersTab({
   tomorrowStart.setHours(0, 0, 0, 0);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-  const today = reminders.filter((r) => new Date(r.remind_at) < tomorrowStart);
+  const [showDone, setShowDone] = useState(false);
+  const todayAll = reminders.filter((r) => new Date(r.remind_at) < tomorrowStart);
+  const todayDone = todayAll.filter((r) => r.is_done);
+  const today = showDone ? todayAll : todayAll.filter((r) => !r.is_done);
   const upcoming = reminders.filter((r) => new Date(r.remind_at) >= tomorrowStart && !r.is_done);
 
   function ReminderCard({ r }: { r: ReminderWithLead }) {
@@ -1022,9 +1025,19 @@ export function RemindersTab({
         </section>
 
       <section>
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          วันนี้ ({today.length})
-        </h3>
+        <div className="mb-2 flex items-center gap-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            วันนี้ ({todayAll.filter(r => !r.is_done).length})
+          </h3>
+          {todayDone.length > 0 && (
+            <button
+              onClick={() => setShowDone(v => !v)}
+              className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs text-slate-500 hover:bg-slate-50"
+            >
+              {showDone ? "ซ่อนที่เสร็จแล้ว" : `เสร็จแล้ว ${todayDone.length}`}
+            </button>
+          )}
+        </div>
         {loading ? (
           <p className="text-sm text-slate-400">กำลังโหลด…</p>
         ) : today.length === 0 ? (
