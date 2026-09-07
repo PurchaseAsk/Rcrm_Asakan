@@ -583,7 +583,17 @@ export function RemindersTab({
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadTeamReminders(); }, [loadTeamReminders]);
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
-  useEffect(() => { void loadCouponPending(); }, [loadCouponPending]);
+  useEffect(() => {
+    void loadCouponPending();
+    const channel = supabase
+      .channel("coupon-pending-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "lead_reminders" }, () => {
+        void loadCouponPending();
+        void load();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [loadCouponPending, load]);
   useEffect(() => {
     if (!canManageTeamReminders) return;
     supabase.from("pipelines").select("id, name").eq("is_active", true).order("name")
