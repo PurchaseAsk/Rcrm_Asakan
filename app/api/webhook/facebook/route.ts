@@ -252,12 +252,12 @@ export async function POST(request: NextRequest) {
       const refAdId = referral?.ad_id ?? null;
       const refAdNameFromWebhook = referral?.ads_context_data?.ad_title ?? null;
 
+      // last_message_* fields are handled by the DB trigger on messages INSERT.
+      // Do NOT set them here — Facebook retries old webhooks, which would
+      // overwrite a newer outbound state with stale inbound data.
       const convPayload: Record<string, unknown> = {
         page_id: page.id,
         sender_psid: senderPsid,
-        last_message_at: new Date().toISOString(),
-        last_message_text: text ?? (attachment ? `[${attachment.type === "image" ? "รูปภาพ" : attachment.type}]` : null),
-        last_message_direction: isEcho ? "outbound" : "inbound",
       };
       // Only set ad fields when referral is present — avoids overwriting on later messages
       if (refAdId) {
