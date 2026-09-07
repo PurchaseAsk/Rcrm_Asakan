@@ -1582,6 +1582,10 @@ export function ChatInbox({
                   className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-500 disabled:opacity-50"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
+                  onPaste={(e) => {
+                    const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                    if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) void sendImage(f); }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
