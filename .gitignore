@@ -26,3 +26,4 @@ Thumbs.db
 
 # TypeScript
 tsconfig.tsbuildinfo
+.env.gas
