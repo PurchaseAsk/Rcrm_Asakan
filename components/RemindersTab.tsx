@@ -20,6 +20,8 @@ type DashStats = {
   teamConverted: number;
 };
 
+type CouponPendingItem = { id: string; name: string; count: number };
+
 export function RemindersTab({
   userId,
   userRole,
@@ -44,6 +46,8 @@ export function RemindersTab({
   const [dashStats, setDashStats] = useState<DashStats | null>(null);
   const [dashLoading, setDashLoading] = useState(true);
   const [dashCollapsed, setDashCollapsed] = useState(false);
+  const [couponPending, setCouponPending] = useState<CouponPendingItem[]>([]);
+  const [couponPendingMine, setCouponPendingMine] = useState(0);
   const [promptText, setPromptText] = useState("");
   const [promptLoading, setPromptLoading] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
@@ -167,6 +171,40 @@ export function RemindersTab({
     });
     setDashLoading(false);
   }, [userId]);
+
+  const loadCouponPending = useCallback(async () => {
+    if (canManageTeamReminders) {
+      const { data } = await supabase
+        .from("lead_reminders")
+        .select("created_by")
+        .ilike("note", "%🎟️%")
+        .eq("is_done", false);
+      if (!data || data.length === 0) { setCouponPending([]); return; }
+      const counts: Record<string, number> = {};
+      for (const r of data) {
+        if (r.created_by) counts[r.created_by] = (counts[r.created_by] || 0) + 1;
+      }
+      const userIds = Object.keys(counts);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, sales_suffix")
+        .in("id", userIds);
+      setCouponPending(
+        (profiles || [])
+          .map(p => ({ id: p.id, name: (p.sales_suffix as string | null) || p.full_name || p.email, count: counts[p.id] || 0 }))
+          .filter(p => p.count > 0)
+          .sort((a, b) => b.count - a.count)
+      );
+    } else {
+      const { count } = await supabase
+        .from("lead_reminders")
+        .select("*", { count: "exact", head: true })
+        .eq("created_by", userId)
+        .ilike("note", "%🎟️%")
+        .eq("is_done", false);
+      setCouponPendingMine(count ?? 0);
+    }
+  }, [canManageTeamReminders, userId]);
 
   async function generatePrompt() {
     setPromptLoading(true);
@@ -545,6 +583,7 @@ export function RemindersTab({
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadTeamReminders(); }, [loadTeamReminders]);
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+  useEffect(() => { void loadCouponPending(); }, [loadCouponPending]);
   useEffect(() => {
     if (!canManageTeamReminders) return;
     supabase.from("pipelines").select("id, name").eq("is_active", true).order("name")
@@ -737,7 +776,7 @@ export function RemindersTab({
           )}
           <button
             className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-            onClick={() => { void load(); void loadTeamReminders(); void loadDashboard(); }}
+            onClick={() => { void load(); void loadTeamReminders(); void loadDashboard(); void loadCouponPending(); }}
           >
             <RefreshCcw size={14} />
             รีเฟรช
@@ -827,6 +866,28 @@ export function RemindersTab({
                               </div>
                             </div>
                           </div>
+
+                          {/* คูปองค้างส่ง */}
+                          {(canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) && (
+                            <div className="mt-3 border-t border-slate-100 pt-3">
+                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">คูปองค้างส่ง</p>
+                              {canManageTeamReminders ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {couponPending.map(item => (
+                                    <div key={item.id} className="flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1">
+                                      <span className="text-xs font-bold text-amber-800">{item.name}</span>
+                                      <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="text-2xl font-bold text-amber-600">{couponPendingMine}</span>
+                                  <span className="text-xs text-amber-600">คูปอง</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </>
