@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { SwRegister } from "./sw-register";
+import { RealtimeReconnect } from "@/components/RealtimeReconnect";
 
 export const metadata: Metadata = {
   title: "AsakanLeadFlow",
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="font-sans antialiased">
         {children}
         <SwRegister />
+        <RealtimeReconnect />
       </body>
     </html>
   );
