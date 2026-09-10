@@ -1123,7 +1123,7 @@ export function ChatInbox({
                       conv.id === selectedConvId
                         ? "border-l-2 border-l-brand-700 bg-brand-50 hover:bg-brand-50"
                         : isUnread(conv)
-                          ? "border-l-2 border-l-blue-400 bg-blue-50 hover:bg-blue-100/60"
+                          ? "border-l-4 border-l-blue-500 bg-blue-100 hover:bg-blue-200/70"
                           : "hover:bg-slate-50"
                     }`}
                     onClick={() => void openConversation(conv)}
@@ -1149,7 +1149,7 @@ export function ChatInbox({
                           <span className="truncate text-xs text-slate-400">{conv.facebook_pages?.name ?? "Unknown page"}</span>
                         </div>
                         {conv.last_message_text && (
-                          <div className={`mt-0.5 truncate text-xs ${isUnread(conv) ? "font-medium text-slate-700" : "text-slate-400"}`}>
+                          <div className={`mt-0.5 truncate text-xs ${isUnread(conv) ? "font-semibold text-slate-800" : "text-slate-400"}`}>
                             {conv.last_message_text}
                           </div>
                         )}
