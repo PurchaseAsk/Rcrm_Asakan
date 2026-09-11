@@ -147,8 +147,6 @@ export async function GET(request: NextRequest) {
     fbOutboundRes,
     lineInboundRes,
     lineOutboundRes,
-    stagesRes,
-    activeLeadsSnapshotRes,
     profilesRes,
   ] = await Promise.all([
     // Active pipelines
@@ -186,10 +184,6 @@ export async function GET(request: NextRequest) {
     supabase.from("line_messages").select("conversation_id, created_at").eq("direction", "inbound").gte("created_at", since).order("created_at"),
     // LINE: first outbound per conversation today
     supabase.from("line_messages").select("conversation_id, created_at").eq("direction", "outbound").gte("created_at", since).order("created_at"),
-    // Funnel stages for active pipelines (name + order)
-    supabase.from("funnel_stages").select("id, name, pipeline_id, position, is_unfollow").order("position"),
-    // Active leads snapshot: assigned Sales × pipeline × stage
-    supabase.from("leads").select("assigned_to, pipeline_id, stage_id").eq("status", "active").not("assigned_to", "is", null),
     // Profiles for Sales name lookup
     supabase.from("profiles").select("id, full_name, email"),
   ]);
@@ -202,23 +196,11 @@ export async function GET(request: NextRequest) {
     allActivePipelineIds.add(p.id);
   }
 
-  // Stage lookup: id → name; pipeline → ordered stage ids (skip unfollow)
-  const stageNames = new Map<string, string>();
-  const pipelineStageOrder = new Map<string, string[]>();
-  for (const s of stagesRes.data ?? []) {
-    if (s.is_unfollow) continue;
-    stageNames.set(s.id, s.name);
-    if (s.pipeline_id && allActivePipelineIds.has(s.pipeline_id)) {
-      if (!pipelineStageOrder.has(s.pipeline_id)) pipelineStageOrder.set(s.pipeline_id, []);
-      pipelineStageOrder.get(s.pipeline_id)!.push(s.id);
-    }
-  }
-
   // Profile name map
   const profileNames = new Map<string, string>();
   for (const p of profilesRes.data ?? []) profileNames.set(p.id, p.full_name ?? p.email ?? p.id);
 
-  // New leads today by Sales × pipeline
+  // New leads today by Sales ID × pipeline
   type NewLeadRow = { id: string; pipeline_id: string | null; assigned_to: string | null };
   const newLeadsBySalesPipeline = new Map<string, Map<string, number>>();
   for (const lead of (leadsRes.data ?? []) as NewLeadRow[]) {
@@ -228,17 +210,18 @@ export async function GET(request: NextRequest) {
     m.set(lead.assigned_to, (m.get(lead.assigned_to) ?? 0) + 1);
   }
 
-  // Active leads snapshot: pipeline → sales → stage → count
-  type SnapshotRow = { assigned_to: string | null; pipeline_id: string | null; stage_id: string | null };
-  const activeLeadMap = new Map<string, Map<string, Map<string, number>>>();
-  for (const lead of (activeLeadsSnapshotRes.data ?? []) as SnapshotRow[]) {
-    if (!lead.assigned_to || !lead.pipeline_id || !allActivePipelineIds.has(lead.pipeline_id)) continue;
-    if (!activeLeadMap.has(lead.pipeline_id)) activeLeadMap.set(lead.pipeline_id, new Map());
-    const byPipeline = activeLeadMap.get(lead.pipeline_id)!;
-    if (!byPipeline.has(lead.assigned_to)) byPipeline.set(lead.assigned_to, new Map());
-    const sid = lead.stage_id ?? "__none__";
-    const bySales = byPipeline.get(lead.assigned_to)!;
-    bySales.set(sid, (bySales.get(sid) ?? 0) + 1);
+  // Today's activities (note/stage_change) by Sales ID × pipeline
+  type ActRowWithId = { type: string; created_by: string | null; leads: { pipeline_id: string | null } | null };
+  const todayActBySalesPipeline = new Map<string, Map<string, { note: number; stage: number }>>();
+  for (const r of (activityRes.data ?? []) as unknown as ActRowWithId[]) {
+    if (!r.created_by) continue;
+    const pid = r.leads?.pipeline_id;
+    if (!pid || !allActivePipelineIds.has(pid)) continue;
+    if (!todayActBySalesPipeline.has(pid)) todayActBySalesPipeline.set(pid, new Map());
+    const byPipeline = todayActBySalesPipeline.get(pid)!;
+    const cur = byPipeline.get(r.created_by) ?? { note: 0, stage: 0 };
+    if (r.type === "note") cur.note++; else cur.stage++;
+    byPipeline.set(r.created_by, cur);
   }
 
   // Initialize stats per pipeline + "null" bucket for unassigned
@@ -405,59 +388,42 @@ export async function GET(request: NextRequest) {
     ));
   }
 
-  // Sales performance bubbles — one per active pipeline with assigned leads
+  // Sales performance bubbles — one per pipeline that had activity today
   const PERF_COLORS = ["#065f46", "#1e3a5f", "#7c2d12", "#4c1d95", "#92400e"];
   let perfColorIdx = 0;
   const MAX_SALES_ROWS = 8;
 
-  for (const pid of allActivePipelineIds) {
-    const salesMap = activeLeadMap.get(pid);
-    if (!salesMap || salesMap.size === 0) continue;
-
-    const stageOrder = pipelineStageOrder.get(pid) ?? [];
+  for (const pid of activePipelineIds as string[]) {
     const newLeadsMap = newLeadsBySalesPipeline.get(pid);
+    const actMap = todayActBySalesPipeline.get(pid);
+
+    // Collect all Sales IDs who had any activity today in this pipeline
+    const salesIds = new Set<string>();
+    for (const id of (newLeadsMap?.keys() ?? [])) salesIds.add(id);
+    for (const id of (actMap?.keys() ?? [])) salesIds.add(id);
+    if (salesIds.size === 0) continue;
+
     const pipelineName = pipelineNames.get(pid) ?? "ไม่ระบุ";
 
-    const body: object[] = [
-      { type: "box", layout: "vertical", margin: "none", contents: [fTitle("👤 ลีดแยกตาม Sales")] },
-    ];
-
-    const salesList = [...salesMap.entries()].sort((a, b) => {
-      const sumA = [...a[1].values()].reduce((s, v) => s + v, 0);
-      const sumB = [...b[1].values()].reduce((s, v) => s + v, 0);
-      return sumB - sumA;
+    // Sort by total work (new leads + activities) desc
+    const salesList = [...salesIds].sort((a, b) => {
+      const scoreA = (newLeadsMap?.get(a) ?? 0) + (actMap?.get(a)?.note ?? 0) + (actMap?.get(a)?.stage ?? 0);
+      const scoreB = (newLeadsMap?.get(b) ?? 0) + (actMap?.get(b)?.note ?? 0) + (actMap?.get(b)?.stage ?? 0);
+      return scoreB - scoreA;
     });
 
-    for (const [salesId, stageMap] of salesList.slice(0, MAX_SALES_ROWS)) {
+    const body: object[] = [];
+
+    for (const salesId of salesList.slice(0, MAX_SALES_ROWS)) {
       const name = profileNames.get(salesId) ?? salesId;
-      const newToday = newLeadsMap?.get(salesId) ?? 0;
-      const totalActive = [...stageMap.values()].reduce((s, v) => s + v, 0);
+      const newLeads = newLeadsMap?.get(salesId) ?? 0;
+      const acts = actMap?.get(salesId) ?? { note: 0, stage: 0 };
 
       body.push(fSep());
-      body.push({
-        type: "box",
-        layout: "horizontal",
-        margin: "sm",
-        contents: [
-          { ...fText(`• ${name}`, { color: "#111827", size: "sm", bold: true, wrap: false }), flex: 4, maxLines: 1 },
-          { ...fText(`รวม ${totalActive}`, { color: "#374151", size: "xs", align: "end", wrap: false }), flex: 2 },
-        ],
-      });
-
-      if (newToday > 0) body.push(fStatRow("  ลีดใหม่วันนี้", newToday));
-
-      // Stages in pipeline order, skip empty
-      const shownStageIds = new Set<string>();
-      for (const stageId of stageOrder) {
-        const count = stageMap.get(stageId);
-        if (!count) continue;
-        body.push(fStatRow(`  ${stageNames.get(stageId) ?? "?"}`, count));
-        shownStageIds.add(stageId);
-      }
-      // Any stages not in order (safety fallback)
-      for (const [stageId, count] of stageMap) {
-        if (!shownStageIds.has(stageId)) body.push(fStatRow(`  ${stageNames.get(stageId) ?? "?"}`, count));
-      }
+      body.push(fText(`• ${name}`, { color: "#111827", size: "sm", bold: true }));
+      if (newLeads > 0) body.push(fStatRow("  ลีดใหม่", newLeads));
+      if (acts.stage > 0) body.push(fStatRow("  เปลี่ยน Stage", acts.stage));
+      if (acts.note > 0) body.push(fStatRow("  Comment", acts.note));
     }
 
     if (salesList.length > MAX_SALES_ROWS) {
@@ -470,8 +436,8 @@ export async function GET(request: NextRequest) {
     bubbles.push(makeBubble(
       perfColor,
       [
-        fText(`📊 ${pipelineName}`, { bold: true, color: "#ffffff", size: "xl" }),
-        fText(`Sales Performance · ${dateLabel}`, { color: "#d1fae5", size: "sm" }),
+        fText(`👤 ${pipelineName}`, { bold: true, color: "#ffffff", size: "xl" }),
+        fText(`ผลงานวันนี้ · ${dateLabel}`, { color: "#d1fae5", size: "sm" }),
       ],
       body,
     ));
