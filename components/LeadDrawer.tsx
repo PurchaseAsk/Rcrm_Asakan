@@ -355,8 +355,8 @@ export function LeadDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-slate-950/30">
-      <aside className="ml-auto flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl">
+    <div className="fixed inset-0 z-40 bg-slate-950/30" onClick={onClose}>
+      <aside className="ml-auto flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-slate-950">{lead.customer_name}</h2>
