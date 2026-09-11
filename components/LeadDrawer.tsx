@@ -704,8 +704,9 @@ export function LeadDrawer({
                 } else if (activity.content?.startsWith('{"__chat_snapshot":')) {
                   try { snapshot = JSON.parse(activity.content) as ChatSnapshot; } catch { /* not JSON */ }
                 }
+                const isCrm = !activity.created_by;
                 return (
-                  <div key={activity.id} className="rounded-md border border-slate-200 p-3">
+                  <div key={activity.id} className={`rounded-md border p-3 ${isCrm ? "border-yellow-200 bg-yellow-50" : "border-slate-200"}`}>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <MessageSquareText size={14} />
                       {actorName(activity.created_by, profiles)} · {activity.type} ·{" "}
