@@ -769,12 +769,14 @@ export function LeadDrawer({
       </aside>
 
       {showUnfollowModal && (
-        <UnfollowReasonModal
-          leadName={lead.customer_name}
-          reasons={unfollowReasons}
-          onConfirm={(reasonId) => void unfollowLead(reasonId)}
-          onCancel={() => setShowUnfollowModal(false)}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <UnfollowReasonModal
+            leadName={lead.customer_name}
+            reasons={unfollowReasons}
+            onConfirm={(reasonId) => void unfollowLead(reasonId)}
+            onCancel={() => setShowUnfollowModal(false)}
+          />
+        </div>
       )}
     </div>
   );
