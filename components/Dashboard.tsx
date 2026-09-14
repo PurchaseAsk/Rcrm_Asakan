@@ -993,12 +993,13 @@ function ChatMetricsView({
         if (!firstInBatch.has(msg.conversation_id)) firstInBatch.set(msg.conversation_id, msg.created_at);
       }
 
-      // Step 4: First outbound message in range per conversation
+      // Step 4: First outbound message in range per conversation (exclude auto-reply — only human replies count)
       const { data: outboundMsgs } = await supabase
         .from("messages")
         .select("conversation_id, created_at")
         .in("conversation_id", convIds)
         .eq("direction", "outbound")
+        .eq("is_auto_reply", false)
         .gte("created_at", dateFrom + "T00:00:00+00:00")
         .lte("created_at", dateTo + "T23:59:59+00:00")
         .order("created_at")

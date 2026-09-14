@@ -178,8 +178,8 @@ export async function GET(request: NextRequest) {
     supabase.from("line_conversations").select("id", { count: "exact", head: true }).gte("created_at", since),
     // FB: first inbound per conversation today (response time)
     supabase.from("messages").select("conversation_id, created_at").eq("direction", "inbound").gte("created_at", since).order("created_at"),
-    // FB: first outbound per conversation today
-    supabase.from("messages").select("conversation_id, created_at").eq("direction", "outbound").gte("created_at", since).order("created_at"),
+    // FB: first outbound per conversation today (exclude auto-reply — only human replies count)
+    supabase.from("messages").select("conversation_id, created_at").eq("direction", "outbound").eq("is_auto_reply", false).gte("created_at", since).order("created_at"),
     // LINE: first inbound per conversation today
     supabase.from("line_messages").select("conversation_id, created_at").eq("direction", "inbound").gte("created_at", since).order("created_at"),
     // LINE: first outbound per conversation today

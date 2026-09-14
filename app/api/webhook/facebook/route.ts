@@ -915,6 +915,15 @@ async function sendAutoReply(
         }
       }
     }
+
+    // Force direction back to "inbound" — FB echo may have arrived before our
+    // is_auto_reply inserts and set direction to "outbound" (race condition).
+    // Auto-reply must never count as "Sales replied".
+    await supabase
+      .from("conversations")
+      .update({ last_message_direction: "inbound" })
+      .eq("id", conv.id);
+
   } catch (e) {
     console.error("[sendAutoReply] error", e);
   }
