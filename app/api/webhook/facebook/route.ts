@@ -847,20 +847,18 @@ async function sendAutoReply(
 
     const apiBase = `https://graph.facebook.com/v20.0/me/messages?access_token=${encodeURIComponent(pageToken)}`;
 
+    // Send text then image — don't insert into DB here.
+    // Facebook will send echo webhooks for each message, which the main handler
+    // inserts normally. This avoids race conditions with the echo.
     if (setting.greeting_text) {
       const res = await fetch(apiBase, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipient: { id: senderPsid }, message: { text: setting.greeting_text } }),
       });
-      const data = (await res.json()) as { message_id?: string };
-      if (data.message_id) {
-        await supabase.from("messages").insert({
-          conversation_id: conv.id,
-          direction: "outbound",
-          content: setting.greeting_text,
-          fb_message_id: data.message_id,
-        });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("[sendAutoReply] text send failed", err);
       }
     }
 
@@ -873,15 +871,9 @@ async function sendAutoReply(
           message: { attachment: { type: "image", payload: { url: setting.image_url, is_reusable: true } } },
         }),
       });
-      const data = (await res.json()) as { message_id?: string };
-      if (data.message_id) {
-        await supabase.from("messages").insert({
-          conversation_id: conv.id,
-          direction: "outbound",
-          attachment_type: "image",
-          attachment_url: setting.image_url,
-          fb_message_id: data.message_id,
-        });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("[sendAutoReply] image send failed", err);
       }
     }
   } catch (e) {

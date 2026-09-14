@@ -371,9 +371,16 @@ export default function HomePage() {
       if (assigneeFilter === "__pool__") { if (lead.assigned_to) return false; }
       else if (assigneeFilter && lead.assigned_to !== assigneeFilter) return false;
       if (!q) return true;
+      const normPhone = (() => {
+        if (!lead.phone) return null;
+        const d = lead.phone.replace(/[^0-9]/g, "");
+        if (d.length === 11 && d.startsWith("66")) return "0" + d.slice(2);
+        return d;
+      })();
       const haystack = [
         lead.customer_name,
         lead.phone,
+        normPhone,
         lead.email,
         lead.facebook_id,
         lead.page?.name,
