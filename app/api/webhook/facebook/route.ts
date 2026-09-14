@@ -847,9 +847,6 @@ async function sendAutoReply(
 
     const apiBase = `https://graph.facebook.com/v20.0/me/messages?access_token=${encodeURIComponent(pageToken)}`;
 
-    // Send text then image — don't insert into DB here.
-    // Facebook will send echo webhooks for each message, which the main handler
-    // inserts normally. This avoids race conditions with the echo.
     if (setting.greeting_text) {
       const res = await fetch(apiBase, {
         method: "POST",
@@ -874,6 +871,24 @@ async function sendAutoReply(
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         console.error("[sendAutoReply] image send failed", err);
+      } else {
+        // FB echo for image attachments often omits payload.url, so insert directly
+        // using the known Supabase Storage URL. If the echo arrives later, the
+        // upsert on fb_message_id will be a no-op (ignoreDuplicates: true).
+        const json = await res.json().catch(() => ({})) as { message_id?: string };
+        if (json.message_id) {
+          await supabase.from("messages").upsert(
+            {
+              conversation_id: conv.id,
+              direction: "outbound",
+              content: null,
+              attachment_url: setting.image_url,
+              attachment_type: "image",
+              fb_message_id: json.message_id,
+            },
+            { onConflict: "fb_message_id", ignoreDuplicates: true },
+          );
+        }
       }
     }
   } catch (e) {
