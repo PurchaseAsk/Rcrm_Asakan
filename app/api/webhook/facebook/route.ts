@@ -856,6 +856,23 @@ async function sendAutoReply(
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         console.error("[sendAutoReply] text send failed", err);
+      } else {
+        // Pre-insert with is_auto_reply=true so the DB trigger does NOT update
+        // last_message_direction (Sales still needs to respond).
+        // The echo from FB will be ignored (ignoreDuplicates on fb_message_id).
+        const json = await res.json().catch(() => ({})) as { message_id?: string };
+        if (json.message_id) {
+          await supabase.from("messages").upsert(
+            {
+              conversation_id: conv.id,
+              direction: "outbound",
+              content: setting.greeting_text,
+              fb_message_id: json.message_id,
+              is_auto_reply: true,
+            },
+            { onConflict: "fb_message_id", ignoreDuplicates: true },
+          );
+        }
       }
     }
 
@@ -865,16 +882,16 @@ async function sendAutoReply(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           recipient: { id: senderPsid },
-          message: { attachment: { type: "image", payload: { url: setting.image_url, is_reusable: true } } },
+          message: { attachment: { type: "image", payload: { url: setting.image_url } } },
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         console.error("[sendAutoReply] image send failed", err);
       } else {
-        // FB echo for image attachments often omits payload.url, so insert directly
-        // using the known Supabase Storage URL. If the echo arrives later, the
-        // upsert on fb_message_id will be a no-op (ignoreDuplicates: true).
+        // Pre-insert image with is_auto_reply=true.
+        // FB echo for image attachments often omits payload.url so we use the
+        // known Supabase Storage URL directly. Echo is ignored via ignoreDuplicates.
         const json = await res.json().catch(() => ({})) as { message_id?: string };
         if (json.message_id) {
           await supabase.from("messages").upsert(
@@ -885,6 +902,7 @@ async function sendAutoReply(
               attachment_url: setting.image_url,
               attachment_type: "image",
               fb_message_id: json.message_id,
+              is_auto_reply: true,
             },
             { onConflict: "fb_message_id", ignoreDuplicates: true },
           );
