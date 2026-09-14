@@ -1054,6 +1054,37 @@ export function ChatInbox({
     onUnreadCountChange?.(unreadCount);
   }, [unreadCount, onUnreadCountChange]);
 
+  // Update PWA badge when unread count changes
+  useEffect(() => {
+    if ("setAppBadge" in navigator) {
+      if (unreadCount > 0) void (navigator as { setAppBadge: (n: number) => Promise<void> }).setAppBadge(unreadCount);
+      else void (navigator as { clearAppBadge: () => Promise<void> }).clearAppBadge();
+    }
+  }, [unreadCount]);
+
+  // Handle notification click from Service Worker → open the target conversation
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const handler = (event: MessageEvent<{ type: string; convId?: string }>) => {
+      if (event.data?.type !== "OPEN_CONV" || !event.data.convId) return;
+      const convId = event.data.convId;
+      const existing = conversations.find((c) => c.id === convId);
+      if (existing) {
+        void openConversation(existing);
+      } else {
+        void supabase
+          .from("conversations")
+          .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))")
+          .eq("id", convId)
+          .single()
+          .then(({ data }) => { if (data) void openConversation(data as Conversation); });
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handler);
+    return () => navigator.serviceWorker.removeEventListener("message", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations]);
+
   return (
     <>
       <section className="overflow-hidden border-t border-slate-200 bg-white">

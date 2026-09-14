@@ -253,6 +253,40 @@ export default function HomePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]); // use .id (string) not object ref — prevents re-bootstrap on token refresh (e.g. wake from sleep)
 
+  // Web Push subscription — runs once per login
+  useEffect(() => {
+    if (!currentUserId || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidKey) return;
+
+    void (async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const perm = Notification.permission === "granted"
+            ? "granted"
+            : await Notification.requestPermission();
+          if (perm !== "granted") return;
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: (() => {
+              const padding = "=".repeat((4 - (vapidKey.length % 4)) % 4);
+              const base64 = (vapidKey + padding).replace(/-/g, "+").replace(/_/g, "/");
+              const raw = atob(base64);
+              return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+            })(),
+          });
+        }
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: currentUserId, subscription: sub.toJSON() }),
+        });
+      } catch { /* push not supported or denied */ }
+    })();
+  }, [currentUserId]);
+
   useEffect(() => {
     if (!currentUserId) return;
     void checkReminders(currentUserId, showToast, reloadSelectedLead, showReminderAlerts);

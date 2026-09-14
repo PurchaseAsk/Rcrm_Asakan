@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { sendTelegram, tg } from "@/lib/telegram";
+import webpush from "web-push";
 
 function adminSupabase() {
   return createClient(
@@ -325,6 +326,11 @@ export async function POST(request: NextRequest) {
       // Auto-tag "รอส่งคูปอง" when customer texts a phone number (text-only, not echo)
       if (!isEcho && hasText && text) {
         await autoTagCoupon(supabase, conv.id, text);
+      }
+
+      // Web Push notification (inbound only, debounced per conversation)
+      if (!isEcho) {
+        void sendPushNotification(supabase, conv.id, senderName ?? conv.sender_name, text, attachment?.type ?? null);
       }
 
       // Auto-reply greeting (skip echoes — those are our own messages)
@@ -912,6 +918,75 @@ async function sendAutoReply(
   } catch (e) {
     console.error("[sendAutoReply] error", e);
   }
+}
+
+const PUSH_DEBOUNCE_MS = 30_000; // 30 seconds between pushes per conversation
+
+async function sendPushNotification(
+  supabase: SupabaseClient,
+  convId: string,
+  senderName: string | null,
+  text: string | null,
+  attachmentType: string | null,
+): Promise<void> {
+  const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+  const vapidEmail = process.env.VAPID_EMAIL;
+  if (!vapidPublic || !vapidPrivate || !vapidEmail) return;
+
+  // Atomic debounce: only update + send if last_notified_at is old enough
+  const debounceTs = new Date(Date.now() - PUSH_DEBOUNCE_MS).toISOString();
+  const { data: updated } = await supabase
+    .from("conversations")
+    .update({ last_notified_at: new Date().toISOString() })
+    .eq("id", convId)
+    .or(`last_notified_at.is.null,last_notified_at.lt.${debounceTs}`)
+    .select("id")
+    .maybeSingle();
+
+  if (!updated) return; // debounce: another push was sent recently
+
+  // Count all unread conversations (global badge)
+  const { count: unreadCount } = await supabase
+    .from("conversations")
+    .select("id", { count: "exact", head: true })
+    .eq("last_message_direction", "inbound");
+
+  // Fetch all push subscriptions
+  const { data: subs } = await supabase
+    .from("push_subscriptions")
+    .select("endpoint, p256dh, auth_key");
+
+  if (!subs?.length) return;
+
+  webpush.setVapidDetails(`mailto:${vapidEmail}`, vapidPublic, vapidPrivate);
+
+  const bodyPreview = text
+    ? (text.length > 80 ? text.slice(0, 80) + "…" : text)
+    : attachmentType === "image" ? "[รูปภาพ]" : "[ไฟล์]";
+
+  const payload = JSON.stringify({
+    title: senderName ?? "ข้อความใหม่",
+    body: bodyPreview,
+    convId,
+    badge: unreadCount ?? 0,
+  });
+
+  await Promise.allSettled(
+    subs.map(async (sub) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
+          payload,
+        );
+      } catch (err: unknown) {
+        // 410 Gone = subscription expired — remove it
+        if (err && typeof err === "object" && "statusCode" in err && (err as { statusCode: number }).statusCode === 410) {
+          await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        }
+      }
+    }),
+  );
 }
 
 async function enrichSenderName(

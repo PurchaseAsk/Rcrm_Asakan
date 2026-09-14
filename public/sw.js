@@ -1,4 +1,4 @@
-const CACHE_NAME = "leadflow-v3";
+const CACHE_NAME = "leadflow-v4";
 
 // Cache static Next.js assets cache-first
 const STATIC_RE = /^\/_next\/static\//;
@@ -17,6 +17,52 @@ self.addEventListener("activate", (e) => {
   );
   self.clients.claim();
 });
+
+// ── Web Push ────────────────────────────────────────────────────────────────
+
+self.addEventListener("push", (e) => {
+  const data = e.data ? e.data.json() : {};
+  const title = data.title ?? "ข้อความใหม่";
+  const options = {
+    body: data.body ?? "",
+    icon: "/icons/icon-192x192.png",
+    badge: "/icons/icon-72x72.png",
+    data: { convId: data.convId },
+    tag: data.convId ?? "msg",   // group by conversation — replaces previous notification
+    renotify: true,
+  };
+
+  e.waitUntil(
+    self.registration.showNotification(title, options).then(() => {
+      if (data.badge != null && "setAppBadge" in self.navigator) {
+        return self.navigator.setAppBadge(data.badge);
+      }
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const convId = e.notification.data?.convId;
+
+  e.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        // Focus existing window and tell it to open the conversation
+        for (const client of clientList) {
+          if (new URL(client.url).origin === self.location.origin && "focus" in client) {
+            client.postMessage({ type: "OPEN_CONV", convId });
+            return client.focus();
+          }
+        }
+        // No window open — open a new one with convId in query
+        return self.clients.openWindow(convId ? `/?convId=${convId}` : "/");
+      }),
+  );
+});
+
+// ── Fetch cache ─────────────────────────────────────────────────────────────
 
 self.addEventListener("fetch", (e) => {
   const { request } = e;
