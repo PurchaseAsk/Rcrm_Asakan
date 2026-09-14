@@ -314,11 +314,11 @@ export function ChatInbox({
       const newMap = new Map<string, { userId: string; name: string }[]>();
       for (const [uid, presences] of Object.entries(state)) {
         if (uid === userId) continue;
-        for (const p of presences) {
-          if (p.typing && p.conversationId) {
-            if (!newMap.has(p.conversationId)) newMap.set(p.conversationId, []);
-            newMap.get(p.conversationId)!.push({ userId: uid, name: p.name });
-          }
+        const typingPresence = presences.find((p) => p.typing && p.conversationId);
+        if (typingPresence) {
+          const cid = typingPresence.conversationId!;
+          if (!newMap.has(cid)) newMap.set(cid, []);
+          newMap.get(cid)!.push({ userId: uid, name: typingPresence.name });
         }
       }
       setTypersInConv(newMap);
