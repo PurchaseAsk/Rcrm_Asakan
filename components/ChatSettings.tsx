@@ -50,14 +50,30 @@ export function ChatSettings({
 
   useEffect(() => {
     if (!selectedPageId) return;
+    let cancelled = false;
     setLoading(true);
-    fetch(`/api/chat-settings?page_id=${selectedPageId}`)
-      .then((r) => r.json())
-      .then((res: { data: AutoReplySetting | null }) => {
-        setSetting(res.data ?? emptySettings(selectedPageId));
-      })
-      .catch(() => setSetting(emptySettings(selectedPageId)))
-      .finally(() => setLoading(false));
+
+    const load = (attempt: number) =>
+      fetch(`/api/chat-settings?page_id=${selectedPageId}`, { cache: "no-store" })
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json() as Promise<{ data: AutoReplySetting | null }>;
+        })
+        .then((res) => {
+          if (!cancelled) setSetting(res.data ?? emptySettings(selectedPageId));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          if (attempt < 2) {
+            setTimeout(() => load(attempt + 1), 800);
+          } else {
+            setSetting(emptySettings(selectedPageId));
+          }
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
+
+    void load(0);
+    return () => { cancelled = true; };
   }, [selectedPageId]);
 
   function patch(updates: Partial<AutoReplySetting>) {
