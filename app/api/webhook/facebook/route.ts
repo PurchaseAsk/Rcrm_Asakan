@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
 
       // Auto-reply greeting (skip echoes — those are our own messages)
       if (!isEcho && msgToken) {
-        void sendAutoReply(supabase, conv, page.id, senderPsid, msgToken, refAdId, isNewConversation);
+        await sendAutoReply(supabase, conv, page.id, senderPsid, msgToken, refAdId, isNewConversation);
       }
     }
   }
