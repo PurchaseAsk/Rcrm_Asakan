@@ -2088,10 +2088,19 @@ export function ChatInbox({
                   </p>
                 </div>
                 <button
-                  onClick={() => { setLeadModal(null); setDupLead(null); onLeadOpen?.(dupLead.id); }}
+                  onClick={async () => {
+                    if (!leadModal) return;
+                    const convId = leadModal.conv.id;
+                    await supabase.from("conversations").update({ lead_id: dupLead.id }).eq("id", convId);
+                    setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, lead_id: dupLead.id } : c));
+                    if (selectedConvObj?.id === convId) setSelectedConvObj((prev) => prev ? { ...prev, lead_id: dupLead.id } : prev);
+                    setLeadModal(null);
+                    setDupLead(null);
+                    toast(`ลิงค์แชทกับลีด ${dupLead.customer_name} แล้ว ✓`);
+                  }}
                   className="shrink-0 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
                 >
-                  เปิดลีด →
+                  ลิงค์ลีด ✓
                 </button>
               </div>
             )}
