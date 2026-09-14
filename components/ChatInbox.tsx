@@ -132,6 +132,11 @@ export function ChatInbox({
   const [, setMinuteTick] = useState(0);
   const [floatingConvs, setFloatingConvs] = useState<Conversation[]>([]);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [typersInConv, setTypersInConv] = useState<Map<string, { userId: string; name: string }[]>>(new Map());
+  const typingActiveRef = useRef(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presenceChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const myName = profiles.find((p) => p.id === userId)?.full_name ?? "Sales";
 
   function scrollToReferencedMessage(messageId: string) {
     document.getElementById(`chat-message-${messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -298,6 +303,49 @@ export function ChatInbox({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    const ch = supabase.channel("chat-typing-presence", {
+      config: { presence: { key: userId } },
+    });
+    ch.on("presence", { event: "sync" }, () => {
+      const state = ch.presenceState<{ typing: boolean; conversationId: string | null; name: string }>();
+      const newMap = new Map<string, { userId: string; name: string }[]>();
+      for (const [uid, presences] of Object.entries(state)) {
+        if (uid === userId) continue;
+        for (const p of presences) {
+          if (p.typing && p.conversationId) {
+            if (!newMap.has(p.conversationId)) newMap.set(p.conversationId, []);
+            newMap.get(p.conversationId)!.push({ userId: uid, name: p.name });
+          }
+        }
+      }
+      setTypersInConv(newMap);
+    }).subscribe();
+    presenceChRef.current = ch;
+    return () => { void supabase.removeChannel(ch); };
+  }, [userId]);
+
+  function handleTyping(convId: string) {
+    if (!presenceChRef.current || !convId) return;
+    if (!typingActiveRef.current) {
+      typingActiveRef.current = true;
+      void presenceChRef.current.track({ typing: true, conversationId: convId, name: myName });
+    }
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      typingActiveRef.current = false;
+      void presenceChRef.current?.track({ typing: false, conversationId: null, name: myName });
+    }, 3000);
+  }
+
+  function clearTyping() {
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = null;
+    typingActiveRef.current = false;
+    void presenceChRef.current?.track({ typing: false, conversationId: null, name: myName });
+  }
 
   async function getAllowedPageIds() {
     let allowedPageIds: string[] | null = null;
@@ -476,6 +524,7 @@ export function ChatInbox({
 
   async function sendReply() {
     if (!replyText.trim() || !selectedConvId) return;
+    clearTyping();
     const text = replyText.trim();
     const convId = selectedConvId;
     const quotedMessage = replyTarget;
@@ -1148,11 +1197,15 @@ export function ChatInbox({
                         <div className="flex items-center gap-1 truncate">
                           <span className="truncate text-xs text-slate-400">{conv.facebook_pages?.name ?? "Unknown page"}</span>
                         </div>
-                        {conv.last_message_text && (
+                        {(typersInConv.get(conv.id) ?? []).length > 0 ? (
+                          <div className="mt-0.5 truncate text-xs text-blue-500">
+                            ✏️ {(typersInConv.get(conv.id) ?? []).map((t) => t.name).join(", ")} กำลังพิมพ์...
+                          </div>
+                        ) : conv.last_message_text ? (
                           <div className={`mt-0.5 truncate text-xs ${isUnread(conv) ? "font-semibold text-slate-800" : "text-slate-400"}`}>
                             {conv.last_message_text}
                           </div>
-                        )}
+                        ) : null}
                         {(conv.conversation_tags ?? []).length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-0.5">
                             {(conv.conversation_tags ?? []).map(({ tag_id, tags: tag }) =>
@@ -1525,6 +1578,11 @@ export function ChatInbox({
               </div>
 
               <div className="shrink-0 border-t border-slate-200 bg-white">
+                {selectedConvId && (typersInConv.get(selectedConvId) ?? []).length > 0 && (
+                  <div className="px-4 py-1 text-xs text-blue-500">
+                    ✏️ {(typersInConv.get(selectedConvId) ?? []).map((t) => t.name).join(", ")} กำลังพิมพ์...
+                  </div>
+                )}
                 {replyTarget && (
                   <div className="flex items-center gap-3 border-b border-slate-100 bg-brand-50 px-4 py-2">
                     <div className="h-8 w-0.5 shrink-0 rounded-full bg-brand-500" />
@@ -1581,7 +1639,7 @@ export function ChatInbox({
                   aria-label="ตอบกลับใน Messenger"
                   className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-500 disabled:opacity-50"
                   value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
+                  onChange={(e) => { setReplyText(e.target.value); if (selectedConvId) handleTyping(selectedConvId); }}
                   onPaste={(e) => {
                     const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
                     if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) void sendImage(f); }
