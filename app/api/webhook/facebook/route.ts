@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
       const { data: conv } = await supabase
         .from("conversations")
         .upsert(convPayload, { onConflict: "page_id,sender_psid" })
-        .select("id, sender_name, created_at")
+        .select("id, sender_name, created_at, last_message_at")
         .single();
 
       if (!conv) continue;
@@ -325,6 +325,11 @@ export async function POST(request: NextRequest) {
       // Auto-tag "รอส่งคูปอง" when customer texts a phone number (text-only, not echo)
       if (!isEcho && hasText && text) {
         await autoTagCoupon(supabase, conv.id, text);
+      }
+
+      // Auto-reply greeting (skip echoes — those are our own messages)
+      if (!isEcho && msgToken) {
+        void sendAutoReply(supabase, conv, page.id, senderPsid, msgToken, refAdId, isNewConversation);
       }
     }
   }
@@ -795,6 +800,92 @@ async function fetchPostInfo(
     return (await res.json()) as { message?: string; story?: string; permalink_url?: string; full_picture?: string; created_time?: string };
   } catch {
     return null;
+  }
+}
+
+async function sendAutoReply(
+  supabase: SupabaseClient,
+  conv: { id: string; created_at: string; last_message_at: string | null },
+  pageId: string,
+  senderPsid: string,
+  pageToken: string,
+  refAdId: string | null,
+  isNewConversation: boolean,
+): Promise<void> {
+  try {
+    const { data: setting } = await supabase
+      .from("page_auto_reply")
+      .select("*")
+      .eq("page_id", pageId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!setting) return;
+
+    // Check trigger conditions
+    const isFromAd = !!refAdId && setting.trigger_from_ad;
+
+    const isReturning = (() => {
+      if (!setting.trigger_returning_days || !conv.last_message_at) return false;
+      const daysSince = (Date.now() - new Date(conv.last_message_at).getTime()) / 86_400_000;
+      return daysSince >= setting.trigger_returning_days;
+    })();
+
+    const shouldReply =
+      (isNewConversation && setting.trigger_new_conv) || isFromAd || isReturning;
+
+    if (!shouldReply) return;
+
+    // Debounce: if we already auto-replied within the last 5 min for this conv, skip
+    const { count } = await supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conv.id)
+      .eq("direction", "outbound")
+      .gte("created_at", new Date(Date.now() - 5 * 60_000).toISOString());
+    if ((count ?? 0) > 0) return;
+
+    const apiBase = `https://graph.facebook.com/v20.0/me/messages?access_token=${encodeURIComponent(pageToken)}`;
+
+    if (setting.greeting_text) {
+      const res = await fetch(apiBase, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipient: { id: senderPsid }, message: { text: setting.greeting_text } }),
+      });
+      const data = (await res.json()) as { message_id?: string };
+      if (data.message_id) {
+        await supabase.from("messages").insert({
+          conversation_id: conv.id,
+          direction: "outbound",
+          content: setting.greeting_text,
+          fb_message_id: data.message_id,
+        });
+      }
+    }
+
+    if (setting.image_url) {
+      const res = await fetch(apiBase, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient: { id: senderPsid },
+          message: { attachment: { type: "image", payload: { url: setting.image_url, is_reusable: true } } },
+        }),
+      });
+      const data = (await res.json()) as { message_id?: string };
+      if (data.message_id) {
+        await supabase.from("messages").insert({
+          conversation_id: conv.id,
+          direction: "outbound",
+          attachment_type: "image",
+          attachment_url: setting.image_url,
+          fb_message_id: data.message_id,
+        });
+      }
+    }
+  } catch (e) {
+    console.error("[sendAutoReply] error", e);
   }
 }
 

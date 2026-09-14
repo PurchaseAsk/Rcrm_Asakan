@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, Paperclip, ThumbsUp } from "lucide-react";
+import { ImagePlus, Paperclip, Settings, ThumbsUp } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Conversation, Message, Page, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import html2canvas from "html2canvas";
 import { FloatingChatWindow } from "./FloatingChatWindow";
+import { ChatSettings } from "./ChatSettings";
 
 const supabase = createBrowserSupabase();
 const CONVERSATION_PAGE_SIZE = 30;
@@ -94,6 +95,7 @@ export function ChatInbox({
   openByLeadId?: string | null;
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [showChatSettings, setShowChatSettings] = useState(false);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [selectedConvObj, setSelectedConvObj] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1066,6 +1068,15 @@ export function ChatInbox({
                     <span className="inline-flex items-center rounded-full bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                       {unreadCount}
                     </span>
+                  )}
+                  {(userRole === "admin" || userRole === "team_lead") && (
+                    <button
+                      onClick={() => setShowChatSettings(true)}
+                      title="ตั้งค่า Auto-Reply"
+                      className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      <Settings size={14} />
+                    </button>
                   )}
                 </div>
                 {accessiblePages.length > 1 && (
@@ -2113,6 +2124,17 @@ export function ChatInbox({
           onClose={() => closeFloat(conv.id)}
         />
       ))}
+
+      {/* Chat Settings Modal */}
+      {showChatSettings && (
+        <ChatSettings
+          pages={pages}
+          userId={userId}
+          userRole={userRole}
+          toast={toast}
+          onClose={() => setShowChatSettings(false)}
+        />
+      )}
 
       {/* Internal Notes Modal */}
       {showNotesModal && selectedConv && (
