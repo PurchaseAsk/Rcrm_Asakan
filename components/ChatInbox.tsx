@@ -1198,8 +1198,15 @@ export function ChatInbox({
                           <span className="truncate text-xs text-slate-400">{conv.facebook_pages?.name ?? "Unknown page"}</span>
                         </div>
                         {(typersInConv.get(conv.id) ?? []).length > 0 ? (
-                          <div className="mt-0.5 truncate text-xs text-blue-500">
-                            ✏️ {(typersInConv.get(conv.id) ?? []).map((t) => t.name).join(", ")} กำลังพิมพ์...
+                          <div className="mt-0.5 flex items-center gap-1 truncate">
+                            <span className="flex gap-0.5">
+                              <span className="h-1 w-1 animate-bounce rounded-full bg-blue-400 [animation-delay:0ms]" />
+                              <span className="h-1 w-1 animate-bounce rounded-full bg-blue-400 [animation-delay:150ms]" />
+                              <span className="h-1 w-1 animate-bounce rounded-full bg-blue-400 [animation-delay:300ms]" />
+                            </span>
+                            <span className="truncate text-xs font-medium text-blue-500">
+                              {(typersInConv.get(conv.id) ?? []).map((t) => t.name).join(", ")} กำลังพิมพ์...
+                            </span>
                           </div>
                         ) : conv.last_message_text ? (
                           <div className={`mt-0.5 truncate text-xs ${isUnread(conv) ? "font-semibold text-slate-800" : "text-slate-400"}`}>
@@ -1579,8 +1586,15 @@ export function ChatInbox({
 
               <div className="shrink-0 border-t border-slate-200 bg-white">
                 {selectedConvId && (typersInConv.get(selectedConvId) ?? []).length > 0 && (
-                  <div className="px-4 py-1 text-xs text-blue-500">
-                    ✏️ {(typersInConv.get(selectedConvId) ?? []).map((t) => t.name).join(", ")} กำลังพิมพ์...
+                  <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50 px-4 py-2">
+                    <span className="flex gap-0.5">
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:0ms]" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:150ms]" />
+                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:300ms]" />
+                    </span>
+                    <span className="text-xs font-medium text-blue-600">
+                      {(typersInConv.get(selectedConvId) ?? []).map((t) => t.name).join(", ")} กำลังพิมพ์...
+                    </span>
                   </div>
                 )}
                 {replyTarget && (
