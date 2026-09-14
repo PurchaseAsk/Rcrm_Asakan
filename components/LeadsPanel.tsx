@@ -135,6 +135,7 @@ export function LeadsPanel({
   const [draft, setDraft] = useState<CreateDraft>(EMPTY_DRAFT);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [dupLead, setDupLead] = useState<{ id: string; customer_name: string; assigned_name?: string | null } | null>(null);
 
   // ── Filter bar ───────────────────────────────────────────────────────────
   const [dateFrom, setDateFrom] = useState("");
@@ -242,9 +243,7 @@ export function LeadsPanel({
           p_pipeline_id: draft.pipeline_id || null,
         })) as { data: { id: string; customer_name: string; assigned_to: string | null; assigned_name: string | null }[] | null };
         if (dups?.[0]) {
-          const dup = dups[0];
-          const owner = dup.assigned_name ? ` — อยู่กับ ${dup.assigned_name}` : " — ยังไม่ได้มอบหมาย";
-          setError(`เบอร์นี้มีลีดอยู่แล้วใน pipeline นี้: ${dup.customer_name}${owner}`);
+          setDupLead(dups[0]);
           return;
         }
       }
@@ -541,7 +540,7 @@ export function LeadsPanel({
       type={type}
       placeholder={placeholder}
       value={draft[key]}
-      onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+      onChange={(e) => { setDraft({ ...draft, [key]: e.target.value }); if (key === "phone") setDupLead(null); }}
       className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600"
       {...extra}
     />
@@ -789,19 +788,35 @@ export function LeadsPanel({
                 </select>,
               )}
 
-              {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+              {error && !dupLead && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+              {dupLead && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-amber-800">เบอร์นี้มีลีดอยู่แล้ว</p>
+                    <p className="truncate text-xs text-amber-700">
+                      {dupLead.customer_name}{dupLead.assigned_name ? ` — อยู่กับ ${dupLead.assigned_name}` : " — ยังไม่ได้มอบหมาย"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setShowModal(false); setDupLead(null); onOpenLead({ id: dupLead.id } as Lead); }}
+                    className="shrink-0 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
+                  >
+                    เปิดลีด →
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setDupLead(null); }}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={() => void submit()}
-                disabled={submitting}
+                disabled={submitting || !!dupLead}
                 className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 hover:bg-brand-900"
               >
                 {submitting ? "กำลังสร้าง…" : "สร้างลีด"}
