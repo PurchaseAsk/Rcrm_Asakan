@@ -327,8 +327,22 @@ export function ChatInbox({
       setTypersInConv(newMap);
     }).subscribe();
     presenceChRef.current = ch;
-    return () => { void supabase.removeChannel(ch); };
+    return () => {
+      void presenceChRef.current?.untrack();
+      void supabase.removeChannel(ch);
+    };
   }, [userId]);
+
+  // Clear typing when switching conversations
+  useEffect(() => {
+    if (typingActiveRef.current) {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+      typingActiveRef.current = false;
+      void presenceChRef.current?.untrack();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConvId]);
 
   function handleTyping(convId: string) {
     if (!presenceChRef.current || !convId) return;
@@ -339,15 +353,17 @@ export function ChatInbox({
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
       typingActiveRef.current = false;
-      void presenceChRef.current?.track({ typing: false, conversationId: null, name: myName });
+      void presenceChRef.current?.untrack();
     }, 3000);
   }
 
   function clearTyping() {
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = null;
-    typingActiveRef.current = false;
-    void presenceChRef.current?.track({ typing: false, conversationId: null, name: myName });
+    if (typingActiveRef.current) {
+      typingActiveRef.current = false;
+      void presenceChRef.current?.untrack();
+    }
   }
 
   async function getAllowedPageIds() {
