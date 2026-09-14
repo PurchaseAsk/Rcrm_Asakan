@@ -318,7 +318,10 @@ export function ChatInbox({
         if (typingPresence) {
           const cid = typingPresence.conversationId!;
           if (!newMap.has(cid)) newMap.set(cid, []);
-          newMap.get(cid)!.push({ userId: uid, name: typingPresence.name });
+          const existing = newMap.get(cid)!;
+          if (!existing.some((e) => e.userId === uid || e.name === typingPresence.name)) {
+            existing.push({ userId: uid, name: typingPresence.name });
+          }
         }
       }
       setTypersInConv(newMap);
