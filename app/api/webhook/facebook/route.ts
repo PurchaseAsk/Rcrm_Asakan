@@ -989,9 +989,12 @@ async function sendPushNotification(
           payload,
         );
       } catch (err: unknown) {
-        // 410 Gone = subscription expired — remove it
-        if (err && typeof err === "object" && "statusCode" in err && (err as { statusCode: number }).statusCode === 410) {
+        const status = (err && typeof err === "object" && "statusCode" in err) ? (err as { statusCode: number }).statusCode : null;
+        if (status === 410) {
+          // Subscription expired — remove it
           await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        } else {
+          console.error("[push] sendNotification failed", { status, endpoint: sub.endpoint.slice(0, 60), err });
         }
       }
     }),
