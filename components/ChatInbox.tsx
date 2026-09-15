@@ -261,9 +261,12 @@ export function ChatInbox({
         }
         if (id && convId === id) {
           await refreshMessages(id);
-          const now = new Date().toISOString();
-          void supabase.from("conversations").update({ last_read_at: now }).eq("id", id);
-          setConversations((prev) => prev.map((c) => c.id === id ? { ...c, last_read_at: now } : c));
+          // Outbound echoes (including Auto-Reply images) are not a read action.
+          if (newMsg.direction === "inbound") {
+            const now = new Date().toISOString();
+            void supabase.from("conversations").update({ last_read_at: now }).eq("id", id);
+            setConversations((prev) => prev.map((c) => c.id === id ? { ...c, last_read_at: now } : c));
+          }
         }
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "conversations" }, async () => {
@@ -1593,7 +1596,7 @@ export function ChatInbox({
                         {msg.attachment_type === "image" && msg.attachment_url ? (
                           <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={msg.attachment_url} alt="attachment" className="max-w-[240px] rounded-xl" />
+                            <img src={msg.attachment_url} alt={msg.content || "รูปภาพแนบ"} className="w-full max-w-[320px] rounded-xl" />
                           </a>
                         ) : (
                           <p className="whitespace-pre-wrap">{msg.content}</p>

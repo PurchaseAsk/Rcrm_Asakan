@@ -213,7 +213,7 @@ export function FloatingChatWindow({
                   {msg.attachment_type === "image" && msg.attachment_url ? (
                     <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={msg.attachment_url} alt="attachment" className="max-w-[200px] rounded-xl" />
+                      <img src={msg.attachment_url} alt={msg.content || "รูปภาพแนบ"} className="max-w-[200px] rounded-xl" />
                     </a>
                   ) : (
                     <p className="whitespace-pre-wrap">{msg.content}</p>

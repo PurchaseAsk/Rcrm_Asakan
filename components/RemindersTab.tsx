@@ -140,6 +140,7 @@ export function RemindersTab({
           .gte("created_at", monthStart).order("created_at", { ascending: true }).limit(5000),
         supabase.from("messages").select("conversation_id, created_at")
           .in("conversation_id", convIds).eq("direction", "outbound")
+          .eq("is_auto_reply", false)
           .gte("created_at", monthStart).order("created_at", { ascending: true }).limit(5000),
       ]);
       const firstInMap  = new Map<string, string>();

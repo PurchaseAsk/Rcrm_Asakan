@@ -253,3 +253,19 @@ mgmtNewRecall   {stage_id, inactive_days, recall_to}
 - Stop after 3 seconds idle, an empty composer, blur/hidden page, send, room switch, or floating window close/minimize. Dispose timers when removing the channel.
 - Read every presence entry for multi-tab users; deduplicate by user ID within each conversation, never by display name.
 - Regression checks: `node --test scripts/chat-typing.test.mjs` (Node 24 supports importing the TypeScript helper directly).
+
+## 14. Facebook Auto-Reply and Sales metrics (2026-09-15)
+
+- Auto-Reply sends immediately when a greeting trigger matches. Its 5-minute duplicate check only counts outbound messages with `is_auto_reply = true`; human replies do not block it.
+- Sales response metrics exclude Auto-Reply (`is_auto_reply = false`) in `components/Dashboard.tsx`, `components/RemindersTab.tsx`, and the LINE daily report at `app/api/cron/daily-summary/route.ts`.
+- The duplicate check and the Sales response-time metric are separate rules. Auto-Reply is not a Sales response or a read acknowledgement.
+- Regression checks: `node --test scripts/auto-reply.test.mjs` uses the actual sender function and reporting queries with simulated database/transport responses; it sends no real messages.
+
+### Combined greeting image
+
+- When both `greeting_text` and `image_url` are set, `lib/auto-reply-image.ts` renders the full Thai greeting on a blue header above the uncropped coupon and sends a single image message. Original text/image remain editable in `page_auto_reply`; no schema change is required.
+- Saving prepares the image first. Previously saved settings prepare it on first use. Immutable Storage paths include the text, source URL and normalised `updated_at`, preventing an old saved version from being reused. Uploaded source images also have unique paths.
+- `POST /api/chat-settings/preview` renders the actual PNG without saving or sending. Preview/save/upload require an authenticated admin or team lead. Source downloads are restricted to this project's `auto-reply-images` bucket.
+- The single message retains the original text in `messages.content` and is marked `is_auto_reply = true`, including reconciliation when Facebook's echo arrived first. Outbound Realtime events do not mark the selected conversation read.
+- Renderer: pinned `sharp`, bundled Sarabun and Noto Color Emoji fonts (OFL); traced into the Node server routes. Full image preview in Chat Settings makes its non-copyable text explicit.
+- Checks: `node --test scripts/auto-reply.test.mjs scripts/auto-reply-image.test.mjs`.

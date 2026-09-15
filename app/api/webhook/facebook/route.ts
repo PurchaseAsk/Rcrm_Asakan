@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { sendTelegram, tg } from "@/lib/telegram";
 import webpush from "web-push";
+import { ensureAutoReplyImage } from "@/lib/auto-reply-image";
 
 function adminSupabase() {
   return createClient(
@@ -842,78 +843,52 @@ async function sendAutoReply(
 
     if (!shouldReply) return;
 
-    // Debounce: if we already auto-replied within the last 5 min for this conv, skip
+    // Suppress only repeat auto-replies; a Sales reply must not block this greeting.
+    // This is independent of the dashboards' 5-minute Sales response metric.
     const { count } = await supabase
       .from("messages")
       .select("id", { count: "exact", head: true })
       .eq("conversation_id", conv.id)
       .eq("direction", "outbound")
+      .eq("is_auto_reply", true)
       .gte("created_at", new Date(Date.now() - 5 * 60_000).toISOString());
     if ((count ?? 0) > 0) return;
 
     const apiBase = `https://graph.facebook.com/v20.0/me/messages?access_token=${encodeURIComponent(pageToken)}`;
 
-    if (setting.greeting_text) {
-      const res = await fetch(apiBase, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipient: { id: senderPsid }, message: { text: setting.greeting_text } }),
+    let imageUrl = setting.image_url as string | null;
+    if (setting.greeting_text?.trim() && imageUrl) {
+      imageUrl = await ensureAutoReplyImage(supabase, {
+        page_id: pageId, greeting_text: setting.greeting_text, image_url: imageUrl, updated_at: setting.updated_at,
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("[sendAutoReply] text send failed", err);
-      } else {
-        // Pre-insert with is_auto_reply=true so the DB trigger does NOT update
-        // last_message_direction (Sales still needs to respond).
-        // The echo from FB will be ignored (ignoreDuplicates on fb_message_id).
-        const json = await res.json().catch(() => ({})) as { message_id?: string };
-        if (json.message_id) {
-          await supabase.from("messages").upsert(
-            {
-              conversation_id: conv.id,
-              direction: "outbound",
-              content: setting.greeting_text,
-              fb_message_id: json.message_id,
-              is_auto_reply: true,
-            },
-            { onConflict: "fb_message_id", ignoreDuplicates: true },
-          );
-        }
-      }
     }
-
-    if (setting.image_url) {
-      const res = await fetch(apiBase, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipient: { id: senderPsid },
-          message: { attachment: { type: "image", payload: { url: setting.image_url } } },
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("[sendAutoReply] image send failed", err);
-      } else {
-        // Pre-insert image with is_auto_reply=true.
-        // FB echo for image attachments often omits payload.url so we use the
-        // known Supabase Storage URL directly. Echo is ignored via ignoreDuplicates.
-        const json = await res.json().catch(() => ({})) as { message_id?: string };
-        if (json.message_id) {
-          await supabase.from("messages").upsert(
-            {
-              conversation_id: conv.id,
-              direction: "outbound",
-              content: null,
-              attachment_url: setting.image_url,
-              attachment_type: "image",
-              fb_message_id: json.message_id,
-              is_auto_reply: true,
-            },
-            { onConflict: "fb_message_id", ignoreDuplicates: true },
-          );
-        }
-      }
+    if (!imageUrl && !setting.greeting_text?.trim()) return;
+    // Exactly one Send API call: the complete greeting and coupon share one image.
+    const message = imageUrl
+      ? { attachment: { type: "image", payload: { url: imageUrl } } }
+      : { text: setting.greeting_text };
+    const res = await fetch(apiBase, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipient: { id: senderPsid }, messaging_type: "RESPONSE", message }),
+    });
+    if (!res.ok) {
+      console.error("[sendAutoReply] send failed", await res.json().catch(() => ({})));
+      return;
+    }
+    const json = await res.json().catch(() => ({})) as { message_id?: string };
+    if (json.message_id) {
+      const { error } = await supabase.from("messages").upsert({
+        conversation_id: conv.id,
+        direction: "outbound",
+        content: setting.greeting_text || null,
+        attachment_url: imageUrl,
+        attachment_type: imageUrl ? "image" : null,
+        fb_message_id: json.message_id,
+        is_auto_reply: true,
+      }, { onConflict: "fb_message_id" });
+      // Reconcile an echo that arrived first: it must still be classified as auto-reply.
+      if (error) console.error("[sendAutoReply] message save failed", error.message);
     }
 
     // Force direction back to "inbound" — FB echo may have arrived before our

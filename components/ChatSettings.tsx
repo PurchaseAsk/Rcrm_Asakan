@@ -3,6 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Settings, X, Upload, Trash2, Save } from "lucide-react";
 import type { Page } from "@/types/crm";
+import { createBrowserSupabase } from "@/lib/supabase";
+
+async function authHeaders() {
+  const { data: { session } } = await createBrowserSupabase().auth.getSession();
+  if (!session) throw new Error("กรุณาเข้าสู่ระบบใหม่");
+  return { Authorization: `Bearer ${session.access_token}` };
+}
 
 type AutoReplySetting = {
   id?: string;
@@ -45,6 +52,9 @@ export function ChatSettings({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewRevision = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canEdit = userRole === "admin" || userRole === "team_lead";
 
@@ -60,7 +70,7 @@ export function ChatSettings({
           return r.json() as Promise<{ data: AutoReplySetting | null }>;
         })
         .then((res) => {
-          if (!cancelled) setSetting(res.data ?? emptySettings(selectedPageId));
+          if (!cancelled) setSetting(res.data ? { ...res.data, greeting_text: res.data.greeting_text ?? "" } : emptySettings(selectedPageId));
         })
         .catch(() => {
           if (cancelled) return;
@@ -76,23 +86,53 @@ export function ChatSettings({
     return () => { cancelled = true; };
   }, [selectedPageId]);
 
+  useEffect(() => {
+    previewRevision.current += 1;
+    setPreviewUrl(null);
+    setPreviewLoading(false);
+    return () => { previewRevision.current += 1; };
+  }, [selectedPageId, setting?.greeting_text, setting?.image_url]);
+
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  async function handlePreview() {
+    if (!setting?.greeting_text.trim() || !setting.image_url) return;
+    const revision = previewRevision.current;
+    setPreviewLoading(true);
+    try {
+      const res = await fetch("/api/chat-settings/preview", {
+        method: "POST",
+        headers: { ...await authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ greeting_text: setting.greeting_text, image_url: setting.image_url }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "สร้างภาพตัวอย่างไม่สำเร็จ");
+      const url = URL.createObjectURL(await res.blob());
+      if (revision === previewRevision.current) setPreviewUrl(url);
+      else URL.revokeObjectURL(url);
+    } catch (error) {
+      if (revision === previewRevision.current) toast(error instanceof Error ? error.message : "สร้างภาพตัวอย่างไม่สำเร็จ");
+    } finally {
+      if (revision === previewRevision.current) setPreviewLoading(false);
+    }
+  }
+
   function patch(updates: Partial<AutoReplySetting>) {
     setSetting((prev) => prev ? { ...prev, ...updates } : null);
   }
 
   async function handleSave() {
-    if (!setting || !canEdit) return;
+    if (!setting || !canEdit || loading || uploading) return;
     setSaving(true);
     try {
       const res = await fetch("/api/chat-settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...await authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ ...setting, created_by: userId }),
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) throw new Error((await res.json()).error ?? "บันทึกไม่สำเร็จ");
       toast("บันทึกการตั้งค่าแล้ว ✓");
-    } catch {
-      toast("บันทึกไม่สำเร็จ");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");
     } finally {
       setSaving(false);
     }
@@ -105,7 +145,7 @@ export function ChatSettings({
       const fd = new FormData();
       fd.append("file", file);
       fd.append("page_id", selectedPageId);
-      const res = await fetch("/api/chat-settings/upload-image", { method: "POST", body: fd });
+      const res = await fetch("/api/chat-settings/upload-image", { method: "POST", headers: await authHeaders(), body: fd });
       const json = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !json.url) throw new Error(json.error ?? "Upload failed");
       patch({ image_url: json.url });
@@ -142,6 +182,7 @@ export function ChatSettings({
             <label className="mb-1 block text-xs font-medium text-slate-500">เพจ Facebook</label>
             <select
               value={selectedPageId}
+              disabled={saving || uploading}
               onChange={(e) => setSelectedPageId(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             >
@@ -245,13 +286,33 @@ export function ChatSettings({
                   className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
                 />
                 <p className="mt-1 text-right text-xs text-slate-400">{setting.greeting_text.length} ตัวอักษร</p>
+                {setting.image_url && (
+                  <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                    ข้อความทั้งหมดจะอยู่ด้านบน รูปคูปองอยู่ด้านล่าง ส่งเป็นภาพเดียว ลูกค้ากดขยายได้ แต่คัดลอกข้อความในภาพไม่ได้
+                  </p>
+                )}
               </div>
+              {canEdit && setting.image_url && setting.greeting_text.trim() && (
+                <div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+                  <button type="button" onClick={() => void handlePreview()} disabled={previewLoading || uploading || saving}
+                    className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 disabled:opacity-50">
+                    {previewLoading ? "กำลังสร้างภาพตัวอย่าง..." : "ดูภาพรวมก่อนบันทึก"}
+                  </button>
+                  {previewUrl && (
+                    <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="block" aria-label="ขยายภาพตัวอย่าง Auto-Reply">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={previewUrl} alt="ภาพ Auto-Reply: ข้อความทั้งหมดพร้อมคูปอง" className="mx-auto w-full max-w-[360px] rounded-2xl" />
+                    </a>
+                  )}
+                </div>
+              )}
 
               {/* Image */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-500">รูปภาพประกอบ (ไม่บังคับ)</label>
                 {setting.image_url ? (
                   <div className="relative inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={setting.image_url}
                       alt="greeting"
@@ -298,7 +359,7 @@ export function ChatSettings({
             </button>
             <button
               onClick={() => void handleSave()}
-              disabled={saving}
+              disabled={saving || uploading || loading}
               className="flex items-center gap-2 rounded-lg bg-blue-500 px-5 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-60"
             >
               <Save size={14} />

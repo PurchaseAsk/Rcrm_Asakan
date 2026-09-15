@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { ensureAutoReplyImage } from "@/lib/auto-reply-image";
+import { requireChatSettingsEditor } from "@/lib/chat-settings-auth";
+
+export const runtime = "nodejs";
 
 function adminSupabase() {
   return createClient(
@@ -24,6 +28,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = adminSupabase();
+  const auth = await requireChatSettingsEditor(request, supabase);
+  if (auth.error) return auth.error;
   const body = (await request.json()) as {
     page_id: string;
     is_active: boolean;
@@ -37,7 +44,17 @@ export async function POST(request: NextRequest) {
 
   if (!body.page_id) return NextResponse.json({ error: "Missing page_id" }, { status: 400 });
 
-  const supabase = adminSupabase();
+  const updatedAt = new Date().toISOString();
+  if (body.greeting_text?.trim() && body.image_url) {
+    try {
+      // Prepare before committing settings: the next customer gets the ready image.
+      await ensureAutoReplyImage(supabase, {
+        page_id: body.page_id, greeting_text: body.greeting_text, image_url: body.image_url, updated_at: updatedAt,
+      });
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "สร้างภาพ Auto-Reply ไม่สำเร็จ" }, { status: 400 });
+    }
+  }
   const { data, error } = await supabase
     .from("page_auto_reply")
     .upsert(
@@ -49,8 +66,8 @@ export async function POST(request: NextRequest) {
         trigger_new_conv: body.trigger_new_conv,
         trigger_from_ad: body.trigger_from_ad,
         trigger_returning_days: body.trigger_returning_days ?? null,
-        created_by: body.created_by,
-        updated_at: new Date().toISOString(),
+        created_by: auth.userId,
+        updated_at: updatedAt,
       },
       { onConflict: "page_id" },
     )
