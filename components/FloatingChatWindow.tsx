@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Conversation, Message } from "@/types/crm";
+import type { Typer } from "@/lib/chat-typing";
 
 const supabase = createBrowserSupabase();
 
@@ -23,12 +24,18 @@ export function FloatingChatWindow({
   userId,
   toast,
   onClose,
+  typers,
+  onTyping,
+  onStopTyping,
 }: {
   conv: Conversation;
   index: number;
   userId: string;
   toast: (msg: string) => void;
   onClose: () => void;
+  typers: Typer[];
+  onTyping: () => void;
+  onStopTyping: () => void;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [replyText, setReplyText] = useState("");
@@ -76,6 +83,7 @@ export function FloatingChatWindow({
 
   async function sendReply() {
     if (!replyText.trim()) return;
+    onStopTyping();
     const text = replyText.trim();
     setReplyText("");
     try {
@@ -162,7 +170,7 @@ export function FloatingChatWindow({
         </div>
         <button
           onMouseDown={(e) => e.stopPropagation()}
-          onClick={() => setMinimized((v) => !v)}
+          onClick={() => { onStopTyping(); setMinimized((v) => !v); }}
           title={minimized ? "ขยาย" : "ย่อ"}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-700"
         >
@@ -224,11 +232,21 @@ export function FloatingChatWindow({
 
           {/* Reply input */}
           <div className="shrink-0 border-t border-slate-200 p-2">
+            {typers.length > 0 && (
+              <div className="mb-2 text-xs text-blue-600" role="status">
+                {typers.map((typer) => typer.name).join(", ")} กำลังพิมพ์...
+              </div>
+            )}
             <div className="flex gap-1.5">
               <input
                 className="h-9 flex-1 rounded-lg border border-slate-200 px-2.5 text-sm outline-none focus:border-brand-600"
                 value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
+                onChange={(e) => {
+                  setReplyText(e.target.value);
+                  if (e.target.value.trim()) onTyping();
+                  else onStopTyping();
+                }}
+                onBlur={onStopTyping}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();

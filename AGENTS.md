@@ -245,3 +245,11 @@ mgmtNewRecall   {stage_id, inactive_days, recall_to}
 
 **Service/Course:**
 สนใจ → ส่งข้อมูล → ทดลองใช้ → สมัคร/ซื้อแล้ว → เลิกติดตาม
+
+## 13. Chat Inbox typing presence (Next.js, 2026-09-15)
+
+- `components/ChatInbox.tsx` owns the `chat-typing-presence` channel; this indicates other CRM staff typing, not Facebook customer typing.
+- `lib/chat-typing.ts` shares one publisher between the main composer and `FloatingChatWindow`; waits for `SUBSCRIBED`, restores active typing after reconnect, and serializes track/untrack requests.
+- Stop after 3 seconds idle, an empty composer, blur/hidden page, send, room switch, or floating window close/minimize. Dispose timers when removing the channel.
+- Read every presence entry for multi-tab users; deduplicate by user ID within each conversation, never by display name.
+- Regression checks: `node --test scripts/chat-typing.test.mjs` (Node 24 supports importing the TypeScript helper directly).

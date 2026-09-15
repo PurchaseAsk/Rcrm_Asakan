@@ -7,6 +7,7 @@ import type { Conversation, Message, Page, Pipeline, Profile, Stage, Tag } from 
 import html2canvas from "html2canvas";
 import { FloatingChatWindow } from "./FloatingChatWindow";
 import { ChatSettings } from "./ChatSettings";
+import { collectTypers, createTypingController, type TypingPresence, type Typer } from "@/lib/chat-typing";
 
 const supabase = createBrowserSupabase();
 const CONVERSATION_PAGE_SIZE = 30;
@@ -135,10 +136,8 @@ export function ChatInbox({
   const [, setMinuteTick] = useState(0);
   const [floatingConvs, setFloatingConvs] = useState<Conversation[]>([]);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
-  const [typersInConv, setTypersInConv] = useState<Map<string, { userId: string; name: string }[]>>(new Map());
-  const typingActiveRef = useRef(false);
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const presenceChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [typersInConv, setTypersInConv] = useState<Map<string, Typer[]>>(new Map());
+  const typingRef = useRef<ReturnType<typeof createTypingController> | null>(null);
   const myName = profiles.find((p) => p.id === userId)?.full_name ?? "Sales";
 
   function scrollToReferencedMessage(messageId: string) {
@@ -155,6 +154,7 @@ export function ChatInbox({
   }
 
   function closeFloat(convId: string) {
+    typingRef.current?.stop(convId);
     setFloatingConvs((prev) => prev.filter((f) => f.id !== convId));
   }
 
@@ -312,61 +312,46 @@ export function ChatInbox({
     const ch = supabase.channel("chat-typing-presence", {
       config: { presence: { key: userId } },
     });
+    const controller = createTypingController(ch);
+    typingRef.current = controller;
+    let disposed = false;
+    setTypersInConv(new Map());
     ch.on("presence", { event: "sync" }, () => {
-      const state = ch.presenceState<{ typing: boolean; conversationId: string | null; name: string }>();
-      const newMap = new Map<string, { userId: string; name: string }[]>();
-      for (const [uid, presences] of Object.entries(state)) {
-        if (uid === userId) continue;
-        const typingPresence = presences.find((p) => p.typing && p.conversationId);
-        if (typingPresence) {
-          const cid = typingPresence.conversationId!;
-          if (!newMap.has(cid)) newMap.set(cid, []);
-          const existing = newMap.get(cid)!;
-          if (!existing.some((e) => e.userId === uid || e.name === typingPresence.name)) {
-            existing.push({ userId: uid, name: typingPresence.name });
-          }
-        }
-      }
-      setTypersInConv(newMap);
-    }).subscribe();
-    presenceChRef.current = ch;
+      if (!disposed) setTypersInConv(collectTypers(ch.presenceState<TypingPresence>(), userId));
+    }).subscribe((status) => {
+      if (disposed) return;
+      controller.setReady(status === "SUBSCRIBED");
+      if (status !== "SUBSCRIBED") setTypersInConv(new Map());
+    });
+    const stop = () => controller.stop();
+    const onVisibilityChange = () => {
+      if (document.hidden) stop();
+    };
+    window.addEventListener("blur", stop);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
-      void presenceChRef.current?.untrack();
+      disposed = true;
+      controller.dispose();
+      if (typingRef.current === controller) typingRef.current = null;
+      window.removeEventListener("blur", stop);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       void supabase.removeChannel(ch);
     };
   }, [userId]);
 
   // Clear typing when switching conversations
   useEffect(() => {
-    if (typingActiveRef.current) {
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-      typingTimerRef.current = null;
-      typingActiveRef.current = false;
-      void presenceChRef.current?.untrack();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      if (selectedConvId) typingRef.current?.stop(selectedConvId);
+    };
   }, [selectedConvId]);
 
   function handleTyping(convId: string) {
-    if (!presenceChRef.current || !convId) return;
-    if (!typingActiveRef.current) {
-      typingActiveRef.current = true;
-      void presenceChRef.current.track({ typing: true, conversationId: convId, name: myName });
-    }
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = setTimeout(() => {
-      typingActiveRef.current = false;
-      void presenceChRef.current?.untrack();
-    }, 3000);
+    typingRef.current?.start(convId, myName);
   }
 
   function clearTyping() {
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = null;
-    if (typingActiveRef.current) {
-      typingActiveRef.current = false;
-      void presenceChRef.current?.untrack();
-    }
+    if (selectedConvId) typingRef.current?.stop(selectedConvId);
   }
 
   async function getAllowedPageIds() {
@@ -1715,7 +1700,12 @@ export function ChatInbox({
                   aria-label="ตอบกลับใน Messenger"
                   className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-500 disabled:opacity-50"
                   value={replyText}
-                  onChange={(e) => { setReplyText(e.target.value); if (selectedConvId) handleTyping(selectedConvId); }}
+                  onChange={(e) => {
+                    setReplyText(e.target.value);
+                    if (selectedConvId && e.target.value.trim()) handleTyping(selectedConvId);
+                    else clearTyping();
+                  }}
+                  onBlur={clearTyping}
                   onPaste={(e) => {
                     const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
                     if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) void sendImage(f); }
@@ -2178,6 +2168,9 @@ export function ChatInbox({
           index={i}
           userId={userId}
           toast={toast}
+          typers={typersInConv.get(conv.id) ?? []}
+          onTyping={() => handleTyping(conv.id)}
+          onStopTyping={() => typingRef.current?.stop(conv.id)}
           onClose={() => closeFloat(conv.id)}
         />
       ))}
