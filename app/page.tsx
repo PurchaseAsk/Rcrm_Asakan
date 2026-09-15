@@ -261,13 +261,16 @@ export default function HomePage() {
 
     void (async () => {
       try {
+        console.log("[push] starting, permission=", Notification.permission);
         const reg = await navigator.serviceWorker.ready;
+        console.log("[push] SW ready, scope=", reg.scope);
         let sub = await reg.pushManager.getSubscription();
+        console.log("[push] existing sub=", sub?.endpoint ?? "none");
         if (!sub) {
           const perm = Notification.permission === "granted"
             ? "granted"
             : await Notification.requestPermission();
-          if (perm !== "granted") return;
+          if (perm !== "granted") { console.log("[push] permission denied"); return; }
           sub = await reg.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: (() => {
@@ -277,13 +280,15 @@ export default function HomePage() {
               return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
             })(),
           });
+          console.log("[push] subscribed ok, endpoint=", sub.endpoint.slice(0, 50));
         }
-        await fetch("/api/push/subscribe", {
+        const res = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: currentUserId, subscription: sub.toJSON() }),
         });
-      } catch { /* push not supported or denied */ }
+        console.log("[push] saved to DB, status=", res.status);
+      } catch (e) { console.error("[push] subscribe error", e); }
     })();
   }, [currentUserId]);
 
