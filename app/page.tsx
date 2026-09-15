@@ -259,22 +259,15 @@ export default function HomePage() {
     const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     if (!vapidKey) return;
 
-    const dbg = (msg: string) => fetch("/api/push/debug", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ msg, uid: currentUserId }) }).catch(() => {});
-
     void (async () => {
       try {
-        void dbg(`starting permission=${Notification.permission}`);
         const reg = await navigator.serviceWorker.ready;
-        void dbg(`sw-ready scope=${reg.scope}`);
-        // Always unsubscribe + resubscribe to ensure subscription is tied to THIS device
         const existing = await reg.pushManager.getSubscription();
-        void dbg(`existing-sub=${existing?.endpoint?.slice(0, 40) ?? "none"}`);
-        if (existing) await existing.unsubscribe();
         const perm = Notification.permission === "granted"
           ? "granted"
           : await Notification.requestPermission();
-        if (perm !== "granted") { void dbg("permission-denied"); return; }
-        const sub = await reg.pushManager.subscribe({
+        if (perm !== "granted") return;
+        const sub = existing ?? await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: (() => {
             const padding = "=".repeat((4 - (vapidKey.length % 4)) % 4);
@@ -283,14 +276,12 @@ export default function HomePage() {
             return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
           })(),
         });
-        void dbg(`subscribed endpoint=${sub.endpoint.slice(0, 40)}`);
-        const res = await fetch("/api/push/subscribe", {
+        await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: currentUserId, subscription: sub.toJSON() }),
         });
-        void dbg(`saved-to-db status=${res.status}`);
-      } catch (e) { void dbg(`ERROR ${String(e)}`); }
+      } catch { /* push not supported or denied */ }
     })();
   }, [currentUserId]);
 

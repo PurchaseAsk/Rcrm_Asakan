@@ -33,31 +33,11 @@ self.addEventListener("push", (e) => {
   };
 
   e.waitUntil(
-    fetch("/api/push/debug", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ msg: "sw-push-received", title }),
-    })
-      .catch(() => {})
-      .then(() => self.registration.showNotification(title, options))
-      .then(() => {
-        const hasBadge = "setAppBadge" in self.navigator;
-        void fetch("/api/push/debug", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ msg: `badge-check hasBadge=${hasBadge} count=${data.badge}` }),
-        }).catch(() => {});
-        if (data.badge != null && hasBadge) {
-          return self.navigator.setAppBadge(data.badge);
-        }
-      })
-      .catch((err) =>
-        fetch("/api/push/debug", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ msg: `sw-push-error ${String(err)}` }),
-        }).catch(() => {}),
-      ),
+    self.registration.showNotification(title, options).then(() => {
+      if (data.badge != null && "setAppBadge" in self.navigator) {
+        return self.navigator.setAppBadge(data.badge);
+      }
+    }),
   );
 });
 
