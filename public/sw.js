@@ -26,18 +26,32 @@ self.addEventListener("push", (e) => {
   const options = {
     body: data.body ?? "",
     icon: "/icons/icon-192x192.png",
-    badge: "/icons/icon-72x72.png",
+    badge: "/icons/icon-192x192.png",
     data: { convId: data.convId },
-    tag: data.convId ?? "msg",   // group by conversation — replaces previous notification
+    tag: data.convId ?? "msg",
     renotify: true,
   };
 
   e.waitUntil(
-    self.registration.showNotification(title, options).then(() => {
-      if (data.badge != null && "setAppBadge" in self.navigator) {
-        return self.navigator.setAppBadge(data.badge);
-      }
-    }),
+    fetch("/api/push/debug", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ msg: "sw-push-received", title }),
+    })
+      .catch(() => {})
+      .then(() => self.registration.showNotification(title, options))
+      .then(() => {
+        if (data.badge != null && "setAppBadge" in self.navigator) {
+          return self.navigator.setAppBadge(data.badge);
+        }
+      })
+      .catch((err) =>
+        fetch("/api/push/debug", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ msg: `sw-push-error ${String(err)}` }),
+        }).catch(() => {}),
+      ),
   );
 });
 
