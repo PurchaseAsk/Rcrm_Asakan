@@ -266,24 +266,24 @@ export default function HomePage() {
         void dbg(`starting permission=${Notification.permission}`);
         const reg = await navigator.serviceWorker.ready;
         void dbg(`sw-ready scope=${reg.scope}`);
-        let sub = await reg.pushManager.getSubscription();
-        void dbg(`existing-sub=${sub?.endpoint?.slice(0, 40) ?? "none"}`);
-        if (!sub) {
-          const perm = Notification.permission === "granted"
-            ? "granted"
-            : await Notification.requestPermission();
-          if (perm !== "granted") { void dbg("permission-denied"); return; }
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: (() => {
-              const padding = "=".repeat((4 - (vapidKey.length % 4)) % 4);
-              const base64 = (vapidKey + padding).replace(/-/g, "+").replace(/_/g, "/");
-              const raw = atob(base64);
-              return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
-            })(),
-          });
-          void dbg(`subscribed endpoint=${sub.endpoint.slice(0, 40)}`);
-        }
+        // Always unsubscribe + resubscribe to ensure subscription is tied to THIS device
+        const existing = await reg.pushManager.getSubscription();
+        void dbg(`existing-sub=${existing?.endpoint?.slice(0, 40) ?? "none"}`);
+        if (existing) await existing.unsubscribe();
+        const perm = Notification.permission === "granted"
+          ? "granted"
+          : await Notification.requestPermission();
+        if (perm !== "granted") { void dbg("permission-denied"); return; }
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: (() => {
+            const padding = "=".repeat((4 - (vapidKey.length % 4)) % 4);
+            const base64 = (vapidKey + padding).replace(/-/g, "+").replace(/_/g, "/");
+            const raw = atob(base64);
+            return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+          })(),
+        });
+        void dbg(`subscribed endpoint=${sub.endpoint.slice(0, 40)}`);
         const res = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
