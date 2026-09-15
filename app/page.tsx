@@ -824,8 +824,10 @@ export default function HomePage() {
               }}
               onUnreadCountChange={setInboxUnreadCount}
               onLeadOpen={(leadId) => {
+                const lead = data.leads.find((l) => l.id === leadId);
+                if (lead?.pipeline_id) setActivePipelineId(lead.pipeline_id);
                 setActiveTab("leads");
-                setSelectedLeadId(leadId);
+                if (lead) void openLead(lead); else setSelectedLeadId(leadId);
               }}
             />
           </div>
@@ -864,8 +866,10 @@ export default function HomePage() {
                   });
                 }}
                 onLeadOpen={(leadId) => {
+                  const lead = data.leads.find((l) => l.id === leadId);
+                  if (lead?.pipeline_id) setActivePipelineId(lead.pipeline_id);
                   setActiveTab("leads");
-                  setSelectedLeadId(leadId);
+                  if (lead) void openLead(lead); else setSelectedLeadId(leadId);
                 }}
                 onUnreadCountChange={setLineUnreadCount}
               />
