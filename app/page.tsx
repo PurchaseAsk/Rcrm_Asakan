@@ -259,18 +259,20 @@ export default function HomePage() {
     const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     if (!vapidKey) return;
 
+    const dbg = (msg: string) => fetch("/api/push/debug", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ msg, uid: currentUserId }) }).catch(() => {});
+
     void (async () => {
       try {
-        console.log("[push] starting, permission=", Notification.permission);
+        void dbg(`starting permission=${Notification.permission}`);
         const reg = await navigator.serviceWorker.ready;
-        console.log("[push] SW ready, scope=", reg.scope);
+        void dbg(`sw-ready scope=${reg.scope}`);
         let sub = await reg.pushManager.getSubscription();
-        console.log("[push] existing sub=", sub?.endpoint ?? "none");
+        void dbg(`existing-sub=${sub?.endpoint?.slice(0, 40) ?? "none"}`);
         if (!sub) {
           const perm = Notification.permission === "granted"
             ? "granted"
             : await Notification.requestPermission();
-          if (perm !== "granted") { console.log("[push] permission denied"); return; }
+          if (perm !== "granted") { void dbg("permission-denied"); return; }
           sub = await reg.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: (() => {
@@ -280,15 +282,15 @@ export default function HomePage() {
               return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
             })(),
           });
-          console.log("[push] subscribed ok, endpoint=", sub.endpoint.slice(0, 50));
+          void dbg(`subscribed endpoint=${sub.endpoint.slice(0, 40)}`);
         }
         const res = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: currentUserId, subscription: sub.toJSON() }),
         });
-        console.log("[push] saved to DB, status=", res.status);
-      } catch (e) { console.error("[push] subscribe error", e); }
+        void dbg(`saved-to-db status=${res.status}`);
+      } catch (e) { void dbg(`ERROR ${String(e)}`); }
     })();
   }, [currentUserId]);
 
