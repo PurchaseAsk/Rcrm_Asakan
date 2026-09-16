@@ -241,12 +241,6 @@ export function TasksPanel({
         )}
       </div>
 
-      {completingId && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => { setCompletingId(null); setCompletionNote(""); }}
-        />
-      )}
     </div>
   );
 }
