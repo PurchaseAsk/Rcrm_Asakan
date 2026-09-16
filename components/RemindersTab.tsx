@@ -885,9 +885,9 @@ export function RemindersTab({
 
                           {/* คูปองค้างส่ง + งานค้าง — แถวเดียวกัน */}
                           {((canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) || (pendingTaskCount ?? 0) > 0) && (
-                            <div className="mt-3 border-t border-slate-100 pt-3 flex gap-6">
+                            <div className="mt-3 border-t border-slate-100 pt-3 flex divide-x divide-slate-100">
                               {(canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) && (
-                                <div className="flex-1 min-w-0">
+                                <div className="flex-1 min-w-0 pr-6">
                                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">คูปองค้างส่ง</p>
                                   {canManageTeamReminders ? (
                                     <div className="flex flex-wrap gap-2">
@@ -908,7 +908,7 @@ export function RemindersTab({
                               )}
 
                               {(pendingTaskCount ?? 0) > 0 && (
-                                <div className="flex-1 min-w-0">
+                                <div className="flex-1 min-w-0 pl-6">
                                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">งานค้าง</p>
                                   <button
                                     onClick={() => onNavigate?.("tasks")}
