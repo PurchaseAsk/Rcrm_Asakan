@@ -272,7 +272,7 @@ export function ChatInbox({
     const channel = supabase
       .channel("chat-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
-        const newMsg = payload.new as { conversation_id: string; direction: string };
+        const newMsg = payload.new as { conversation_id: string; direction: string; created_at: string };
         const convId = newMsg.conversation_id;
         const id = selectedConvIdRef.current;
         if (newMsg.direction === "inbound") {
@@ -286,6 +286,21 @@ export function ChatInbox({
             void supabase.from("conversations").update({ last_read_at: now }).eq("id", id);
             setConversations((prev) => prev.map((c) => c.id === id ? { ...c, last_read_at: now } : c));
           }
+        } else {
+          // Not the open conversation — update its position/unread in the list immediately
+          // without waiting for the conversations UPDATE trigger which can be delayed or missed
+          setConversations((prev) => {
+            const updated = prev.map((c) =>
+              c.id === convId
+                ? { ...c, last_message_at: newMsg.created_at }
+                : c,
+            );
+            return updated.sort((a, b) => {
+              if (a.is_pinned && !b.is_pinned) return -1;
+              if (!a.is_pinned && b.is_pinned) return 1;
+              return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
+            });
+          });
         }
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "conversations" }, async () => {
@@ -323,8 +338,15 @@ export function ChatInbox({
         });
       })
       .subscribe();
+
+    function onVisible() {
+      if (document.visibilityState === "visible") void refreshConversations();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       void supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
