@@ -883,39 +883,42 @@ export function RemindersTab({
                             </div>
                           </div>
 
-                          {/* คูปองค้างส่ง */}
-                          {(canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) && (
-                            <div className="mt-3 border-t border-slate-100 pt-3">
-                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">คูปองค้างส่ง</p>
-                              {canManageTeamReminders ? (
-                                <div className="flex flex-wrap gap-2">
-                                  {couponPending.map(item => (
-                                    <div key={item.id} className="flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1">
-                                      <span className="text-xs font-bold text-amber-800">{item.name}</span>
-                                      <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
+                          {/* คูปองค้างส่ง + งานค้าง — แถวเดียวกัน */}
+                          {((canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) || (pendingTaskCount ?? 0) > 0) && (
+                            <div className="mt-3 border-t border-slate-100 pt-3 flex gap-6">
+                              {(canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) && (
+                                <div className="flex-1 min-w-0">
+                                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">คูปองค้างส่ง</p>
+                                  {canManageTeamReminders ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {couponPending.map(item => (
+                                        <div key={item.id} className="flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1">
+                                          <span className="text-xs font-bold text-amber-800">{item.name}</span>
+                                          <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="flex items-baseline gap-1.5">
-                                  <span className="text-2xl font-bold text-amber-600">{couponPendingMine}</span>
-                                  <span className="text-xs text-amber-600">คูปอง</span>
+                                  ) : (
+                                    <div className="flex items-baseline gap-1.5">
+                                      <span className="text-2xl font-bold text-amber-600">{couponPendingMine}</span>
+                                      <span className="text-xs text-amber-600">คูปอง</span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
-                            </div>
-                          )}
 
-                          {/* งานค้าง */}
-                          {(pendingTaskCount ?? 0) > 0 && (
-                            <div className="mt-3 border-t border-slate-100 pt-3">
-                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">งานค้าง</p>
-                              <button
-                                onClick={() => onNavigate?.("tasks")}
-                                className="flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-1.5 hover:bg-indigo-100 transition"
-                              >
-                                <span className="text-2xl font-bold text-indigo-600">{pendingTaskCount}</span>
-                                <span className="text-xs text-indigo-600">งาน</span>
-                              </button>
+                              {(pendingTaskCount ?? 0) > 0 && (
+                                <div className="flex-1 min-w-0">
+                                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">งานค้าง</p>
+                                  <button
+                                    onClick={() => onNavigate?.("tasks")}
+                                    className="flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-1.5 hover:bg-indigo-100 transition"
+                                  >
+                                    <span className="text-2xl font-bold text-indigo-600">{pendingTaskCount}</span>
+                                    <span className="text-xs text-indigo-600">งาน</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
