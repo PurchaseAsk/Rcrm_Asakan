@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Send, Bell, CheckCircle, BriefcaseIcon, Image as ImageIcon } from "lucide-react";
+import { X, Send, Bell, CheckCircle, BriefcaseIcon, ClipboardList, Image as ImageIcon } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Case, CaseActivity, CaseReminder, Profile, Role } from "@/types/crm";
 import { CaseCustomerDetailModal, CaseCustomerDetailSummary } from "@/components/CaseCustomerDetailModal";
+import { TaskModal } from "@/components/TaskModal";
 
 const supabase = createBrowserSupabase();
 
@@ -87,6 +88,7 @@ export function CaseDrawer({
   const [confirmEdit, setConfirmEdit] = useState<"title" | "customer" | "finance" | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [requestCloseOpen, setRequestCloseOpen] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -316,6 +318,13 @@ export function CaseDrawer({
                 <button onClick={() => void saveAssign()} className="shrink-0 rounded bg-brand-700 px-2 py-0.5 text-xs text-white">บันทึก</button>
               )}
             </div>
+            <button
+              onClick={() => setShowTaskModal(true)}
+              className="shrink-0 rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50"
+              title="มอบหมายงาน"
+            >
+              <ClipboardList size={15} />
+            </button>
             <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
               <X size={18} />
             </button>
@@ -805,6 +814,17 @@ export function CaseDrawer({
       </div>,
       document.body
     )}
+      <TaskModal
+        open={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        onCreated={() => void onUpdated()}
+        entityType="case"
+        entityId={caseItem.id}
+        entityLabel={caseItem.title}
+        profiles={profiles}
+        currentUserId={userId}
+        userRole={userRole}
+      />
     </>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, Paperclip, Settings, ThumbsUp } from "lucide-react";
+import { ClipboardList, ImagePlus, Paperclip, Settings, ThumbsUp } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Conversation, Message, Page, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import html2canvas from "html2canvas";
 import { FloatingChatWindow } from "./FloatingChatWindow";
 import { ChatSettings } from "./ChatSettings";
+import { TaskModal } from "./TaskModal";
 import { collectTypers, createTypingController, type TypingPresence, type Typer } from "@/lib/chat-typing";
 
 const supabase = createBrowserSupabase();
@@ -97,6 +98,7 @@ export function ChatInbox({
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showChatSettings, setShowChatSettings] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [selectedConvObj, setSelectedConvObj] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1420,6 +1422,13 @@ export function ChatInbox({
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16 12V4h1a1 1 0 000-2H7a1 1 0 000 2h1v8l-2 2v2h5v5l1 1 1-1v-5h5v-2l-2-2z"/>
                       </svg>
                     </button>
+                    <button
+                      onClick={() => setShowTaskModal(true)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                      title="มอบหมายงาน"
+                    >
+                      <ClipboardList size={15} />
+                    </button>
                     {selectedConv.lead_id ? (
                       <button
                         className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 md:px-3 md:text-sm"
@@ -2269,6 +2278,19 @@ export function ChatInbox({
             </div>
           </div>
         </div>
+      )}
+      {selectedConv && (
+        <TaskModal
+          open={showTaskModal}
+          onClose={() => setShowTaskModal(false)}
+          onCreated={() => setShowTaskModal(false)}
+          entityType="conversation"
+          entityId={selectedConv.id}
+          entityLabel={selectedConv.sender_name ?? undefined}
+          profiles={profiles}
+          currentUserId={userId}
+          userRole={userRole}
+        />
       )}
     </>
   );

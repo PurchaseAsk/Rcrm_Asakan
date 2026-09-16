@@ -324,3 +324,22 @@ export type StageRule = {
   stage_id: string;
   questions: StageQuestion[];
 };
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string | null;
+  assigned_by: string;
+  assigned_to: string;
+  entity_type?: "lead" | "case" | "conversation" | null;
+  entity_id?: string | null;
+  priority: "low" | "medium" | "high" | "urgent";
+  status: "pending" | "done";
+  due_at?: string | null;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  completion_note?: string | null;
+  assigner?: { id: string; full_name: string | null; email: string } | null;
+  assignee?: { id: string; full_name: string | null; email: string } | null;
+}

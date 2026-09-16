@@ -2,7 +2,7 @@
 
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { AppData, LeadDetail } from "@/types/app";
-import type { Activity, Case, DistributionRule, Lead, Page, Pipeline, Profile, RecallRule, Reminder, Role, Stage, StageRule, Tag, Team } from "@/types/crm";
+import type { Activity, Case, DistributionRule, Lead, Page, Pipeline, Profile, RecallRule, Reminder, Role, Stage, StageRule, Tag, Task, Team } from "@/types/crm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const supabase = createBrowserSupabase();
@@ -510,7 +510,7 @@ export async function loadCrmData(
   client: SupabaseClient,
   opts?: { role?: Role; userId?: string },
 ): Promise<AppData> {
-  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases] = await Promise.all([
+  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases, tasks] = await Promise.all([
     fetchAllLeads(client),
     client.from("funnel_stages").select("*").order("position"),
     client
@@ -531,9 +531,10 @@ export async function loadCrmData(
     client.from("stage_rules").select("id, stage_id, questions"),
     client.from("unfollow_reasons").select("*").order("position"),
     client.from("cases").select("*, assigned:profiles!cases_assigned_to_fkey(id,email,full_name,role), creator:profiles!cases_created_by_fkey(id,email,full_name,role)").order("created_at", { ascending: false }),
+    client.from("tasks").select("*, assigner:profiles!tasks_assigned_by_fkey(id,full_name,email), assignee:profiles!tasks_assigned_to_fkey(id,full_name,email)").order("created_at", { ascending: false }),
   ]);
 
-  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases };
+  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases, tasks };
   for (const [name, result] of Object.entries(queryResults)) {
     if (result.error) {
       throw new Error(`Load ${name} failed: ${result.error.message}`);
@@ -564,6 +565,7 @@ export async function loadCrmData(
     stageRules: (stageRules.data || []) as StageRule[],
     unfollowReasons: (unfollowReasons.data || []) as import("@/types/crm").UnfollowReason[],
     cases: (cases.data || []) as Case[],
+    tasks: (tasks.data || []) as Task[],
   };
 }
 

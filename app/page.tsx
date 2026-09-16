@@ -13,6 +13,7 @@ import {
   BookUser,
   Boxes,
   BriefcaseIcon,
+  ClipboardList,
   Eye,
   EyeOff,
   Globe,
@@ -71,6 +72,8 @@ import { MyTagsPanel } from "@/components/MyTagsPanel";
 import { CasesPanel } from "@/components/CasesPanel";
 import { TagsPanel } from "@/components/TagsPanel";
 import { TeamsPanel } from "@/components/TeamsPanel";
+import { TaskModal } from "@/components/TaskModal";
+import { TasksPanel } from "@/components/TasksPanel";
 import { VoucherModal } from "@/components/VoucherModal";
 import { FullScreenState } from "@/components/ui/FullScreenState";
 import { Panel } from "@/components/ui/Panel";
@@ -81,6 +84,7 @@ const mainTabs: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "inbox", label: "Inbox", icon: Inbox },
   { id: "line", label: "Other Inbox", icon: MessagesSquare },
   { id: "reminders", label: "Reminders", icon: BellRing },
+  { id: "tasks", label: "งาน", icon: ClipboardList },
   { id: "cases", label: "เคสรอโอน", icon: BriefcaseIcon },
   { id: "my-tags", label: "แท็กของฉัน", icon: Tags },
   { id: "leads", label: "ลีดทั้งหมด", icon: UserRound },
@@ -152,6 +156,9 @@ export default function HomePage() {
   const canManage = profile?.role === "admin" || profile?.role === "team_lead";
   const selectedLead = data.leads.find((lead) => lead.id === selectedLeadId) || null;
   const managingPipeline = data.pipelines.find((pipeline) => pipeline.id === managingPipelineId) || null;
+  const myPendingTaskCount = currentUserId
+    ? data.tasks.filter((t) => t.assigned_to === currentUserId && t.status === "pending").length
+    : 0;
 
   useEffect(() => {
     if (!currentUserId || !profile) {
@@ -581,6 +588,11 @@ export default function HomePage() {
                       {lineUnreadCount + commentActiveCount}
                     </span>
                   )}
+                  {item.id === "tasks" && myPendingTaskCount > 0 && (
+                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-indigo-500 text-white"}`}>
+                      {myPendingTaskCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -738,6 +750,27 @@ export default function HomePage() {
               onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)}
             />
           )}
+          {activeTab === "tasks" && (
+            <TasksPanel
+              tasks={data.tasks}
+              profiles={data.profiles}
+              currentUserId={currentUserId}
+              userRole={profile?.role ?? "staff"}
+              onReload={reload}
+              onOpenEntity={(entityType, entityId) => {
+                if (entityType === "lead") {
+                  const lead = data.leads.find((l) => l.id === entityId);
+                  if (lead?.pipeline_id) setActivePipelineId(lead.pipeline_id);
+                  setActiveTab("leads");
+                  if (lead) void openLead(lead); else setSelectedLeadId(entityId);
+                } else if (entityType === "case") {
+                  setActiveTab("cases");
+                } else if (entityType === "conversation") {
+                  setActiveTab("inbox");
+                }
+              }}
+            />
+          )}
           {activeTab === "cases" && (
             <CasesPanel
               cases={data.cases}
@@ -785,7 +818,21 @@ export default function HomePage() {
             />
           )}
           {activeTab === "reminders" && (
-            <RemindersTab userId={currentUserId} userRole={profile?.role ?? "staff"} onOpenLead={openLead} onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)} />
+            <div className="space-y-4">
+              {myPendingTaskCount > 0 && (
+                <div
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 hover:bg-indigo-100"
+                  onClick={() => setActiveTab("tasks")}
+                >
+                  <ClipboardList size={18} className="shrink-0 text-indigo-600" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-indigo-900">มีงานค้าง {myPendingTaskCount} อัน</p>
+                    <p className="text-xs text-indigo-600">คลิกเพื่อดูรายการงาน</p>
+                  </div>
+                </div>
+              )}
+              <RemindersTab userId={currentUserId} userRole={profile?.role ?? "staff"} onOpenLead={openLead} onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)} />
+            </div>
           )}
           {activeTab === "website" && canManage && (
             <WebsiteSettingsTab
@@ -977,6 +1024,11 @@ export default function HomePage() {
                     {item.id === "line" && (lineUnreadCount + commentActiveCount) > 0 && (
                       <span className={`ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-rose-500 text-white"}`}>
                         {lineUnreadCount + commentActiveCount}
+                      </span>
+                    )}
+                    {item.id === "tasks" && myPendingTaskCount > 0 && (
+                      <span className={`ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-white/25 text-white" : "bg-indigo-500 text-white"}`}>
+                        {myPendingTaskCount}
                       </span>
                     )}
                   </button>

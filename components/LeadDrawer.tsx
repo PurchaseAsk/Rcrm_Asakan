@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MapPin, MessageSquareText } from "lucide-react";
+import { ClipboardList, MapPin, MessageSquareText } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Lead, Pipeline, Profile, Stage, Tag, UnfollowReason } from "@/types/crm";
 import type { LeadDetail } from "@/types/app";
 import { actorName, deleteRow, isPinned, leadAge, pinDaysLeft, pinLead, recallCountdownText, toggleLeadTag, unpinLead } from "@/lib/helpers";
+import { TaskModal } from "@/components/TaskModal";
 import { UnfollowReasonModal } from "@/components/UnfollowReasonModal";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
@@ -74,6 +75,7 @@ export function LeadDrawer({
   const [busy, setBusy] = useState(false);
   const [editingInfo, setEditingInfo] = useState(false);
   const [showUnfollowModal, setShowUnfollowModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
   const currentActorName = actorName(userId, profiles);
 
   // Staff can only change assignee if they ARE the current assignee (transfer out) or lead is unassigned
@@ -416,6 +418,13 @@ export function LeadDrawer({
               }}
             >
               {editingInfo ? "Save" : "Edit"}
+            </button>
+            <button
+              onClick={() => setShowTaskModal(true)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-600 hover:bg-slate-50"
+              title="มอบหมายงาน"
+            >
+              <ClipboardList size={15} />
             </button>
             <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm col-span-1 sm:col-span-auto" onClick={onClose}>
               Close
@@ -778,6 +787,18 @@ export function LeadDrawer({
           />
         </div>
       )}
+
+      <TaskModal
+        open={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        onCreated={() => void reload()}
+        entityType="lead"
+        entityId={lead.id}
+        entityLabel={lead.customer_name}
+        profiles={profiles}
+        currentUserId={userId}
+        userRole={userRole}
+      />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import type {
   Stage,
   StageRule,
   Tag,
+  Task,
   Team,
   UnfollowReason,
 } from "@/types/crm";
@@ -30,6 +31,7 @@ export type AppData = {
   stageRules: StageRule[];
   unfollowReasons: UnfollowReason[];
   cases: Case[];
+  tasks: Task[];
 };
 
 export const emptyData: AppData = {
@@ -46,6 +48,7 @@ export const emptyData: AppData = {
   stageRules: [],
   unfollowReasons: [],
   cases: [],
+  tasks: [],
 };
 
 export type LeadDetail = {
@@ -74,6 +77,7 @@ export type TabId =
   | "funnel"
   | "inbox"
   | "reminders"
+  | "tasks"
   | "teams"
   | "pipelines"
   | "stages"
