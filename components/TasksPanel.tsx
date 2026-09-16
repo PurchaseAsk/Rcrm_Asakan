@@ -66,6 +66,21 @@ export function TasksPanel({
   const pendingCount = tasks.filter((t) => t.status === "pending").length;
   const doneCount = tasks.filter((t) => t.status === "done").length;
 
+  // Group by assignee
+  const grouped: { assigneeId: string; name: string; tasks: Task[] }[] = [];
+  for (const task of filtered) {
+    const existing = grouped.find((g) => g.assigneeId === task.assigned_to);
+    if (existing) {
+      existing.tasks.push(task);
+    } else {
+      grouped.push({
+        assigneeId: task.assigned_to,
+        name: profileName(task.assignee),
+        tasks: [task],
+      });
+    }
+  }
+
   async function markDone(task: Task) {
     setSaving(true);
     try {
@@ -137,83 +152,88 @@ export function TasksPanel({
           )}
         </div>
 
-        {filtered.length === 0 ? (
+        {grouped.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-400">ไม่มีงาน</div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {filtered.map((task) => (
-              <div key={task.id} className={`p-4 ${tab === "done" ? "opacity-75" : ""}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {priorityBadge(task.priority)}
-                      <span className="text-sm font-medium text-slate-950">{task.title}</span>
-                    </div>
+            {grouped.map((group) => (
+              <div key={group.assigneeId}>
+                <div className="flex items-center gap-2 bg-slate-50 px-4 py-2">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">👤 {group.name}</span>
+                  <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-600">{group.tasks.length}</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {group.tasks.map((task) => (
+                    <div key={task.id} className={`p-4 ${tab === "done" ? "opacity-75" : ""}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {priorityBadge(task.priority)}
+                            <span className="text-sm font-medium text-slate-950">{task.title}</span>
+                          </div>
 
-                    {task.entity_type && task.entity_id && (
-                      <button
-                        onClick={() => onOpenEntity(task.entity_type!, task.entity_id!)}
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                      >
-                        📎{" "}
-                        {task.assignee ? profileName(task.assignee) : task.entity_type}
-                      </button>
-                    )}
+                          {task.entity_type && task.entity_id && (
+                            <button
+                              onClick={() => onOpenEntity(task.entity_type!, task.entity_id!)}
+                              className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                            >
+                              📎 เปิด {task.entity_type === "lead" ? "ลีด" : task.entity_type === "case" ? "เคส" : "แชท"}
+                            </button>
+                          )}
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                      <span>👤 {profileName(task.assignee)}</span>
-                      {fmtDate(task.due_at, tab === "pending")}
-                    </div>
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                            {fmtDate(task.due_at, tab === "pending")}
+                            <span>มอบหมายโดย {profileName(task.assigner)}</span>
+                          </div>
 
-                    <div className="text-xs text-slate-400">
-                      มอบหมายโดย {profileName(task.assigner)}
-                    </div>
+                          {tab === "done" && task.completion_note && (
+                            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">{task.completion_note}</p>
+                          )}
+                          {tab === "done" && task.completed_at && (
+                            <div className="text-xs text-slate-400">
+                              เสร็จเมื่อ {new Date(task.completed_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          )}
 
-                    {tab === "done" && task.completion_note && (
-                      <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">{task.completion_note}</p>
-                    )}
-                    {tab === "done" && task.completed_at && (
-                      <div className="text-xs text-slate-400">
-                        เสร็จเมื่อ {new Date(task.completed_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      </div>
-                    )}
-
-                    {completingId === task.id && (
-                      <div className="mt-2 space-y-2">
-                        <textarea
-                          rows={2}
-                          value={completionNote}
-                          onChange={(e) => setCompletionNote(e.target.value)}
-                          placeholder="บันทึกผล..."
-                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-600"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => { setCompletingId(null); setCompletionNote(""); }}
-                            className="h-8 rounded-lg border border-slate-200 px-3 text-xs text-slate-600 hover:bg-slate-50"
-                          >
-                            ยกเลิก
-                          </button>
-                          <button
-                            onClick={() => void markDone(task)}
-                            disabled={saving}
-                            className="h-8 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            บันทึก
-                          </button>
+                          {completingId === task.id && (
+                            <div className="mt-2 space-y-2">
+                              <textarea
+                                rows={2}
+                                value={completionNote}
+                                onChange={(e) => setCompletionNote(e.target.value)}
+                                placeholder="บันทึกผล..."
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-600"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => { setCompletingId(null); setCompletionNote(""); }}
+                                  className="h-8 rounded-lg border border-slate-200 px-3 text-xs text-slate-600 hover:bg-slate-50"
+                                >
+                                  ยกเลิก
+                                </button>
+                                <button
+                                  onClick={() => void markDone(task)}
+                                  disabled={saving}
+                                  className="h-8 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  บันทึก
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
-                  </div>
 
-                  {tab === "pending" && completingId !== task.id && (
-                    <button
-                      onClick={() => { setCompletingId(task.id); setCompletionNote(""); }}
-                      className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-                    >
-                      ทำเสร็จ ✓
-                    </button>
-                  )}
+                        {tab === "pending" && completingId !== task.id && (
+                          <button
+                            onClick={() => { setCompletingId(task.id); setCompletionNote(""); }}
+                            className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                          >
+                            ทำเสร็จ ✓
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
