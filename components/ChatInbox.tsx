@@ -82,6 +82,7 @@ export function ChatInbox({
   onLeadOpen,
   onUnreadCountChange,
   openByLeadId,
+  openByConvId,
 }: {
   pages: Page[];
   profiles: Profile[];
@@ -95,6 +96,7 @@ export function ChatInbox({
   onLeadOpen?: (leadId: string) => void;
   onUnreadCountChange?: (count: number) => void;
   openByLeadId?: string | null;
+  openByConvId?: string | null;
 }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showChatSettings, setShowChatSettings] = useState(false);
@@ -220,6 +222,21 @@ export function ChatInbox({
     void findAndOpen();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openByLeadId]);
+
+  useEffect(() => {
+    if (!openByConvId) return;
+    async function findAndOpenByConv() {
+      const { data } = await supabase
+        .from("conversations")
+        .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))")
+        .eq("id", openByConvId!)
+        .limit(1)
+        .single();
+      if (data) void openConversation(data as Conversation);
+    }
+    void findAndOpenByConv();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openByConvId]);
 
   useEffect(() => {
     void supabase

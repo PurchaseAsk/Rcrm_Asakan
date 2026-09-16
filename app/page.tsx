@@ -133,6 +133,7 @@ export default function HomePage() {
   const [pendingVoucherLead, setPendingVoucherLead] = useState<import("@/types/crm").Lead | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatOpenLeadId, setChatOpenLeadId] = useState<string | null>(null);
+  const [chatOpenConvId, setChatOpenConvId] = useState<string | null>(null);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [lineUnreadCount, setLineUnreadCount] = useState(0);
   const [commentActiveCount, setCommentActiveCount] = useState(0);
@@ -766,6 +767,7 @@ export default function HomePage() {
                 } else if (entityType === "case") {
                   setActiveTab("cases");
                 } else if (entityType === "conversation") {
+                  setChatOpenConvId(entityId);
                   setActiveTab("inbox");
                 }
               }}
@@ -848,6 +850,7 @@ export default function HomePage() {
               userRole={profile?.role ?? "staff"}
               toast={showToast}
               openByLeadId={chatOpenLeadId}
+              openByConvId={chatOpenConvId}
               onLeadCreated={(leadId, pipelineId) => {
                 void loadCrmData(supabase).then((fresh) => {
                   const createdLead = fresh.leads.find((lead) => lead.id === leadId);
