@@ -819,19 +819,7 @@ export default function HomePage() {
           )}
           {activeTab === "reminders" && (
             <div className="space-y-4">
-              {myPendingTaskCount > 0 && (
-                <div
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 hover:bg-indigo-100"
-                  onClick={() => setActiveTab("tasks")}
-                >
-                  <ClipboardList size={18} className="shrink-0 text-indigo-600" />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-indigo-900">มีงานค้าง {myPendingTaskCount} อัน</p>
-                    <p className="text-xs text-indigo-600">คลิกเพื่อดูรายการงาน</p>
-                  </div>
-                </div>
-              )}
-              <RemindersTab userId={currentUserId} userRole={profile?.role ?? "staff"} onOpenLead={openLead} onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)} />
+              <RemindersTab userId={currentUserId} userRole={profile?.role ?? "staff"} onOpenLead={openLead} onNavigate={(tab) => setActiveTab(tab as import("@/types/app").TabId)} pendingTaskCount={myPendingTaskCount} />
             </div>
           )}
           {activeTab === "website" && canManage && (

@@ -27,11 +27,13 @@ export function RemindersTab({
   userRole,
   onOpenLead,
   onNavigate,
+  pendingTaskCount,
 }: {
   userId: string;
   userRole: Role;
   onOpenLead: (lead: Lead) => void;
   onNavigate?: (tab: string) => void;
+  pendingTaskCount?: number;
 }) {
   const canManageTeamReminders = userRole === "admin" || userRole === "team_lead";
   const [reminders, setReminders] = useState<ReminderWithLead[]>([]);
@@ -900,6 +902,20 @@ export function RemindersTab({
                                   <span className="text-xs text-amber-600">คูปอง</span>
                                 </div>
                               )}
+                            </div>
+                          )}
+
+                          {/* งานค้าง */}
+                          {(pendingTaskCount ?? 0) > 0 && (
+                            <div className="mt-3 border-t border-slate-100 pt-3">
+                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">งานค้าง</p>
+                              <button
+                                onClick={() => onNavigate?.("tasks")}
+                                className="flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-1.5 hover:bg-indigo-100 transition"
+                              >
+                                <span className="text-2xl font-bold text-indigo-600">{pendingTaskCount}</span>
+                                <span className="text-xs text-indigo-600">งาน</span>
+                              </button>
                             </div>
                           )}
                         </div>
