@@ -510,7 +510,7 @@ export async function loadCrmData(
   client: SupabaseClient,
   opts?: { role?: Role; userId?: string },
 ): Promise<AppData> {
-  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases, tasks] = await Promise.all([
+  const [leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases] = await Promise.all([
     fetchAllLeads(client),
     client.from("funnel_stages").select("*").order("position"),
     client
@@ -531,14 +531,21 @@ export async function loadCrmData(
     client.from("stage_rules").select("id, stage_id, questions"),
     client.from("unfollow_reasons").select("*").order("position"),
     client.from("cases").select("*, assigned:profiles!cases_assigned_to_fkey(id,email,full_name,role), creator:profiles!cases_created_by_fkey(id,email,full_name,role)").order("created_at", { ascending: false }),
-    client.from("tasks").select("*, assigner:profiles!tasks_assigned_by_fkey(id,full_name,email), assignee:profiles!tasks_assigned_to_fkey(id,full_name,email)").order("created_at", { ascending: false }),
   ]);
 
-  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases, tasks };
+  const queryResults = { leads, stages, pipelines, pages, teams, profiles, rules, recallRules, tags, lineOaAccounts, stageRules, unfollowReasons, cases };
   for (const [name, result] of Object.entries(queryResults)) {
     if (result.error) {
       throw new Error(`Load ${name} failed: ${result.error.message}`);
     }
+  }
+
+  const tasksResult = await client
+    .from("tasks")
+    .select("*, assigner:profiles!tasks_assigned_by_fkey(id,full_name,email), assignee:profiles!tasks_assigned_to_fkey(id,full_name,email)")
+    .order("created_at", { ascending: false });
+  if (tasksResult.error) {
+    console.warn("Load tasks failed (non-fatal):", tasksResult.error.message);
   }
 
   const rawTags = (tags.data || []) as Tag[];
@@ -565,7 +572,7 @@ export async function loadCrmData(
     stageRules: (stageRules.data || []) as StageRule[],
     unfollowReasons: (unfollowReasons.data || []) as import("@/types/crm").UnfollowReason[],
     cases: (cases.data || []) as Case[],
-    tasks: (tasks.data || []) as Task[],
+    tasks: (tasksResult.data || []) as Task[],
   };
 }
 
