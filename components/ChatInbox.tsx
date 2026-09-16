@@ -269,31 +269,55 @@ export function ChatInbox({
 
   useEffect(() => {
     void refreshConversations();
+
+    // Debounced catch-up: refreshes list + open conv messages, collapsed if called multiple times quickly
+    let catchUpTimer: ReturnType<typeof setTimeout> | null = null;
+    function scheduleCatchUp() {
+      if (catchUpTimer) return;
+      catchUpTimer = setTimeout(() => {
+        catchUpTimer = null;
+        void refreshConversations();
+        const openId = selectedConvIdRef.current;
+        if (openId) void refreshMessages(openId);
+      }, 300);
+    }
+
     const channel = supabase
       .channel("chat-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
-        const newMsg = payload.new as { conversation_id: string; direction: string; created_at: string };
+        const newMsg = payload.new as { conversation_id: string; direction: string; created_at: string; content?: string };
         const convId = newMsg.conversation_id;
         const id = selectedConvIdRef.current;
-        if (newMsg.direction === "inbound") {
-          playPing();
-        }
+        if (newMsg.direction === "inbound") playPing();
+
         if (id && convId === id) {
           await refreshMessages(id);
-          // Outbound echoes (including Auto-Reply images) are not a read action.
           if (newMsg.direction === "inbound") {
             const now = new Date().toISOString();
             void supabase.from("conversations").update({ last_read_at: now }).eq("id", id);
             setConversations((prev) => prev.map((c) => c.id === id ? { ...c, last_read_at: now } : c));
           }
         } else {
-          // Not the open conversation — update its position/unread in the list immediately
-          // without waiting for the conversations UPDATE trigger which can be delayed or missed
           setConversations((prev) => {
+            const exists = prev.some((c) => c.id === convId);
+            if (!exists) {
+              // New conversation not yet in list — fetch and add it
+              void supabase
+                .from("conversations")
+                .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))")
+                .eq("id", convId)
+                .single()
+                .then(({ data }) => {
+                  if (data) setConversations((p) => {
+                    if (p.some((c) => c.id === convId)) return p;
+                    return [data as Conversation, ...p];
+                  });
+                });
+              return prev;
+            }
+            // Existing conversation — update time and resort; trigger will fill in text later
             const updated = prev.map((c) =>
-              c.id === convId
-                ? { ...c, last_message_at: newMsg.created_at }
-                : c,
+              c.id === convId ? { ...c, last_message_at: newMsg.created_at } : c,
             );
             return updated.sort((a, b) => {
               if (a.is_pinned && !b.is_pinned) return -1;
@@ -337,14 +361,18 @@ export function ChatInbox({
           });
         });
       })
-      .subscribe();
+      .subscribe((status) => {
+        // Reconnected after network drop — catch up on missed events
+        if (status === "SUBSCRIBED") scheduleCatchUp();
+      });
 
     function onVisible() {
-      if (document.visibilityState === "visible") void refreshConversations();
+      if (document.visibilityState === "visible") scheduleCatchUp();
     }
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
+      if (catchUpTimer) clearTimeout(catchUpTimer);
       void supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);
     };
