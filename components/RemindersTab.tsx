@@ -976,7 +976,7 @@ export function RemindersTab({
                               )}
                             </div>
                             {/* ขวา: งานค้าง */}
-                            <div className="shrink-0 pl-4">
+                            <div className="flex-1 pl-4">
                               <p className="mb-1 text-[10px] font-medium text-slate-400">งานค้าง</p>
                               <button
                                 onClick={() => onNavigate?.("tasks")}

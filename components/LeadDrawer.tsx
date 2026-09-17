@@ -375,7 +375,7 @@ export function LeadDrawer({
                   ? void unpinLead(lead.id, reload, toast)
                   : void pinLead(lead.id, reload, toast)
               }
-              className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                 isPinned(lead)
                   ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
                   : "border-slate-200 text-slate-500 hover:bg-slate-50"
@@ -421,12 +421,16 @@ export function LeadDrawer({
             </button>
             <button
               onClick={() => setShowTaskModal(true)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-600 hover:bg-slate-50"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
               title="มอบหมายงาน"
             >
               <ClipboardList size={15} />
+              งานค้าง
             </button>
-            <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm col-span-1 sm:col-span-auto" onClick={onClose}>
+            <button
+              className="col-span-2 rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900 sm:col-span-auto sm:bg-slate-800"
+              onClick={onClose}
+            >
               Close
             </button>
           </div>
