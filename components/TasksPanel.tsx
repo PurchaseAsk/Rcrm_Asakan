@@ -219,24 +219,26 @@ export function TasksPanel({
                           )}
                         </div>
 
-                        <div className="flex shrink-0 flex-col gap-1.5">
-                          {task.entity_type && task.entity_id && completingId !== task.id && (
-                            <button
-                              onClick={() => onOpenEntity(task.entity_type!, task.entity_id!)}
-                              className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                            >
-                              เปิด{task.entity_type === "lead" ? "ลีด" : task.entity_type === "case" ? "เคส" : "แชท"}
-                            </button>
-                          )}
-                          {tab === "pending" && completingId !== task.id && (
-                            <button
-                              onClick={() => { setCompletingId(task.id); setCompletionNote(""); }}
-                              className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-                            >
-                              ทำเสร็จ ✓
-                            </button>
-                          )}
-                        </div>
+                        {completingId !== task.id && (
+                          <div className="flex shrink-0 items-center gap-2">
+                            {task.entity_type && task.entity_id && (
+                              <button
+                                onClick={() => onOpenEntity(task.entity_type!, task.entity_id!)}
+                                className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                              >
+                                เปิด{task.entity_type === "lead" ? "ลีด" : task.entity_type === "case" ? "เคส" : "แชท"}
+                              </button>
+                            )}
+                            {tab === "pending" && (
+                              <button
+                                onClick={() => { setCompletingId(task.id); setCompletionNote(""); }}
+                                className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                              >
+                                ทำเสร็จ ✓
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
