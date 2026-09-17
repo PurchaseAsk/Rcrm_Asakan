@@ -158,9 +158,9 @@ export function TasksPanel({
           <div className="divide-y divide-slate-100">
             {grouped.map((group) => (
               <div key={group.assigneeId}>
-                <div className="flex items-center gap-2 bg-slate-50 px-4 py-2">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">👤 {group.name}</span>
-                  <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-medium text-slate-600">{group.tasks.length}</span>
+                <div className="flex items-center gap-2 border-l-4 border-brand-500 bg-brand-50 px-4 py-2.5">
+                  <span className="text-sm font-semibold text-brand-800">👤 {group.name}</span>
+                  <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-xs font-bold text-brand-700">{group.tasks.length}</span>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {group.tasks.map((task) => (
