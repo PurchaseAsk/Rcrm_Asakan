@@ -181,6 +181,10 @@ export function TasksPanel({
                             </button>
                           )}
 
+                          {task.description && (
+                            <p className="text-xs text-slate-600">{task.description}</p>
+                          )}
+
                           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                             {fmtDate(task.due_at, tab === "pending")}
                             <span>มอบหมายโดย {profileName(task.assigner)}</span>
