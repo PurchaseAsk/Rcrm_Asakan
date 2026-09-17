@@ -43,6 +43,7 @@ type FbEntry = {
   messaging?: {
     sender: { id: string };
     recipient: { id: string };
+    timestamp?: number;
     message?: {
       mid: string;
       text?: string;
@@ -50,6 +51,7 @@ type FbEntry = {
       reply_to?: { mid?: string; is_self_reply?: boolean };
       attachments?: { type: string; payload: { url?: string } }[];
     };
+    postback?: { title?: string; payload?: string };
     referral?: FbReferral;
     read?: { watermark: number };
   }[];
@@ -232,6 +234,41 @@ export async function POST(request: NextRequest) {
         await supabase
           .from("conversations")
           .upsert(refPayload, { onConflict: "page_id,sender_psid" });
+        continue;
+      }
+
+      // ── Postback (Get Started / button click) ────────────────────────────────
+      if (!event.message && event.postback) {
+        const postbackTitle = event.postback.title ?? "เริ่มต้น";
+        const stableId = `postback-${senderPsid}-${event.timestamp ?? Date.now()}`;
+
+        const { data: pbConv } = await supabase
+          .from("conversations")
+          .upsert({ page_id: page.id, sender_psid: senderPsid }, { onConflict: "page_id,sender_psid" })
+          .select("id, sender_name, created_at, last_message_at")
+          .single();
+
+        if (!pbConv) continue;
+
+        let pbSenderName = pbConv.sender_name;
+        if (!pbSenderName && msgToken) {
+          pbSenderName = await enrichSenderName(supabase, pbConv.id, senderPsid, msgToken, fbPageId);
+        }
+
+        await supabase.from("messages").upsert(
+          { conversation_id: pbConv.id, direction: "inbound", content: postbackTitle, fb_message_id: stableId },
+          { onConflict: "fb_message_id", ignoreDuplicates: true },
+        );
+
+        const isNew = Date.now() - new Date(pbConv.created_at).getTime() < 15_000;
+        if (isNew) {
+          void sendTelegram(`💬 <b>แชทใหม่</b>\n👤 ${tg(pbSenderName || senderPsid)}\n📄 ${tg(page.name)}\n💬 ${tg(postbackTitle)}`);
+        }
+        void sendPushNotification(supabase, pbConv.id, pbSenderName ?? pbConv.sender_name, postbackTitle, null);
+
+        if (msgToken) {
+          await sendAutoReply(supabase, pbConv, page.id, senderPsid, msgToken, null, isNew);
+        }
         continue;
       }
 
