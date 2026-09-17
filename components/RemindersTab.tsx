@@ -21,6 +21,7 @@ type DashStats = {
 };
 
 type CouponPendingItem = { id: string; name: string; count: number };
+type CouponApprovalItem = { pipeline_id: string; pipeline: string; count: number };
 
 export function RemindersTab({
   userId,
@@ -50,6 +51,8 @@ export function RemindersTab({
   const [dashCollapsed, setDashCollapsed] = useState(false);
   const [couponPending, setCouponPending] = useState<CouponPendingItem[]>([]);
   const [couponPendingMine, setCouponPendingMine] = useState(0);
+  const [couponApprovalPending, setCouponApprovalPending] = useState<CouponApprovalItem[]>([]);
+  const [couponApprovalMine, setCouponApprovalMine] = useState(0);
   const [promptText, setPromptText] = useState("");
   const [promptLoading, setPromptLoading] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
@@ -206,6 +209,40 @@ export function RemindersTab({
         .ilike("note", "%🎟️%")
         .eq("is_done", false);
       setCouponPendingMine(count ?? 0);
+    }
+  }, [canManageTeamReminders, userId]);
+
+  const loadCouponApprovalPending = useCallback(async () => {
+    if (canManageTeamReminders) {
+      const [{ data: requested }, { data: approved }] = await Promise.all([
+        supabase.from("coupon_events").select("lead_id, pipeline_id").eq("event_type", "requested"),
+        supabase.from("coupon_events").select("lead_id").eq("event_type", "approved"),
+      ]);
+      if (!requested || requested.length === 0) { setCouponApprovalPending([]); return; }
+      const approvedSet = new Set((approved || []).map((a) => a.lead_id).filter(Boolean));
+      const counts: Record<string, number> = {};
+      for (const r of requested) {
+        if (r.lead_id && !approvedSet.has(r.lead_id) && r.pipeline_id)
+          counts[r.pipeline_id] = (counts[r.pipeline_id] || 0) + 1;
+      }
+      if (Object.keys(counts).length === 0) { setCouponApprovalPending([]); return; }
+      const { data: pipelineRows } = await supabase.from("pipelines").select("id, name").in("id", Object.keys(counts));
+      setCouponApprovalPending(
+        (pipelineRows || [])
+          .map((p) => ({ pipeline_id: p.id, pipeline: p.name ?? p.id, count: counts[p.id] || 0 }))
+          .filter((p) => p.count > 0)
+          .sort((a, b) => b.count - a.count),
+      );
+    } else {
+      const { data: myLeads } = await supabase.from("leads").select("id").eq("assigned_to", userId);
+      if (!myLeads || myLeads.length === 0) { setCouponApprovalMine(0); return; }
+      const ids = myLeads.map((l) => l.id);
+      const [{ data: req }, { data: app }] = await Promise.all([
+        supabase.from("coupon_events").select("lead_id").eq("event_type", "requested").in("lead_id", ids),
+        supabase.from("coupon_events").select("lead_id").eq("event_type", "approved").in("lead_id", ids),
+      ]);
+      const appSet = new Set((app || []).map((a) => a.lead_id).filter(Boolean));
+      setCouponApprovalMine((req || []).filter((r) => r.lead_id && !appSet.has(r.lead_id)).length);
     }
   }, [canManageTeamReminders, userId]);
 
@@ -588,15 +625,19 @@ export function RemindersTab({
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
   useEffect(() => {
     void loadCouponPending();
+    void loadCouponApprovalPending();
     const channel = supabase
       .channel("coupon-pending-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "lead_reminders" }, () => {
         void loadCouponPending();
         void load();
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "coupon_events" }, () => {
+        void loadCouponApprovalPending();
+      })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [loadCouponPending, load]);
+  }, [loadCouponPending, loadCouponApprovalPending, load]);
   useEffect(() => {
     if (!canManageTeamReminders) return;
     supabase.from("pipelines").select("id, name").eq("is_active", true).order("name")
@@ -792,7 +833,7 @@ export function RemindersTab({
           )}
           <button
             className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
-            onClick={() => { void load(); void loadTeamReminders(); void loadDashboard(); void loadCouponPending(); }}
+            onClick={() => { void load(); void loadTeamReminders(); void loadDashboard(); void loadCouponPending(); void loadCouponApprovalPending(); }}
           >
             <RefreshCcw size={14} />
             รีเฟรช
@@ -883,8 +924,8 @@ export function RemindersTab({
                             </div>
                           </div>
 
-                          {/* คูปองค้างส่ง + งานค้าง — แถวเดียวกัน */}
-                          {((canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) || (pendingTaskCount ?? 0) > 0) && (
+                          {/* คูปองค้างส่ง + คูปองรออนุมัติ + งานค้าง — แถวเดียวกัน */}
+                          {((canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) || (canManageTeamReminders ? couponApprovalPending.length > 0 : couponApprovalMine > 0) || (pendingTaskCount ?? 0) > 0) && (
                             <div className="mt-3 border-t border-slate-100 pt-3 flex divide-x divide-slate-100">
                               {(canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) && (
                                 <div className="flex-1 min-w-0 pr-6">
@@ -902,6 +943,27 @@ export function RemindersTab({
                                     <div className="flex items-baseline gap-1.5">
                                       <span className="text-2xl font-bold text-amber-600">{couponPendingMine}</span>
                                       <span className="text-xs text-amber-600">คูปอง</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {(canManageTeamReminders ? couponApprovalPending.length > 0 : couponApprovalMine > 0) && (
+                                <div className="flex-1 min-w-0 px-6">
+                                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">คูปองรออนุมัติ</p>
+                                  {canManageTeamReminders ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {couponApprovalPending.map(item => (
+                                        <div key={item.pipeline_id} className="flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1">
+                                          <span className="text-xs font-bold text-orange-800">{item.pipeline}</span>
+                                          <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-baseline gap-1.5">
+                                      <span className="text-2xl font-bold text-orange-600">{couponApprovalMine}</span>
+                                      <span className="text-xs text-orange-600">รออนุมัติ</span>
                                     </div>
                                   )}
                                 </div>
