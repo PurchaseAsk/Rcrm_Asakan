@@ -2,7 +2,6 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { sendTelegram, tg } from "@/lib/telegram";
 import webpush from "web-push";
-import { ensureAutoReplyImage } from "@/lib/auto-reply-image";
 
 function adminSupabase() {
   return createClient(
@@ -855,40 +854,43 @@ async function sendAutoReply(
     if ((count ?? 0) > 0) return;
 
     const apiBase = `https://graph.facebook.com/v20.0/me/messages?access_token=${encodeURIComponent(pageToken)}`;
+    const text = setting.greeting_text?.trim() || null;
+    const imageUrl = setting.image_url as string | null;
+    if (!text && !imageUrl) return;
 
-    let imageUrl = setting.image_url as string | null;
-    if (setting.greeting_text?.trim() && imageUrl) {
-      imageUrl = await ensureAutoReplyImage(supabase, {
-        page_id: pageId, greeting_text: setting.greeting_text, image_url: imageUrl, updated_at: setting.updated_at,
+    async function sendOne(message: object): Promise<string | null> {
+      const res = await fetch(apiBase, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipient: { id: senderPsid }, messaging_type: "RESPONSE", message }),
       });
+      if (!res.ok) { console.error("[sendAutoReply] send failed", await res.json().catch(() => ({}))); return null; }
+      const json = await res.json().catch(() => ({})) as { message_id?: string };
+      return json.message_id ?? null;
     }
-    if (!imageUrl && !setting.greeting_text?.trim()) return;
-    // Exactly one Send API call: the complete greeting and coupon share one image.
-    const message = imageUrl
-      ? { attachment: { type: "image", payload: { url: imageUrl } } }
-      : { text: setting.greeting_text };
-    const res = await fetch(apiBase, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recipient: { id: senderPsid }, messaging_type: "RESPONSE", message }),
-    });
-    if (!res.ok) {
-      console.error("[sendAutoReply] send failed", await res.json().catch(() => ({})));
-      return;
+
+    // Send text and image as separate messages so each is readable on its own
+    if (text) {
+      const msgId = await sendOne({ text });
+      if (msgId) {
+        const { error } = await supabase.from("messages").upsert({
+          conversation_id: conv.id, direction: "outbound",
+          content: text, attachment_url: null, attachment_type: null,
+          fb_message_id: msgId, is_auto_reply: true,
+        }, { onConflict: "fb_message_id" });
+        if (error) console.error("[sendAutoReply] text save failed", error.message);
+      }
     }
-    const json = await res.json().catch(() => ({})) as { message_id?: string };
-    if (json.message_id) {
-      const { error } = await supabase.from("messages").upsert({
-        conversation_id: conv.id,
-        direction: "outbound",
-        content: setting.greeting_text || null,
-        attachment_url: imageUrl,
-        attachment_type: imageUrl ? "image" : null,
-        fb_message_id: json.message_id,
-        is_auto_reply: true,
-      }, { onConflict: "fb_message_id" });
-      // Reconcile an echo that arrived first: it must still be classified as auto-reply.
-      if (error) console.error("[sendAutoReply] message save failed", error.message);
+    if (imageUrl) {
+      const msgId = await sendOne({ attachment: { type: "image", payload: { url: imageUrl } } });
+      if (msgId) {
+        const { error } = await supabase.from("messages").upsert({
+          conversation_id: conv.id, direction: "outbound",
+          content: null, attachment_url: imageUrl, attachment_type: "image",
+          fb_message_id: msgId, is_auto_reply: true,
+        }, { onConflict: "fb_message_id" });
+        if (error) console.error("[sendAutoReply] image save failed", error.message);
+      }
     }
 
     // Force direction back to "inbound" — FB echo may have arrived before our

@@ -117,6 +117,9 @@ export function ChatInbox({
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const enrichingConvIdsRef = useRef<Set<string>>(new Set());
   const enrichingBatchActiveRef = useRef(false);
+  // Refs so Realtime closure (runs once) can read latest filter state
+  const filterPageIdRef = useRef<string | null>(null);
+  const triggerTagRefreshRef = useRef<() => void>(() => {});
 
   type LeadDraft = { customer_name: string; phone: string; email: string; assigned_to: string; pipeline_id: string };
   type QuickReply = { id: string; title: string; content: string };
@@ -270,13 +273,14 @@ export function ChatInbox({
   useEffect(() => {
     void refreshConversations();
 
-    // Debounced catch-up: refreshes list + open conv messages, collapsed if called multiple times quickly
+    // Debounced catch-up: respects active page filter; refreshes tag filter and open conv messages
     let catchUpTimer: ReturnType<typeof setTimeout> | null = null;
     function scheduleCatchUp() {
       if (catchUpTimer) return;
       catchUpTimer = setTimeout(() => {
         catchUpTimer = null;
-        void refreshConversations();
+        void refreshConversations(filterPageIdRef.current);
+        triggerTagRefreshRef.current();
         const openId = selectedConvIdRef.current;
         if (openId) void refreshMessages(openId);
       }, 300);
@@ -285,7 +289,7 @@ export function ChatInbox({
     const channel = supabase
       .channel("chat-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
-        const newMsg = payload.new as { conversation_id: string; direction: string; created_at: string; content?: string };
+        const newMsg = payload.new as { conversation_id: string; direction: string; created_at: string; content: string; page_id?: string };
         const convId = newMsg.conversation_id;
         const id = selectedConvIdRef.current;
         if (newMsg.direction === "inbound") playPing();
@@ -296,29 +300,45 @@ export function ChatInbox({
             const now = new Date().toISOString();
             void supabase.from("conversations").update({ last_read_at: now }).eq("id", id);
             setConversations((prev) => prev.map((c) => c.id === id ? { ...c, last_read_at: now } : c));
+            triggerTagRefreshRef.current();
           }
         } else {
           setConversations((prev) => {
             const exists = prev.some((c) => c.id === convId);
             if (!exists) {
-              // New conversation not yet in list — fetch and add it
-              void supabase
-                .from("conversations")
-                .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))")
-                .eq("id", convId)
-                .single()
-                .then(({ data }) => {
-                  if (data) setConversations((p) => {
-                    if (p.some((c) => c.id === convId)) return p;
-                    return [data as Conversation, ...p];
-                  });
+              // New conversation — fetch with permission check via getAllowedPageIds()
+              void (async () => {
+                const allowedPageIds = await getAllowedPageIds();
+                const { data } = await supabase
+                  .from("conversations")
+                  .select("*, facebook_pages(id, name, page_id), leads(id, customer_name), conversation_tags(tag_id, tags(id, name, color))")
+                  .eq("id", convId)
+                  .single();
+                if (!data) return;
+                const conv = data as Conversation;
+                // Honour page filter and permission
+                const pageOk = allowedPageIds === null || allowedPageIds.includes(conv.page_id);
+                const filterOk = !filterPageIdRef.current || conv.page_id === filterPageIdRef.current;
+                if (!pageOk || !filterOk) return;
+                setConversations((p) => {
+                  if (p.some((c) => c.id === convId)) return p;
+                  return [conv, ...p];
                 });
+                triggerTagRefreshRef.current();
+              })();
               return prev;
             }
-            // Existing conversation — update time and resort; trigger will fill in text later
-            const updated = prev.map((c) =>
-              c.id === convId ? { ...c, last_message_at: newMsg.created_at } : c,
-            );
+            // Existing conversation — update from message payload directly (no trigger wait)
+            // Only update text/direction for inbound; outbound (incl. auto-reply) must not
+            // clear the unread indicator — let the conversations UPDATE trigger handle that.
+            const updated = prev.map((c) => {
+              if (c.id !== convId) return c;
+              return newMsg.direction === "inbound"
+                ? { ...c, last_message_at: newMsg.created_at, last_message_text: newMsg.content, last_message_direction: "inbound" as const }
+                : { ...c, last_message_at: newMsg.created_at };
+            });
+            // Tag filter may need refreshing (new message changes sort/preview inside filtered list)
+            setTimeout(() => triggerTagRefreshRef.current(), 0);
             return updated.sort((a, b) => {
               if (a.is_pinned && !b.is_pinned) return -1;
               if (!a.is_pinned && b.is_pinned) return 1;
@@ -328,7 +348,7 @@ export function ChatInbox({
         }
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "conversations" }, async () => {
-        await refreshConversations();
+        await refreshConversations(filterPageIdRef.current);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, (payload) => {
         const updated = payload.new as {
@@ -479,8 +499,8 @@ export function ChatInbox({
     });
   }
 
-  async function refreshConversations() {
-    await fetchConversationPage(0);
+  async function refreshConversations(pageIdFilter?: string | null) {
+    await fetchConversationPage(0, false, pageIdFilter ?? undefined);
     setLoading(false);
   }
 
@@ -517,9 +537,11 @@ export function ChatInbox({
       .from("messages")
       .select("*, profiles(id, full_name, email)")
       .eq("conversation_id", convId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(200);
-    setMessages((data || []) as Message[]);
+    // Guard: discard if user already switched to a different conversation
+    if (selectedConvIdRef.current !== convId) return;
+    setMessages(((data || []) as Message[]).reverse());
   }
 
   async function markRead(convId: string) {
@@ -595,7 +617,7 @@ export function ChatInbox({
         });
         if (res.ok) {
           const result = (await res.json()) as { name?: string | null; picture_url?: string | null };
-          if (result.name || result.picture_url) await refreshConversations();
+          if (result.name || result.picture_url) await refreshConversations(filterPageIdRef.current);
         }
       } catch { /* non-critical */ }
     }
@@ -984,8 +1006,15 @@ export function ChatInbox({
 
   const [filterPageId, setFilterPageId] = useState<string | null>(null);
   const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
+  const [tagFilterRevision, setTagFilterRevision] = useState(0);
   const [tagFilteredFromServer, setTagFilteredFromServer] = useState<Conversation[] | null>(null);
   const [tagFilterLoading, setTagFilterLoading] = useState(false);
+
+  // Keep refs in sync so the Realtime closure can read current values
+  filterPageIdRef.current = filterPageId;
+  triggerTagRefreshRef.current = () => {
+    if (filterTagIds.size > 0) setTagFilterRevision((r) => r + 1);
+  };
 
 
   // Tag filter is resolved server-side when active; fall back to client-side only while loading.
@@ -1069,7 +1098,7 @@ export function ChatInbox({
     }
     void fetchTagFiltered();
     return () => { cancelled = true; };
-  }, [filterTagIds, filterPageId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filterTagIds, filterPageId, tagFilterRevision]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (enrichingBatchActiveRef.current) return;
     const targets = visibleConvs
@@ -1100,7 +1129,7 @@ export function ChatInbox({
     ).then((updated) => {
       setTimeout(() => {
         enrichingBatchActiveRef.current = false;
-        if (updated.some(Boolean)) void refreshConversations();
+        if (updated.some(Boolean)) void refreshConversations(filterPageIdRef.current);
       }, 3000);
     });
   }, [visibleConvs]); // eslint-disable-line react-hooks/exhaustive-deps
