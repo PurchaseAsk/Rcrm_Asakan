@@ -358,7 +358,7 @@ export function LeadDrawer({
 
   return (
     <div className="fixed inset-0 z-40 bg-slate-950/30" onClick={onClose}>
-      <aside className="ml-auto flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <aside className="ml-auto flex h-full w-full max-w-5xl flex-col bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
 
         {/* ── Header ────────────────────────────────────────── */}
         <div className="border-b border-slate-200 p-4">
@@ -413,7 +413,7 @@ export function LeadDrawer({
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
 
           {/* ── Left: customer info + actions + tags ─────────── */}
-          <div className="flex w-full shrink-0 flex-col gap-4 border-b border-slate-100 p-4 lg:w-2/5 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:scrollbar-thin">
+          <div className="flex w-full shrink-0 flex-col gap-4 border-b border-slate-100 p-4 lg:w-[340px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:scrollbar-thin">
 
             {/* Action buttons — desktop only (mobile has them in header) */}
             <div className="hidden flex-wrap gap-2 lg:flex">
