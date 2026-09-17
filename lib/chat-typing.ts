@@ -1,16 +1,24 @@
 export type TypingPresence = { typing: boolean; conversationId: string | null; name: string };
 export type Typer = { userId: string; name: string };
 
-export function collectTypers(state: Record<string, TypingPresence[]>, userId: string) {
+const TYPING_EXPIRE_MS = 8_000;
+
+// lastSeen: receiver-side map of userId → timestamp of last sync that included active typing.
+// Using receiver's own clock eliminates clock-skew between sender and receiver.
+export function collectTypers(
+  state: Record<string, TypingPresence[]>,
+  userId: string,
+  lastSeen: Map<string, number>,
+) {
+  const now = Date.now();
   const result = new Map<string, Typer[]>();
   for (const [id, presences] of Object.entries(state)) {
     if (id === userId) continue;
+    if (now - (lastSeen.get(id) ?? 0) > TYPING_EXPIRE_MS) continue;
     for (const presence of presences) {
       if (!presence.typing || !presence.conversationId) continue;
       const typers = result.get(presence.conversationId) ?? [];
-      if (!typers.some((typer) => typer.userId === id)) {
-        typers.push({ userId: id, name: presence.name });
-      }
+      if (!typers.some((t) => t.userId === id)) typers.push({ userId: id, name: presence.name });
       result.set(presence.conversationId, typers);
     }
   }
@@ -22,7 +30,6 @@ type PresenceChannel = {
   untrack: () => Promise<string>;
 };
 
-// One publisher per Inbox, shared by its main and floating composers.
 export function createTypingController(channel: PresenceChannel) {
   let desired: TypingPresence | null = null;
   let published: TypingPresence | null | undefined;
@@ -32,6 +39,7 @@ export function createTypingController(channel: PresenceChannel) {
   let generation = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
 
   async function flush() {
     if (!ready || disposed || pending || desired === published) return;
@@ -49,8 +57,6 @@ export function createTypingController(channel: PresenceChannel) {
     } finally {
       pending = false;
     }
-    // Serialize updates so a slow start cannot overtake a stop or room change.
-    // Failed starts retry on input/reconnect. Failed stops also retry while idle.
     if (succeeded || desired !== target || connection !== generation) void flush();
     else if (!target && ready && !disposed) retryTimer = setTimeout(() => void flush(), 1000);
   }
@@ -58,7 +64,9 @@ export function createTypingController(channel: PresenceChannel) {
   function stop(conversationId?: string) {
     if (disposed || (conversationId && desired?.conversationId !== conversationId)) return;
     clearTimeout(timer);
+    clearInterval(heartbeat);
     timer = undefined;
+    heartbeat = undefined;
     desired = null;
     void flush();
   }
@@ -66,12 +74,23 @@ export function createTypingController(channel: PresenceChannel) {
   return {
     start(conversationId: string, name: string) {
       if (disposed || !conversationId) return;
+      // Only create new desired (and trigger flush) when conversation or name changes.
+      // Repeated keystrokes on the same conversation skip flush — desired === published guard handles it.
       if (desired?.conversationId !== conversationId || desired.name !== name) {
         desired = { typing: true, conversationId, name };
+        void flush();
       }
       clearTimeout(timer);
       timer = setTimeout(() => stop(), 3000);
-      void flush();
+      // Heartbeat: force re-track every 5s so receiver's lastSeen stays fresh even with no keystrokes.
+      if (!heartbeat) {
+        heartbeat = setInterval(() => {
+          if (desired?.typing && ready && !disposed) {
+            published = undefined; // force re-track with same payload to refresh receiver lastSeen
+            void flush();
+          }
+        }, 5_000);
+      }
     },
     stop,
     setReady(value: boolean) {
@@ -88,7 +107,8 @@ export function createTypingController(channel: PresenceChannel) {
       desired = null;
       clearTimeout(timer);
       clearTimeout(retryTimer);
-      // The owner removes this exact channel, which removes its presence too.
+      clearInterval(heartbeat);
+      heartbeat = undefined;
     },
   };
 }

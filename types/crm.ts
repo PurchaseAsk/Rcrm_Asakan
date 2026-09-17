@@ -340,6 +340,7 @@ export interface Task {
   started_at?: string | null;
   completed_at?: string | null;
   completion_note?: string | null;
+  archived_at?: string | null;
   assigner?: { id: string; full_name: string | null; email: string } | null;
   assignee?: { id: string; full_name: string | null; email: string } | null;
 }

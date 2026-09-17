@@ -145,6 +145,7 @@ export function ChatInbox({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [typersInConv, setTypersInConv] = useState<Map<string, Typer[]>>(new Map());
   const typingRef = useRef<ReturnType<typeof createTypingController> | null>(null);
+  const typerLastSeenRef = useRef<Map<string, number>>(new Map());
   const myName = profiles.find((p) => p.id === userId)?.full_name ?? "Sales";
   type PendingMedia = { file: File; url?: never; previewUrl: string } | { url: string; file?: never; previewUrl: string };
   const [pendingImages, setPendingImages] = useState<PendingMedia[]>([]);
@@ -414,14 +415,27 @@ export function ChatInbox({
     const controller = createTypingController(ch);
     typingRef.current = controller;
     let disposed = false;
+    typerLastSeenRef.current = new Map();
     setTypersInConv(new Map());
     ch.on("presence", { event: "sync" }, () => {
-      if (!disposed) setTypersInConv(collectTypers(ch.presenceState<TypingPresence>(), userId));
+      if (disposed) return;
+      const now = Date.now();
+      const state = ch.presenceState<TypingPresence>();
+      // Record receiver-side timestamp for any user actively typing — no clock skew
+      for (const [id, presences] of Object.entries(state)) {
+        if (id === userId) continue;
+        if (presences.some((p) => p.typing && p.conversationId)) typerLastSeenRef.current.set(id, now);
+      }
+      setTypersInConv(collectTypers(state, userId, typerLastSeenRef.current));
     }).subscribe((status) => {
       if (disposed) return;
       controller.setReady(status === "SUBSCRIBED");
-      if (status !== "SUBSCRIBED") setTypersInConv(new Map());
+      if (status !== "SUBSCRIBED") { typerLastSeenRef.current = new Map(); setTypersInConv(new Map()); }
     });
+    // Expiry tick: re-evaluate using receiver's lastSeen — no network call
+    const expiryTick = setInterval(() => {
+      if (!disposed) setTypersInConv(collectTypers(ch.presenceState<TypingPresence>(), userId, typerLastSeenRef.current));
+    }, 2_000);
     const stop = () => controller.stop();
     const onVisibilityChange = () => {
       if (document.hidden) stop();
@@ -430,6 +444,7 @@ export function ChatInbox({
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       disposed = true;
+      clearInterval(expiryTick);
       controller.dispose();
       if (typingRef.current === controller) typingRef.current = null;
       window.removeEventListener("blur", stop);
