@@ -358,95 +358,100 @@ export function LeadDrawer({
 
   return (
     <div className="fixed inset-0 z-40 bg-slate-950/30" onClick={onClose}>
-      <aside className="ml-auto flex h-full w-full max-w-3xl flex-col bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <aside className="ml-auto flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+
+        {/* ── Header: name + meta + close ───────────────────── */}
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-slate-950">{lead.customer_name}</h2>
-            <p className="text-sm text-slate-500">
-              {lead.page?.name || "No page"} · อายุ {leadAge(lead.created_at)} · {recallCountdownText(lead, stages)}
+            <p className="text-xs text-slate-500">
+              {lead.page?.name || "No page"} · อายุ {leadAge(lead.created_at)} · Last activity {new Date(lead.last_activity_at ?? lead.created_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-            {/* Pin button */}
-            <button
-              title={isPinned(lead) ? `Pin หมดอายุใน ${pinDaysLeft(lead)} วัน — คลิกเพื่อ unpin` : "Pin lead 3 วัน (กัน recall)"}
-              onClick={() =>
-                isPinned(lead)
-                  ? void unpinLead(lead.id, reload, toast)
-                  : void pinLead(lead.id, reload, toast)
-              }
-              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                isPinned(lead)
-                  ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                  : "border-slate-200 text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              <MapPin size={14} />
-              {isPinned(lead) ? `${pinDaysLeft(lead)} วัน` : "Pin"}
-            </button>
-            {/* Unfollow / Reactivate button */}
-            {lead.status === "unfollowed" ? (
-              <button
-                disabled={busy}
-                onClick={() => void reactivateLead()}
-                className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-              >
-                เปิดอีกครั้ง
-              </button>
-            ) : (
-              <button
-                disabled={busy}
-                onClick={() => setShowUnfollowModal(true)}
-                className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-              >
-                เลิกติดตาม
-              </button>
-            )}
-            <button
-              className={
-                editingInfo
-                  ? "rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-                  : "rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              }
-              disabled={busy}
-              onClick={() => {
-                if (editingInfo) {
-                  void saveLeadInfo();
-                  return;
-                }
-                setEditingInfo(true);
-              }}
-            >
-              {editingInfo ? "Save" : "Edit"}
-            </button>
-            <button
-              onClick={() => setShowTaskModal(true)}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-              title="มอบหมายงาน"
-            >
-              <ClipboardList size={15} />
-              งานค้าง
-            </button>
-            <button
-              className="col-span-2 rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900 sm:col-span-auto sm:bg-slate-800"
-              onClick={onClose}
-            >
-              Close
-            </button>
-          </div>
+          <button
+            className="ml-4 shrink-0 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
+            onClick={onClose}
+          >
+            Close
+          </button>
         </div>
 
-        <div className="flex-1 space-y-5 overflow-y-auto p-4 scrollbar-thin">
-          <section className="space-y-3">
-            {/* Row 1: Name + Phone */}
-            <div className="grid gap-3 md:grid-cols-2">
+        {/* ── Body: 2-column layout ─────────────────────────── */}
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+
+          {/* ── Left: customer info + actions + tags ─────────── */}
+          <div className="flex w-full shrink-0 flex-col gap-4 overflow-y-auto border-b border-slate-100 p-4 scrollbar-thin lg:w-2/5 lg:border-b-0 lg:border-r">
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                title={isPinned(lead) ? `Pin หมดอายุใน ${pinDaysLeft(lead)} วัน — คลิกเพื่อ unpin` : "Pin lead 3 วัน (กัน recall)"}
+                onClick={() =>
+                  isPinned(lead)
+                    ? void unpinLead(lead.id, reload, toast)
+                    : void pinLead(lead.id, reload, toast)
+                }
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  isPinned(lead)
+                    ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                }`}
+              >
+                <MapPin size={14} />
+                {isPinned(lead) ? `${pinDaysLeft(lead)} วัน` : "Pin"}
+              </button>
+
+              {lead.status === "unfollowed" ? (
+                <button
+                  disabled={busy}
+                  onClick={() => void reactivateLead()}
+                  className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                >
+                  เปิดอีกครั้ง
+                </button>
+              ) : (
+                <button
+                  disabled={busy}
+                  onClick={() => setShowUnfollowModal(true)}
+                  className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                >
+                  เลิกติดตาม
+                </button>
+              )}
+
+              <button
+                className={
+                  editingInfo
+                    ? "rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    : "rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                }
+                disabled={busy}
+                onClick={() => {
+                  if (editingInfo) { void saveLeadInfo(); return; }
+                  setEditingInfo(true);
+                }}
+              >
+                {editingInfo ? "Save" : "Edit"}
+              </button>
+
+              <button
+                onClick={() => setShowTaskModal(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                <ClipboardList size={14} />
+                งานค้าง
+              </button>
+            </div>
+
+            {/* Customer fields */}
+            <section className="space-y-3">
               <Field
                 label="Customer name"
                 value={form.customer_name}
                 onChange={(value) => setForm({ ...form, customer_name: value })}
                 disabled={!editingInfo}
               />
-              <div className="block">
+              <div>
                 <span className="text-xs font-medium text-slate-600">Phone</span>
                 <div className="mt-1 flex items-center gap-2">
                   <input
@@ -470,9 +475,6 @@ export function LeadDrawer({
                   )}
                 </div>
               </div>
-            </div>
-            {/* Row 2: Email + Pipeline + Assignee */}
-            <div className="grid gap-3 md:grid-cols-3">
               <Field
                 label="Email"
                 value={form.email}
@@ -501,283 +503,278 @@ export function LeadDrawer({
                 emptyLabel="Pool"
                 disabled={!editingInfo || !canChangeAssignee}
               />
-            </div>
-            {/* Row 3: Stage + Move stage button */}
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <Select
-                  label="Stage"
-                  value={form.stage_id}
-                  onChange={(value) => setForm({ ...form, stage_id: value })}
-                  options={stages.map((stage) => ({ value: stage.id, label: stage.name }))}
-                  allowEmpty
-                />
-              </div>
-              <div className="flex items-end">
-                <button
-                  className="h-10 rounded-lg bg-brand-700 px-5 text-sm font-medium text-white disabled:opacity-50"
-                  disabled={busy}
-                  onClick={moveLeadStage}
-                >
-                  {busy ? "Moving..." : "Move stage"}
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {(lead.source === "facebook" || lead.metadata?.campaign_name || lead.metadata?.ad_name || lead.metadata?.adset_name) && (
-            <section className="rounded-lg border border-blue-100 bg-blue-50 p-3">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600">ข้อมูลโฆษณา</h3>
-              <dl className="space-y-1 text-sm">
-                {lead.facebook_conversions > 1 && (
-                  <div className="flex gap-2">
-                    <dt className="w-24 shrink-0 text-slate-400">Conversions</dt>
-                    <dd className="font-medium text-blue-700">
-                      {lead.facebook_conversions} ครั้ง
-                      <span className="ml-1 text-xs text-slate-400">(ส่งฟอร์มซ้ำ)</span>
-                    </dd>
-                  </div>
-                )}
-                {lead.metadata?.campaign_name && (
-                  <div className="flex gap-2">
-                    <dt className="w-24 shrink-0 text-slate-400">Campaign</dt>
-                    <dd className="font-medium text-slate-800">{lead.metadata.campaign_name}</dd>
-                  </div>
-                )}
-                {lead.metadata?.adset_name && (
-                  <div className="flex gap-2">
-                    <dt className="w-24 shrink-0 text-slate-400">Ad Set</dt>
-                    <dd className="font-medium text-slate-800">{lead.metadata.adset_name}</dd>
-                  </div>
-                )}
-                {lead.metadata?.ad_name && (
-                  <div className="flex gap-2">
-                    <dt className="w-24 shrink-0 text-slate-400">Ad</dt>
-                    <dd className="font-medium text-slate-800">{lead.metadata.ad_name}</dd>
-                  </div>
-                )}
-              </dl>
-            </section>
-          )}
-
-          <section>
-            <h3 className="mb-2 font-semibold text-slate-950">Tags</h3>
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag) => {
-                const active = Boolean(lead.lead_tags?.some((item) => item.tag_id === tag.id));
-                return (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Select
+                    label="Stage"
+                    value={form.stage_id}
+                    onChange={(value) => setForm({ ...form, stage_id: value })}
+                    options={stages.map((stage) => ({ value: stage.id, label: stage.name }))}
+                    allowEmpty
+                  />
+                </div>
+                <div className="flex items-end">
                   <button
-                    key={tag.id}
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${active ? "text-white" : "border border-slate-200 text-slate-700"}`}
-                    style={{ backgroundColor: active ? tag.color : "white" }}
-                    onClick={() => toggleLeadTag(lead.id, tag.id, active, reload, toast)}
+                    className="h-10 rounded-lg bg-brand-700 px-4 text-sm font-medium text-white disabled:opacity-50"
+                    disabled={busy}
+                    onClick={moveLeadStage}
                   >
-                    {tag.name}
+                    {busy ? "…" : "Move"}
                   </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section>
-            <h3 className="mb-2 font-semibold text-slate-950">Notes</h3>
-            <div className="flex gap-2">
-              <input
-                className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="Add note"
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void addNote(); } }}
-              />
-              <input
-                ref={noteImageInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => setNoteImage(e.target.files?.[0] ?? null)}
-              />
-              <button
-                type="button"
-                title="แนบรูป"
-                className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
-                disabled={busy}
-                onClick={() => noteImageInputRef.current?.click()}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </button>
-              <button
-                className="rounded-lg bg-brand-700 px-3 text-sm font-medium text-white disabled:opacity-50"
-                disabled={busy || (!note.trim() && !noteImage)}
-                onClick={addNote}
-              >
-                Add
-              </button>
-            </div>
-            {noteImage && (
-              <div className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={URL.createObjectURL(noteImage)} alt="" className="h-12 w-12 rounded object-cover" />
-                <span className="flex-1 truncate text-xs text-slate-600">{noteImage.name}</span>
-                <button className="text-xs text-red-500 hover:underline" onClick={() => { setNoteImage(null); if (noteImageInputRef.current) noteImageInputRef.current.value = ""; }}>ลบ</button>
+                </div>
               </div>
-            )}
-          </section>
+            </section>
 
-          <section>
-            <h3 className="mb-2 font-semibold text-slate-950">Reminders</h3>
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {[
-                  { label: "วันนี้", offset: 0 },
-                  { label: "พรุ่งนี้", offset: 1 },
-                ].map(({ label, offset }) => {
-                  const d = new Date();
-                  d.setDate(d.getDate() + offset);
-                  const val = d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+            {/* Tags */}
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Tags</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((tag) => {
+                  const active = Boolean(lead.lead_tags?.some((item) => item.tag_id === tag.id));
                   return (
                     <button
-                      key={label}
-                      type="button"
-                      onClick={() => setReminder({ ...reminder, date: val })}
-                      className={`h-8 rounded-lg border px-2.5 text-xs font-medium transition ${
-                        reminder.date === val
-                          ? "border-brand-600 bg-brand-600 text-white"
-                          : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
-                      }`}
+                      key={tag.id}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${active ? "text-white" : "border border-slate-200 text-slate-700"}`}
+                      style={{ backgroundColor: active ? tag.color : "white" }}
+                      onClick={() => toggleLeadTag(lead.id, tag.id, active, reload, toast)}
                     >
-                      {label}
+                      {tag.name}
                     </button>
                   );
                 })}
-                <input
-                  className="h-8 w-36 rounded-lg border border-slate-200 px-2 text-sm"
-                  type="date"
-                  value={reminder.date}
-                  onChange={(e) => setReminder({ ...reminder, date: e.target.value })}
-                />
-                <select
-                  className="h-8 rounded-lg border border-slate-200 px-2 text-sm"
-                  value={reminder.time}
-                  onChange={(e) => setReminder({ ...reminder, time: e.target.value })}
-                >
-                  {Array.from({ length: 32 }, (_, i) => {
-                    const h = Math.floor(i / 2) + 7;
-                    const m = i % 2 === 0 ? "00" : "30";
-                    const val = `${String(h).padStart(2, "0")}:${m}`;
-                    return <option key={val} value={val}>{val}</option>;
-                  })}
-                </select>
               </div>
+            </section>
+          </div>
+
+          {/* ── Right: ad info + notes + reminders + activity ── */}
+          <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 scrollbar-thin">
+
+            {/* Ad info */}
+            {(lead.source === "facebook" || lead.metadata?.campaign_name || lead.metadata?.ad_name || lead.metadata?.adset_name) && (
+              <section className="rounded-lg border border-blue-100 bg-blue-50 p-3">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600">ข้อมูลโฆษณา</h3>
+                <dl className="space-y-1 text-sm">
+                  {lead.facebook_conversions > 1 && (
+                    <div className="flex gap-2">
+                      <dt className="w-24 shrink-0 text-slate-400">Conversions</dt>
+                      <dd className="font-medium text-blue-700">
+                        {lead.facebook_conversions} ครั้ง
+                        <span className="ml-1 text-xs text-slate-400">(ส่งฟอร์มซ้ำ)</span>
+                      </dd>
+                    </div>
+                  )}
+                  {lead.metadata?.campaign_name && (
+                    <div className="flex gap-2">
+                      <dt className="w-24 shrink-0 text-slate-400">Campaign</dt>
+                      <dd className="font-medium text-slate-800">{lead.metadata.campaign_name}</dd>
+                    </div>
+                  )}
+                  {lead.metadata?.adset_name && (
+                    <div className="flex gap-2">
+                      <dt className="w-24 shrink-0 text-slate-400">Ad Set</dt>
+                      <dd className="font-medium text-slate-800">{lead.metadata.adset_name}</dd>
+                    </div>
+                  )}
+                  {lead.metadata?.ad_name && (
+                    <div className="flex gap-2">
+                      <dt className="w-24 shrink-0 text-slate-400">Ad</dt>
+                      <dd className="font-medium text-slate-800">{lead.metadata.ad_name}</dd>
+                    </div>
+                  )}
+                </dl>
+              </section>
+            )}
+
+            {/* Notes */}
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Notes</h3>
               <div className="flex gap-2">
                 <input
                   className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
-                  value={reminder.note}
-                  onChange={(event) => setReminder({ ...reminder, note: event.target.value })}
-                  placeholder="Reminder note"
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Add note"
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void addNote(); } }}
+                />
+                <input
+                  ref={noteImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => setNoteImage(e.target.files?.[0] ?? null)}
                 />
                 <button
-                  className="rounded-lg bg-brand-700 px-4 text-sm font-medium text-white disabled:opacity-50"
+                  type="button"
+                  title="แนบรูป"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
                   disabled={busy}
-                  onClick={saveReminder}
+                  onClick={() => noteImageInputRef.current?.click()}
                 >
-                  Save
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </button>
+                <button
+                  className="rounded-lg bg-brand-700 px-3 text-sm font-medium text-white disabled:opacity-50"
+                  disabled={busy || (!note.trim() && !noteImage)}
+                  onClick={addNote}
+                >
+                  Add
                 </button>
               </div>
-            </div>
-            <div className="mt-2 space-y-2">
-              {detail.reminders.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm"
-                >
-                  <span>
-                    {new Date(item.remind_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })} · {item.note || "Reminder"}
-                  </span>
-                  <button
-                    className="text-rose-600"
-                    onClick={() => deleteRow("lead_reminders", item.id, reload, toast)}
+              {noteImage && (
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={URL.createObjectURL(noteImage)} alt="" className="h-12 w-12 rounded object-cover" />
+                  <span className="flex-1 truncate text-xs text-slate-600">{noteImage.name}</span>
+                  <button className="text-xs text-red-500 hover:underline" onClick={() => { setNoteImage(null); if (noteImageInputRef.current) noteImageInputRef.current.value = ""; }}>ลบ</button>
+                </div>
+              )}
+            </section>
+
+            {/* Reminders */}
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Reminders</h3>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[{ label: "วันนี้", offset: 0 }, { label: "พรุ่งนี้", offset: 1 }].map(({ label, offset }) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + offset);
+                    const val = d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setReminder({ ...reminder, date: val })}
+                        className={`h-8 rounded-lg border px-2.5 text-xs font-medium transition ${
+                          reminder.date === val
+                            ? "border-brand-600 bg-brand-600 text-white"
+                            : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                  <input
+                    className="h-8 w-32 rounded-lg border border-slate-200 px-2 text-sm"
+                    type="date"
+                    value={reminder.date}
+                    onChange={(e) => setReminder({ ...reminder, date: e.target.value })}
+                  />
+                  <select
+                    className="h-8 rounded-lg border border-slate-200 px-2 text-sm"
+                    value={reminder.time}
+                    onChange={(e) => setReminder({ ...reminder, time: e.target.value })}
                   >
-                    Delete
+                    {Array.from({ length: 32 }, (_, i) => {
+                      const h = Math.floor(i / 2) + 7;
+                      const m = i % 2 === 0 ? "00" : "30";
+                      const val = `${String(h).padStart(2, "0")}:${m}`;
+                      return <option key={val} value={val}>{val}</option>;
+                    })}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
+                    value={reminder.note}
+                    onChange={(event) => setReminder({ ...reminder, note: event.target.value })}
+                    placeholder="Reminder note"
+                  />
+                  <button
+                    className="rounded-lg bg-brand-700 px-4 text-sm font-medium text-white disabled:opacity-50"
+                    disabled={busy}
+                    onClick={saveReminder}
+                  >
+                    Save
                   </button>
                 </div>
-              ))}
-            </div>
-          </section>
+              </div>
+              <div className="mt-2 space-y-2">
+                {detail.reminders.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
+                    <span>{new Date(item.remind_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })} · {item.note || "Reminder"}</span>
+                    <button className="text-rose-600 text-xs" onClick={() => deleteRow("lead_reminders", item.id, reload, toast)}>Delete</button>
+                  </div>
+                ))}
+              </div>
+            </section>
 
-          <section>
-            <h3 className="mb-2 font-semibold text-slate-950">Activity</h3>
-            <div className="space-y-2">
-              {detail.activities.map((activity) => {
-                let imgSnapshot: { url: string } | null = null;
-                let snapshot: ChatSnapshot | null = null;
-                if (activity.content?.startsWith('{"__img_snapshot":')) {
-                  try { imgSnapshot = JSON.parse(activity.content) as { url: string }; } catch { /* not JSON */ }
-                } else if (activity.content?.startsWith('{"__chat_snapshot":')) {
-                  try { snapshot = JSON.parse(activity.content) as ChatSnapshot; } catch { /* not JSON */ }
-                }
-                const isCrm = !activity.created_by;
-                return (
-                  <div key={activity.id} className={`rounded-md border p-3 ${isCrm ? "border-yellow-200 bg-yellow-50" : "border-slate-200"}`}>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <MessageSquareText size={14} />
-                      {actorName(activity.created_by, profiles)} · {activity.type} ·{" "}
-                      {new Date(activity.created_at).toLocaleString("th-TH")}
-                    </div>
-                    {imgSnapshot ? (
-                      <a href={imgSnapshot.url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={imgSnapshot.url} alt="chat snapshot" className="w-full rounded-lg border border-slate-200" />
-                      </a>
-                    ) : snapshot ? (
-                      <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                        <div className="border-b border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
-                          💬 บทสนทนาล่าสุด · {snapshot.sender_name}
-                        </div>
-                        <div className="space-y-1.5 p-2">
-                          {snapshot.messages.map((m, i) => (
-                            <div key={i} className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}>
-                              <div className={`max-w-[80%] rounded-xl px-2.5 py-1.5 text-xs ${m.direction === "outbound" ? "bg-blue-600 text-white" : "bg-white text-slate-800 shadow-sm ring-1 ring-slate-200"}`}>
-                                {m.direction === "inbound" && (
-                                  <div className="mb-0.5 font-medium opacity-60">{m.sender}</div>
-                                )}
-                                {m.attachment_type === "image" && m.attachment_url ? (
-                                  <a href={m.attachment_url} target="_blank" rel="noopener noreferrer">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={m.attachment_url} alt="" className="max-w-[160px] rounded-lg" />
-                                  </a>
-                                ) : (
-                                  <p className="whitespace-pre-wrap">{m.content}</p>
-                                )}
-                                <div className={`mt-0.5 text-right text-[10px] ${m.direction === "outbound" ? "text-blue-200" : "text-slate-400"}`}>
-                                  {m.direction === "outbound" && <span className="mr-1">{m.sender}</span>}
-                                  {m.time}
+            {/* Activity */}
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Activity</h3>
+              <div className="space-y-2">
+                {detail.activities.map((activity) => {
+                  let imgSnapshot: { url: string } | null = null;
+                  let snapshot: ChatSnapshot | null = null;
+                  if (activity.content?.startsWith('{"__img_snapshot":')) {
+                    try { imgSnapshot = JSON.parse(activity.content) as { url: string }; } catch { /* not JSON */ }
+                  } else if (activity.content?.startsWith('{"__chat_snapshot":')) {
+                    try { snapshot = JSON.parse(activity.content) as ChatSnapshot; } catch { /* not JSON */ }
+                  }
+                  const isCrm = !activity.created_by;
+                  return (
+                    <div key={activity.id} className={`rounded-md border p-3 ${isCrm ? "border-yellow-200 bg-yellow-50" : "border-slate-200"}`}>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <MessageSquareText size={14} />
+                        {actorName(activity.created_by, profiles)} · {activity.type} ·{" "}
+                        {new Date(activity.created_at).toLocaleString("th-TH")}
+                      </div>
+                      {imgSnapshot ? (
+                        <a href={imgSnapshot.url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={imgSnapshot.url} alt="chat snapshot" className="w-full rounded-lg border border-slate-200" />
+                        </a>
+                      ) : snapshot ? (
+                        <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                          <div className="border-b border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
+                            💬 บทสนทนาล่าสุด · {snapshot.sender_name}
+                          </div>
+                          <div className="space-y-1.5 p-2">
+                            {snapshot.messages.map((m, i) => (
+                              <div key={i} className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}>
+                                <div className={`max-w-[80%] rounded-xl px-2.5 py-1.5 text-xs ${m.direction === "outbound" ? "bg-blue-600 text-white" : "bg-white text-slate-800 shadow-sm ring-1 ring-slate-200"}`}>
+                                  {m.direction === "inbound" && (
+                                    <div className="mb-0.5 font-medium opacity-60">{m.sender}</div>
+                                  )}
+                                  {m.attachment_type === "image" && m.attachment_url ? (
+                                    <a href={m.attachment_url} target="_blank" rel="noopener noreferrer">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={m.attachment_url} alt="" className="max-w-[160px] rounded-lg" />
+                                    </a>
+                                  ) : (
+                                    <p className="whitespace-pre-wrap">{m.content}</p>
+                                  )}
+                                  <div className={`mt-0.5 text-right text-[10px] ${m.direction === "outbound" ? "text-blue-200" : "text-slate-400"}`}>
+                                    {m.direction === "outbound" && <span className="mr-1">{m.sender}</span>}
+                                    {m.time}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <>
-                        {activity.content && (
-                          <div className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{activity.content}</div>
-                        )}
-                        {activity.attachment_url && (
-                          <a href={activity.attachment_url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={activity.attachment_url} alt="attachment" className="max-h-60 rounded-lg border border-slate-200 object-contain" />
-                          </a>
-                        )}
-                        {!activity.content && !activity.attachment_url && <div className="mt-1 text-sm text-slate-400">-</div>}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+                      ) : (
+                        <>
+                          {activity.content && (
+                            <div className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{activity.content}</div>
+                          )}
+                          {activity.attachment_url && (
+                            <a href={activity.attachment_url} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={activity.attachment_url} alt="attachment" className="max-h-60 rounded-lg border border-slate-200 object-contain" />
+                            </a>
+                          )}
+                          {!activity.content && !activity.attachment_url && <div className="mt-1 text-sm text-slate-400">-</div>}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
         </div>
       </aside>
 
