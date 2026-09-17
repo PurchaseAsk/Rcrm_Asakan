@@ -146,8 +146,9 @@ export function ChatInbox({
   const [typersInConv, setTypersInConv] = useState<Map<string, Typer[]>>(new Map());
   const typingRef = useRef<ReturnType<typeof createTypingController> | null>(null);
   const myName = profiles.find((p) => p.id === userId)?.full_name ?? "Sales";
-  const [pendingImages, setPendingImages] = useState<{ file: File; previewUrl: string }[]>([]);
-  const pendingImagesRef = useRef<{ file: File; previewUrl: string }[]>([]);
+  type PendingMedia = { file: File; url?: never; previewUrl: string } | { url: string; file?: never; previewUrl: string };
+  const [pendingImages, setPendingImages] = useState<PendingMedia[]>([]);
+  const pendingImagesRef = useRef<PendingMedia[]>([]);
   pendingImagesRef.current = pendingImages;
 
   function scrollToReferencedMessage(messageId: string) {
@@ -190,7 +191,7 @@ export function ChatInbox({
       sessionStorage.removeItem("chat_selected_conv_id");
     }
     // Clear pending image queue when switching conversations
-    pendingImagesRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    pendingImagesRef.current.forEach((p) => { if (p.file) URL.revokeObjectURL(p.previewUrl); });
     setPendingImages([]);
   }, [selectedConvId]);
 
@@ -696,8 +697,12 @@ export function ChatInbox({
     if (toSend.length > 0) {
       setPendingImages([]);
       for (const p of toSend) {
-        await sendImage(p.file);
-        URL.revokeObjectURL(p.previewUrl);
+        if (p.file) {
+          await sendImage(p.file);
+          URL.revokeObjectURL(p.previewUrl);
+        } else {
+          await sendImageByUrl(p.url);
+        }
       }
     }
     if (replyText.trim()) await sendReply();
@@ -814,12 +819,12 @@ export function ChatInbox({
     }
   }
 
-  async function sendSelectedImages() {
+  function sendSelectedImages() {
     const urls = [...selectedImgUrls];
     setSelectedImgUrls([]);
     setShowAppImages(false);
     setAppImagesFolder(null);
-    await Promise.all(urls.map((url) => sendImageByUrl(url)));
+    setPendingImages((prev) => [...prev, ...urls.map((url) => ({ url, previewUrl: url }))]);
   }
 
   function toggleImgSelection(url: string) {
@@ -1816,7 +1821,7 @@ export function ChatInbox({
                         <img src={p.previewUrl} alt="" className="h-16 w-16 rounded-lg object-cover border border-slate-200" />
                         <button
                           onClick={() => {
-                            URL.revokeObjectURL(p.previewUrl);
+                            if (p.file) URL.revokeObjectURL(p.previewUrl);
                             setPendingImages((prev) => prev.filter((_, idx) => idx !== i));
                           }}
                           className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-600 text-white hover:bg-red-600"
@@ -2097,7 +2102,12 @@ export function ChatInbox({
                         {/* Click image → send immediately */}
                         <button
                           disabled={busy}
-                          onClick={() => { void sendImageByUrl(img.url); setShowAppImages(false); setAppImagesFolder(null); setSelectedImgUrls([]); }}
+                          onClick={() => {
+                            setPendingImages((prev) => [...prev, { url: img.url, previewUrl: img.url }]);
+                            setShowAppImages(false);
+                            setAppImagesFolder(null);
+                            setSelectedImgUrls([]);
+                          }}
                           className="h-full w-full overflow-hidden rounded-lg border-2 border-transparent transition-colors hover:border-brand-600 focus:outline-none disabled:opacity-50"
                           title={img.name}
                         >
