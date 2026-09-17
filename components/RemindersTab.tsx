@@ -868,121 +868,126 @@ export function RemindersTab({
                     <p className="text-sm text-slate-400">กำลังโหลด…</p>
                   ) : (
                     <>
-                      <div className="flex flex-col gap-0 divide-y divide-slate-100 lg:flex-row lg:divide-x lg:divide-y-0">
-                        {/* Left: Personal stats */}
-                        <div className="flex-1 pr-0 pb-4 lg:pr-5 lg:pb-0">
+                      <div className="flex flex-col divide-y divide-slate-100 lg:flex-row lg:divide-x lg:divide-y-0">
+                        {/* Col 1/3: ผลงานของฉัน */}
+                        <div className="w-full pb-4 lg:w-1/3 lg:pb-0 lg:pr-5">
                           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ผลงานของฉัน</p>
                           <div className="grid grid-cols-2 gap-2">
-                            <div className="rounded-xl border border-brand-100 bg-brand-50 px-4 py-3">
-                              <div className="text-2xl font-bold text-brand-700">{dashStats.allLeads}</div>
+                            <div className="rounded-xl border border-brand-100 bg-brand-50 px-3 py-2.5">
+                              <div className="text-xl font-bold text-brand-700">{dashStats.allLeads}</div>
                               <div className="mt-0.5 text-xs font-medium text-brand-600">Lead ทั้งหมด</div>
                             </div>
-                            <div className="rounded-xl border px-4 py-3" style={{ borderColor: "#ec489940", backgroundColor: "#ec48990d" }}>
-                              <div className="text-2xl font-bold" style={{ color: "#ec4899" }}>{dashStats.couponLeads}</div>
+                            <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: "#ec489940", backgroundColor: "#ec48990d" }}>
+                              <div className="text-xl font-bold" style={{ color: "#ec4899" }}>{dashStats.couponLeads}</div>
                               <div className="mt-0.5 text-xs font-medium" style={{ color: "#ec4899" }}>ส่งคูปอง</div>
                             </div>
-                            <div className="rounded-xl border px-4 py-3" style={{ borderColor: "#2563eb40", backgroundColor: "#2563eb0d" }}>
-                              <div className="text-2xl font-bold" style={{ color: "#2563eb" }}>{dashStats.bookedLeads}</div>
+                            <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: "#2563eb40", backgroundColor: "#2563eb0d" }}>
+                              <div className="text-xl font-bold" style={{ color: "#2563eb" }}>{dashStats.bookedLeads}</div>
                               <div className="mt-0.5 text-xs font-medium" style={{ color: "#2563eb" }}>จองแล้ว</div>
                             </div>
-                            <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
-                              <div className="text-2xl font-bold text-rose-600">{dashStats.recalledThisMonth}</div>
+                            <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5">
+                              <div className="text-xl font-bold text-rose-600">{dashStats.recalledThisMonth}</div>
                               <div className="mt-0.5 text-xs font-medium text-rose-500">Recall เดือนนี้</div>
                             </div>
                           </div>
                         </div>
 
-                        {/* Right: Team chat stats */}
-                        <div className="flex-1 pt-4 pl-0 lg:pl-5 lg:pt-0">
+                        {/* Col 2/3: ทั้งทีม — แชท */}
+                        <div className="w-full py-4 lg:w-1/3 lg:py-0 lg:px-5">
                           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">ทั้งทีม — แชทเดือนนี้</p>
                           <div className="grid grid-cols-3 gap-2">
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center">
-                              <div className="text-2xl font-bold text-slate-800">{dashStats.teamConvs}</div>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2.5 text-center">
+                              <div className="text-xl font-bold text-slate-800">{dashStats.teamConvs}</div>
                               <div className="mt-0.5 text-xs text-slate-500">แชทใหม่</div>
                             </div>
-                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-center">
-                              <div className="text-2xl font-bold text-emerald-600">{dashStats.teamReplied5min}</div>
+                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-2 py-2.5 text-center">
+                              <div className="text-xl font-bold text-emerald-600">{dashStats.teamReplied5min}</div>
                               <div className="mt-0.5 text-xs text-emerald-600">
                                 ตอบใน 5 นาที
                                 {dashStats.teamConvs > 0 && (
-                                  <span className="ml-1 font-semibold">
+                                  <span className="block font-semibold">
                                     ({Math.round((dashStats.teamReplied5min / dashStats.teamConvs) * 100)}%)
                                   </span>
                                 )}
                               </div>
                             </div>
-                            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-center">
-                              <div className="text-2xl font-bold text-blue-600">{dashStats.teamConverted}</div>
+                            <div className="rounded-xl border border-blue-100 bg-blue-50 px-2 py-2.5 text-center">
+                              <div className="text-xl font-bold text-blue-600">{dashStats.teamConverted}</div>
                               <div className="mt-0.5 text-xs text-blue-600">
                                 เปลี่ยนเป็นลีด
                                 {dashStats.teamConvs > 0 && (
-                                  <span className="ml-1 font-semibold">
+                                  <span className="block font-semibold">
                                     ({Math.round((dashStats.teamConverted / dashStats.teamConvs) * 100)}%)
                                   </span>
                                 )}
                               </div>
                             </div>
                           </div>
+                        </div>
 
-                          {/* คูปองค้างส่ง + คูปองรออนุมัติ + งานค้าง — แถวเดียวกัน */}
-                          {((canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) || (canManageTeamReminders ? couponApprovalPending.length > 0 : couponApprovalMine > 0) || (pendingTaskCount ?? 0) > 0) && (
-                            <div className="mt-3 border-t border-slate-100 pt-3 flex divide-x divide-slate-100">
-                              {(canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) && (
-                                <div className="flex-1 min-w-0 pr-6">
-                                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">คูปองค้างส่ง</p>
-                                  {canManageTeamReminders ? (
-                                    <div className="flex flex-wrap gap-2">
-                                      {couponPending.map(item => (
-                                        <div key={item.id} className="flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1">
-                                          <span className="text-xs font-bold text-amber-800">{item.name}</span>
-                                          <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-baseline gap-1.5">
-                                      <span className="text-2xl font-bold text-amber-600">{couponPendingMine}</span>
-                                      <span className="text-xs text-amber-600">คูปอง</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                        {/* Col 3/3: รายการค้าง */}
+                        <div className="w-full pt-4 lg:w-1/3 lg:pt-0 lg:pl-5">
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">รายการค้าง</p>
+                          <div className="space-y-2.5">
+                            {(canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) && (
+                              <div>
+                                <p className="mb-1 text-[10px] font-medium text-slate-400">คูปองค้างส่ง</p>
+                                {canManageTeamReminders ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {couponPending.map(item => (
+                                      <div key={item.id} className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5">
+                                        <span className="text-xs font-bold text-amber-800">{item.name}</span>
+                                        <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-baseline gap-1">
+                                    <span className="text-xl font-bold text-amber-600">{couponPendingMine}</span>
+                                    <span className="text-xs text-amber-600">คูปอง</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
-                              {(canManageTeamReminders ? couponApprovalPending.length > 0 : couponApprovalMine > 0) && (
-                                <div className="flex-1 min-w-0 px-6">
-                                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">คูปองรออนุมัติ</p>
-                                  {canManageTeamReminders ? (
-                                    <div className="flex flex-wrap gap-2">
-                                      {couponApprovalPending.map(item => (
-                                        <div key={item.pipeline_id} className="flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1">
-                                          <span className="text-xs font-bold text-orange-800">{item.pipeline}</span>
-                                          <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-baseline gap-1.5">
-                                      <span className="text-2xl font-bold text-orange-600">{couponApprovalMine}</span>
-                                      <span className="text-xs text-orange-600">รออนุมัติ</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                            {(canManageTeamReminders ? couponApprovalPending.length > 0 : couponApprovalMine > 0) && (
+                              <div>
+                                <p className="mb-1 text-[10px] font-medium text-slate-400">คูปองรออนุมัติ</p>
+                                {canManageTeamReminders ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {couponApprovalPending.map(item => (
+                                      <div key={item.pipeline_id} className="flex items-center gap-1.5 rounded-full bg-orange-100 px-2.5 py-0.5">
+                                        <span className="text-xs font-bold text-orange-800">{item.pipeline}</span>
+                                        <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-baseline gap-1">
+                                    <span className="text-xl font-bold text-orange-600">{couponApprovalMine}</span>
+                                    <span className="text-xs text-orange-600">รออนุมัติ</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
-                              {(pendingTaskCount ?? 0) > 0 && (
-                                <div className="flex-1 min-w-0 pl-6">
-                                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">งานค้าง</p>
-                                  <button
-                                    onClick={() => onNavigate?.("tasks")}
-                                    className="flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-1.5 hover:bg-indigo-100 transition"
-                                  >
-                                    <span className="text-2xl font-bold text-indigo-600">{pendingTaskCount}</span>
-                                    <span className="text-xs text-indigo-600">งาน</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                            {(pendingTaskCount ?? 0) > 0 && (
+                              <div>
+                                <p className="mb-1 text-[10px] font-medium text-slate-400">งานค้าง</p>
+                                <button
+                                  onClick={() => onNavigate?.("tasks")}
+                                  className="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1 hover:bg-indigo-100 transition"
+                                >
+                                  <span className="text-xl font-bold text-indigo-600">{pendingTaskCount}</span>
+                                  <span className="text-xs text-indigo-600">งาน</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {(canManageTeamReminders ? couponPending.length === 0 && couponApprovalPending.length === 0 : couponPendingMine === 0 && couponApprovalMine === 0) && (pendingTaskCount ?? 0) === 0 && (
+                              <p className="text-xs text-slate-400">ไม่มีรายการค้าง</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </>
