@@ -409,10 +409,11 @@ export function LeadDrawer({
         </div>
 
         {/* ── Body: 2-column layout ─────────────────────────── */}
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* mobile: single scroll; desktop: each column scrolls independently */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
 
           {/* ── Left: customer info + actions + tags ─────────── */}
-          <div className="flex w-full shrink-0 flex-col gap-4 overflow-y-auto border-b border-slate-100 p-4 scrollbar-thin lg:w-2/5 lg:border-b-0 lg:border-r">
+          <div className="flex w-full shrink-0 flex-col gap-4 border-b border-slate-100 p-4 lg:w-2/5 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:scrollbar-thin">
 
             {/* Action buttons — desktop only (mobile has them in header) */}
             <div className="hidden flex-wrap gap-2 lg:flex">
@@ -579,7 +580,7 @@ export function LeadDrawer({
           </div>
 
           {/* ── Right: ad info + notes + reminders + activity ── */}
-          <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 scrollbar-thin">
+          <div className="flex flex-1 flex-col gap-5 p-4 lg:overflow-y-auto lg:scrollbar-thin">
 
             {/* Ad info */}
             {(lead.source === "facebook" || lead.metadata?.campaign_name || lead.metadata?.ad_name || lead.metadata?.adset_name) && (
