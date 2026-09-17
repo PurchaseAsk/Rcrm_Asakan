@@ -928,65 +928,64 @@ export function RemindersTab({
                         {/* Col 3/3: รายการค้าง */}
                         <div className="w-full pt-4 lg:w-1/3 lg:pt-0 lg:pl-5">
                           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">รายการค้าง</p>
-                          <div className="space-y-2.5">
-                            {(canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) && (
-                              <div>
-                                <p className="mb-1 text-[10px] font-medium text-slate-400">คูปองค้างส่ง</p>
-                                {canManageTeamReminders ? (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {couponPending.map(item => (
-                                      <div key={item.id} className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5">
-                                        <span className="text-xs font-bold text-amber-800">{item.name}</span>
-                                        <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="flex items-baseline gap-1">
-                                    <span className="text-xl font-bold text-amber-600">{couponPendingMine}</span>
-                                    <span className="text-xs text-amber-600">คูปอง</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {(canManageTeamReminders ? couponApprovalPending.length > 0 : couponApprovalMine > 0) && (
-                              <div>
-                                <p className="mb-1 text-[10px] font-medium text-slate-400">คูปองรออนุมัติ</p>
-                                {canManageTeamReminders ? (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {couponApprovalPending.map(item => (
-                                      <div key={item.pipeline_id} className="flex items-center gap-1.5 rounded-full bg-orange-100 px-2.5 py-0.5">
-                                        <span className="text-xs font-bold text-orange-800">{item.pipeline}</span>
-                                        <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="flex items-baseline gap-1">
-                                    <span className="text-xl font-bold text-orange-600">{couponApprovalMine}</span>
-                                    <span className="text-xs text-orange-600">รออนุมัติ</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {(pendingTaskCount ?? 0) > 0 && (
-                              <div>
-                                <p className="mb-1 text-[10px] font-medium text-slate-400">งานค้าง</p>
-                                <button
-                                  onClick={() => onNavigate?.("tasks")}
-                                  className="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1 hover:bg-indigo-100 transition"
-                                >
-                                  <span className="text-xl font-bold text-indigo-600">{pendingTaskCount}</span>
-                                  <span className="text-xs text-indigo-600">งาน</span>
-                                </button>
-                              </div>
-                            )}
-
-                            {(canManageTeamReminders ? couponPending.length === 0 && couponApprovalPending.length === 0 : couponPendingMine === 0 && couponApprovalMine === 0) && (pendingTaskCount ?? 0) === 0 && (
-                              <p className="text-xs text-slate-400">ไม่มีรายการค้าง</p>
-                            )}
+                          <div className="flex divide-x divide-slate-100">
+                            {/* ซ้าย: คูปอง */}
+                            <div className="flex-1 min-w-0 space-y-2.5 pr-4">
+                              {(canManageTeamReminders ? couponPending.length > 0 : couponPendingMine > 0) && (
+                                <div>
+                                  <p className="mb-1 text-[10px] font-medium text-slate-400">คูปองค้างส่ง</p>
+                                  {canManageTeamReminders ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {couponPending.map(item => (
+                                        <div key={item.id} className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5">
+                                          <span className="text-xs font-bold text-amber-800">{item.name}</span>
+                                          <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-baseline gap-1">
+                                      <span className="text-xl font-bold text-amber-600">{couponPendingMine}</span>
+                                      <span className="text-xs text-amber-600">คูปอง</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {(canManageTeamReminders ? couponApprovalPending.length > 0 : couponApprovalMine > 0) && (
+                                <div>
+                                  <p className="mb-1 text-[10px] font-medium text-slate-400">คูปองรออนุมัติ</p>
+                                  {canManageTeamReminders ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {couponApprovalPending.map(item => (
+                                        <div key={item.pipeline_id} className="flex items-center gap-1.5 rounded-full bg-orange-100 px-2.5 py-0.5">
+                                          <span className="text-xs font-bold text-orange-800">{item.pipeline}</span>
+                                          <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{item.count}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-baseline gap-1">
+                                      <span className="text-xl font-bold text-orange-600">{couponApprovalMine}</span>
+                                      <span className="text-xs text-orange-600">รออนุมัติ</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {(canManageTeamReminders ? couponPending.length === 0 && couponApprovalPending.length === 0 : couponPendingMine === 0 && couponApprovalMine === 0) && (
+                                <p className="text-xs text-slate-400">ไม่มีคูปองค้าง</p>
+                              )}
+                            </div>
+                            {/* ขวา: งานค้าง */}
+                            <div className="shrink-0 pl-4">
+                              <p className="mb-1 text-[10px] font-medium text-slate-400">งานค้าง</p>
+                              <button
+                                onClick={() => onNavigate?.("tasks")}
+                                className="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1 hover:bg-indigo-100 transition"
+                              >
+                                <span className="text-xl font-bold text-indigo-600">{pendingTaskCount ?? 0}</span>
+                                <span className="text-xs text-indigo-600">งาน</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
