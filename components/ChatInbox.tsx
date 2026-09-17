@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, ImagePlus, Paperclip, Settings, ThumbsUp } from "lucide-react";
+import { ClipboardList, ImagePlus, Paperclip, Settings, ThumbsUp, X } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Conversation, Message, Page, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import html2canvas from "html2canvas";
@@ -146,6 +146,9 @@ export function ChatInbox({
   const [typersInConv, setTypersInConv] = useState<Map<string, Typer[]>>(new Map());
   const typingRef = useRef<ReturnType<typeof createTypingController> | null>(null);
   const myName = profiles.find((p) => p.id === userId)?.full_name ?? "Sales";
+  const [pendingImages, setPendingImages] = useState<{ file: File; previewUrl: string }[]>([]);
+  const pendingImagesRef = useRef<{ file: File; previewUrl: string }[]>([]);
+  pendingImagesRef.current = pendingImages;
 
   function scrollToReferencedMessage(messageId: string) {
     document.getElementById(`chat-message-${messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -186,6 +189,9 @@ export function ChatInbox({
     } else {
       sessionStorage.removeItem("chat_selected_conv_id");
     }
+    // Clear pending image queue when switching conversations
+    pendingImagesRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    setPendingImages([]);
   }, [selectedConvId]);
 
   // Restore selected conversation after page reload (e.g. wake from sleep)
@@ -682,6 +688,19 @@ export function ChatInbox({
       setReplyTarget(quotedMessage);
       toast("ส่งไม่สำเร็จ");
     }
+  }
+
+  async function handleSend() {
+    if (!selectedConvId) return;
+    const toSend = pendingImagesRef.current;
+    if (toSend.length > 0) {
+      setPendingImages([]);
+      for (const p of toSend) {
+        await sendImage(p.file);
+        URL.revokeObjectURL(p.previewUrl);
+      }
+    }
+    if (replyText.trim()) await sendReply();
   }
 
   async function sendImage(file: File) {
@@ -1772,18 +1791,46 @@ export function ChatInbox({
                     </button>
                   </div>
                 )}
-                <div className="flex min-h-[76px] items-end gap-1.5 rounded-xl border border-slate-300 bg-white p-2 shadow-sm transition-shadow focus-within:border-[#0084ff] focus-within:ring-2 focus-within:ring-[#0084ff]/15">
+                <div className="flex-col rounded-xl border border-slate-300 bg-white p-2 shadow-sm transition-shadow focus-within:border-[#0084ff] focus-within:ring-2 focus-within:ring-[#0084ff]/15">
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void sendImage(file);
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    const valid = files.filter((f) => {
+                      if (f.size > 4.5 * 1024 * 1024) { toast(`${f.name}: ไฟล์ใหญ่เกิน 4.5 MB`); return false; }
+                      return true;
+                    });
+                    if (valid.length) setPendingImages((prev) => [...prev, ...valid.map((f) => ({ file: f, previewUrl: URL.createObjectURL(f) }))]);
                     e.target.value = "";
                   }}
                 />
+                {pendingImages.length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-2 px-1 pt-1">
+                    {pendingImages.map((p, i) => (
+                      <div key={i} className="relative shrink-0">
+                        <img src={p.previewUrl} alt="" className="h-16 w-16 rounded-lg object-cover border border-slate-200" />
+                        <button
+                          onClick={() => {
+                            URL.revokeObjectURL(p.previewUrl);
+                            setPendingImages((prev) => prev.filter((_, idx) => idx !== i));
+                          }}
+                          className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-600 text-white hover:bg-red-600"
+                        >
+                          <X size={9} />
+                        </button>
+                      </div>
+                    ))}
+                    <p className="flex w-full items-center text-[11px] text-slate-400">
+                      {pendingImages.length} รูป · กด Enter เพื่อส่ง
+                    </p>
+                  </div>
+                )}
+                <div className="flex min-h-[52px] items-end gap-1.5">
                 <button
                   title="อัปโหลดรูป"
                   disabled={busy}
@@ -1816,12 +1863,19 @@ export function ChatInbox({
                   onBlur={clearTyping}
                   onPaste={(e) => {
                     const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
-                    if (item) { e.preventDefault(); const f = item.getAsFile(); if (f) void sendImage(f); }
+                    if (item) {
+                      e.preventDefault();
+                      const f = item.getAsFile();
+                      if (f) {
+                        if (f.size > 4.5 * 1024 * 1024) { toast("ไฟล์ใหญ่เกิน 4.5 MB — กรุณาบีบอัดรูปก่อนส่ง"); return; }
+                        setPendingImages((prev) => [...prev, { file: f, previewUrl: URL.createObjectURL(f) }]);
+                      }
+                    }
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      void sendReply();
+                      void handleSend();
                     }
                   }}
                   placeholder="ตอบกลับใน Messenger..."
@@ -1909,11 +1963,12 @@ export function ChatInbox({
                   title="ส่งข้อความ"
                   aria-label="ส่งข้อความ"
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0084ff] text-white transition-colors hover:bg-[#0077e6] disabled:opacity-50"
-                  disabled={busy || !replyText.trim()}
-                  onClick={() => void sendReply()}
+                  disabled={busy || (pendingImages.length === 0 && !replyText.trim())}
+                  onClick={() => void handleSend()}
                 >
                   {busy ? "…" : <ThumbsUp size={18} fill="currentColor" strokeWidth={1.75} />}
                 </button>
+                </div>
               </div>
               </div>
             </div>
