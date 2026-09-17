@@ -360,20 +360,52 @@ export function LeadDrawer({
     <div className="fixed inset-0 z-40 bg-slate-950/30" onClick={onClose}>
       <aside className="ml-auto flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
 
-        {/* ── Header: name + meta + close ───────────────────── */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-slate-950">{lead.customer_name}</h2>
-            <p className="text-xs text-slate-500">
-              {lead.page?.name || "No page"} · อายุ {leadAge(lead.created_at)} · Last activity {new Date(lead.last_activity_at ?? lead.created_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
-            </p>
+        {/* ── Header ────────────────────────────────────────── */}
+        <div className="border-b border-slate-200 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-slate-950">{lead.customer_name}</h2>
+              <p className="text-sm text-slate-500">
+                {lead.page?.name || "No page"} · อายุ {leadAge(lead.created_at)} · {recallCountdownText(lead, stages)}
+              </p>
+            </div>
+            {/* Desktop: close only */}
+            <button
+              className="hidden shrink-0 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900 lg:block"
+              onClick={onClose}
+            >
+              Close
+            </button>
           </div>
-          <button
-            className="ml-4 shrink-0 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
-            onClick={onClose}
-          >
-            Close
-          </button>
+
+          {/* Mobile: action buttons (hidden on lg+) */}
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:items-center lg:hidden">
+            <button
+              title={isPinned(lead) ? `Pin หมดอายุใน ${pinDaysLeft(lead)} วัน — คลิกเพื่อ unpin` : "Pin lead 3 วัน (กัน recall)"}
+              onClick={() => isPinned(lead) ? void unpinLead(lead.id, reload, toast) : void pinLead(lead.id, reload, toast)}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${isPinned(lead) ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100" : "border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+            >
+              <MapPin size={14} />
+              {isPinned(lead) ? `${pinDaysLeft(lead)} วัน` : "Pin"}
+            </button>
+            {lead.status === "unfollowed" ? (
+              <button disabled={busy} onClick={() => void reactivateLead()} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">เปิดอีกครั้ง</button>
+            ) : (
+              <button disabled={busy} onClick={() => setShowUnfollowModal(true)} className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50">เลิกติดตาม</button>
+            )}
+            <button
+              className={editingInfo ? "rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" : "rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"}
+              disabled={busy}
+              onClick={() => { if (editingInfo) { void saveLeadInfo(); return; } setEditingInfo(true); }}
+            >
+              {editingInfo ? "Save" : "Edit"}
+            </button>
+            <button onClick={() => setShowTaskModal(true)} className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              <ClipboardList size={14} />
+              งานค้าง
+            </button>
+            <button className="col-span-2 rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900 sm:col-span-1" onClick={onClose}>Close</button>
+          </div>
         </div>
 
         {/* ── Body: 2-column layout ─────────────────────────── */}
@@ -382,8 +414,8 @@ export function LeadDrawer({
           {/* ── Left: customer info + actions + tags ─────────── */}
           <div className="flex w-full shrink-0 flex-col gap-4 overflow-y-auto border-b border-slate-100 p-4 scrollbar-thin lg:w-2/5 lg:border-b-0 lg:border-r">
 
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-2">
+            {/* Action buttons — desktop only (mobile has them in header) */}
+            <div className="hidden flex-wrap gap-2 lg:flex">
               <button
                 title={isPinned(lead) ? `Pin หมดอายุใน ${pinDaysLeft(lead)} วัน — คลิกเพื่อ unpin` : "Pin lead 3 วัน (กัน recall)"}
                 onClick={() =>
