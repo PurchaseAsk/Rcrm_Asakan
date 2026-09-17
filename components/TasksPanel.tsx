@@ -93,19 +93,18 @@ export function TasksPanel({
         })
         .eq("id", task.id);
 
+      const note = `งานเสร็จ: ${task.title}${completionNote.trim() ? `\n${completionNote.trim()}` : ""}`;
       if (task.entity_type === "lead" && task.entity_id) {
         await supabase.from("lead_activities").insert({
-          lead_id: task.entity_id,
-          type: "note",
-          content: `งานเสร็จ: ${task.title}${completionNote.trim() ? `\n${completionNote.trim()}` : ""}`,
-          created_by: currentUserId,
+          lead_id: task.entity_id, type: "note", content: note, created_by: currentUserId,
         });
       } else if (task.entity_type === "case" && task.entity_id) {
         await supabase.from("case_activities").insert({
-          case_id: task.entity_id,
-          type: "note",
-          content: `งานเสร็จ: ${task.title}${completionNote.trim() ? `\n${completionNote.trim()}` : ""}`,
-          created_by: currentUserId,
+          case_id: task.entity_id, type: "note", content: note, created_by: currentUserId,
+        });
+      } else if (task.entity_type === "conversation" && task.entity_id) {
+        await supabase.from("conversation_notes").insert({
+          conversation_id: task.entity_id, content: note, created_by: currentUserId,
         });
       }
 
