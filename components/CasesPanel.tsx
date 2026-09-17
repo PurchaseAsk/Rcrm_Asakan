@@ -69,6 +69,7 @@ export function CasesPanel({
   userRole,
   reload,
   toast,
+  initialCaseId,
 }: {
   cases: Case[];
   profiles: Profile[];
@@ -76,6 +77,7 @@ export function CasesPanel({
   userRole: Role;
   reload: () => Promise<void>;
   toast: (msg: string) => void;
+  initialCaseId?: string | null;
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"open" | Case["status"]>("open");
@@ -89,6 +91,12 @@ export function CasesPanel({
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [lastActivities, setLastActivities] = useState<Record<string, CaseActivity>>({});
   const [nextReminders, setNextReminders] = useState<Record<string, CaseReminder>>({});
+
+  useEffect(() => {
+    if (!initialCaseId || !cases.length) return;
+    const found = cases.find((c) => c.id === initialCaseId);
+    if (found) setSelectedCase(found);
+  }, [initialCaseId, cases]);
 
   useEffect(() => {
     if (!cases.length) return;

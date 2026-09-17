@@ -172,14 +172,6 @@ export function TasksPanel({
                             <span className="text-sm font-medium text-slate-950">{task.title}</span>
                           </div>
 
-                          {task.entity_type && task.entity_id && (
-                            <button
-                              onClick={() => onOpenEntity(task.entity_type!, task.entity_id!)}
-                              className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                            >
-                              📎 เปิด {task.entity_type === "lead" ? "ลีด" : task.entity_type === "case" ? "เคส" : "แชท"}
-                            </button>
-                          )}
 
                           {task.description && (
                             <p className="text-xs text-slate-600">{task.description}</p>
@@ -227,14 +219,24 @@ export function TasksPanel({
                           )}
                         </div>
 
-                        {tab === "pending" && completingId !== task.id && (
-                          <button
-                            onClick={() => { setCompletingId(task.id); setCompletionNote(""); }}
-                            className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-                          >
-                            ทำเสร็จ ✓
-                          </button>
-                        )}
+                        <div className="flex shrink-0 flex-col gap-1.5">
+                          {task.entity_type && task.entity_id && completingId !== task.id && (
+                            <button
+                              onClick={() => onOpenEntity(task.entity_type!, task.entity_id!)}
+                              className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                            >
+                              เปิด{task.entity_type === "lead" ? "ลีด" : task.entity_type === "case" ? "เคส" : "แชท"}
+                            </button>
+                          )}
+                          {tab === "pending" && completingId !== task.id && (
+                            <button
+                              onClick={() => { setCompletingId(task.id); setCompletionNote(""); }}
+                              className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                            >
+                              ทำเสร็จ ✓
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

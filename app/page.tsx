@@ -134,6 +134,7 @@ export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatOpenLeadId, setChatOpenLeadId] = useState<string | null>(null);
   const [chatOpenConvId, setChatOpenConvId] = useState<string | null>(null);
+  const [openCaseId, setOpenCaseId] = useState<string | null>(null);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [lineUnreadCount, setLineUnreadCount] = useState(0);
   const [commentActiveCount, setCommentActiveCount] = useState(0);
@@ -765,6 +766,7 @@ export default function HomePage() {
                   setActiveTab("leads");
                   if (lead) void openLead(lead); else setSelectedLeadId(entityId);
                 } else if (entityType === "case") {
+                  setOpenCaseId(entityId);
                   setActiveTab("cases");
                 } else if (entityType === "conversation") {
                   setChatOpenConvId(entityId);
@@ -781,6 +783,7 @@ export default function HomePage() {
               userRole={profile?.role ?? "staff"}
               reload={reload}
               toast={showToast}
+              initialCaseId={openCaseId}
             />
           )}
           {activeTab === "pipelines" && (
