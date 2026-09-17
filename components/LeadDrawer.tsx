@@ -402,7 +402,7 @@ export function LeadDrawer({
             </button>
             <button onClick={() => setShowTaskModal(true)} className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
               <ClipboardList size={14} />
-              งานค้าง
+              มอบหมายงาน
             </button>
             <button className="col-span-2 rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-900 sm:col-span-1" onClick={onClose}>Close</button>
           </div>
@@ -472,7 +472,7 @@ export function LeadDrawer({
                 className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
                 <ClipboardList size={14} />
-                งานค้าง
+                มอบหมายงาน
               </button>
             </div>
 
