@@ -1233,7 +1233,7 @@ export function ChatInbox({
                     </span>
                   )}
                   <button
-                    onClick={() => void refreshConversations(filterPageId)}
+                    onClick={() => { void refreshConversations(filterPageId); triggerTagRefreshRef.current(); }}
                     title="รีเฟรช"
                     disabled={loading}
                     className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
