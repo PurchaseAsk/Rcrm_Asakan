@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, ImagePlus, Paperclip, Settings, ThumbsUp, X } from "lucide-react";
+import { ClipboardList, ImagePlus, Paperclip, RefreshCw, Settings, ThumbsUp, X } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase";
 import type { Conversation, Message, Page, Pipeline, Profile, Stage, Tag } from "@/types/crm";
 import html2canvas from "html2canvas";
@@ -1232,6 +1232,14 @@ export function ChatInbox({
                       {unreadCount}
                     </span>
                   )}
+                  <button
+                    onClick={() => void refreshConversations(filterPageId)}
+                    title="รีเฟรช"
+                    disabled={loading}
+                    className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+                  >
+                    <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                  </button>
                   {(userRole === "admin" || userRole === "team_lead") && (
                     <button
                       onClick={() => setShowChatSettings(true)}
