@@ -109,6 +109,7 @@ export function ChatInbox({
   const [busy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMoreConvs, setLoadingMoreConvs] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [conversationTotal, setConversationTotal] = useState<number | null>(null);
   const selectedConvIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1233,12 +1234,20 @@ export function ChatInbox({
                     </span>
                   )}
                   <button
-                    onClick={() => { void refreshConversations(filterPageId); triggerTagRefreshRef.current(); }}
+                    onClick={async () => {
+                      setRefreshing(true);
+                      try {
+                        await refreshConversations(filterPageId);
+                        triggerTagRefreshRef.current();
+                      } finally {
+                        setRefreshing(false);
+                      }
+                    }}
                     title="รีเฟรช"
-                    disabled={loading}
+                    disabled={refreshing}
                     className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
                   >
-                    <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                    <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
                   </button>
                   {(userRole === "admin" || userRole === "team_lead") && (
                     <button
