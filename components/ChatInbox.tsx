@@ -1036,6 +1036,23 @@ export function ChatInbox({
 
   const selectedConv = conversations.find((c) => c.id === selectedConvId) ?? selectedConvObj;
 
+  function linkify(text: string, outbound: boolean) {
+    const URL_RE = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+    const parts = text.split(URL_RE);
+    return parts.map((part, i) => {
+      if (!URL_RE.test(part)) return part;
+      URL_RE.lastIndex = 0;
+      const href = part.startsWith("http") ? part : `https://${part}`;
+      return (
+        <a key={i} href={href} target="_blank" rel="noopener noreferrer"
+          className={`underline break-all ${outbound ? "text-blue-100 hover:text-white" : "text-blue-600 hover:text-blue-800"}`}
+        >
+          {part}
+        </a>
+      );
+    });
+  }
+
   // Use pages prop for tabs so admin/multi-team users always see all page tabs
   // regardless of whether conversations exist yet
   const accessiblePages = useMemo(() => {
@@ -1766,7 +1783,7 @@ export function ChatInbox({
                             <img src={msg.attachment_url} alt={msg.content || "รูปภาพแนบ"} className="w-full max-w-[320px] rounded-xl" />
                           </a>
                         ) : (
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <p className="whitespace-pre-wrap">{msg.content ? linkify(msg.content, msg.direction === "outbound") : null}</p>
                         )}
                         <p
                           className={`mt-1 text-[10px] ${msg.direction === "outbound" ? "text-blue-200" : "text-slate-400"}`}
