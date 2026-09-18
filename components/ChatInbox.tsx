@@ -917,7 +917,7 @@ export function ChatInbox({
       customer_name: conv.sender_name || "",
       phone: "",
       email: "",
-      assigned_to: "",
+      assigned_to: currentUserId,
       pipeline_id: defaultPipeline,
     });
     setLeadModal({ conv, msgs: messages });

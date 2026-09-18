@@ -655,6 +655,7 @@ export default function HomePage() {
               search={search}
               setSearch={setSearch}
               userRole={profile?.role}
+              currentUserId={currentUserId}
             />
           )}
           {activeTab === "funnel" && (

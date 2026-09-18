@@ -110,6 +110,7 @@ export function LeadsPanel({
   search,
   setSearch,
   userRole,
+  currentUserId,
 }: {
   leads: Lead[];
   filter: "active" | "unfollowed";
@@ -126,6 +127,7 @@ export function LeadsPanel({
   search: string;
   setSearch: (v: string) => void;
   userRole?: string;
+  currentUserId?: string;
 }) {
   const canFilterByMember = !!filterableProfiles?.length && !!setAssigneeFilter;
   const canManage = userRole === "admin" || userRole === "team_lead";
@@ -222,7 +224,7 @@ export function LeadsPanel({
 
   // ── Create lead ───────────────────────────────────────────────────────────
   function openModal() {
-    setDraft({ ...EMPTY_DRAFT, pipeline_id: pipelines[0]?.id ?? "" });
+    setDraft({ ...EMPTY_DRAFT, pipeline_id: pipelines[0]?.id ?? "", assigned_to: currentUserId ?? "" });
     setError("");
     setShowModal(true);
   }
