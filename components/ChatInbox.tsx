@@ -599,18 +599,22 @@ export function ChatInbox({
 
   async function addConvTag(convId: string, tagId: string) {
     const { error } = await supabase.from("conversation_tags").insert({ conversation_id: convId, tag_id: tagId });
-    if (error) return;
+    if (error) {
+      // 23505 = unique_violation: tag already applied (stale local state) — treat as success
+      if (error.code !== "23505") { toast(error.message); return; }
+    }
     const tag = tags.find((t) => t.id === tagId);
     if (!tag) return;
     setConversations((prev) => prev.map((c) =>
       c.id === convId
-        ? { ...c, conversation_tags: [...(c.conversation_tags ?? []), { tag_id: tagId, tags: { id: tag.id, name: tag.name, color: tag.color } }] }
+        ? { ...c, conversation_tags: [...(c.conversation_tags ?? []).filter((ct) => ct.tag_id !== tagId), { tag_id: tagId, tags: { id: tag.id, name: tag.name, color: tag.color } }] }
         : c
     ));
   }
 
   async function removeConvTag(convId: string, tagId: string) {
-    await supabase.from("conversation_tags").delete().eq("conversation_id", convId).eq("tag_id", tagId);
+    const { error } = await supabase.from("conversation_tags").delete().eq("conversation_id", convId).eq("tag_id", tagId);
+    if (error) { toast(error.message); return; }
     setConversations((prev) => prev.map((c) =>
       c.id === convId
         ? { ...c, conversation_tags: (c.conversation_tags ?? []).filter((ct) => ct.tag_id !== tagId) }
