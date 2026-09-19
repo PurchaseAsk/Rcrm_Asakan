@@ -4,7 +4,7 @@ import { collectTypers, createTypingController } from "../lib/chat-typing.ts";
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 function setup(t, trackResult = async () => "ok") {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval", "Date"], now: 100_000 });
   const calls = [];
   const controller = createTypingController({
     track: async (payload) => { calls.push(payload.conversationId); return trackResult(); },
@@ -23,24 +23,34 @@ test("keystrokes before subscription publish only after SUBSCRIBED", async (t) =
   assert.deepEqual(calls, ["a"]);
 });
 
-test("continuous typing avoids per-key network updates and stops after 3s idle", async (t) => {
+test("continuous typing avoids per-key updates, renews every 3s, and stops after 5s idle", async (t) => {
   const { controller, calls } = setup(t);
   controller.start("a", "Sales");
   controller.setReady(true);
   await settle();
   t.mock.timers.tick(2000);
   controller.start("a", "Sales");
-  t.mock.timers.tick(2999);
   assert.deepEqual(calls, ["a"]);
+  t.mock.timers.tick(1000);
+  await settle();
+  assert.deepEqual(calls, ["a", "a"]);
+  t.mock.timers.tick(3000);
+  await settle();
+  assert.deepEqual(calls, ["a", "a", "a"]);
+  t.mock.timers.tick(999);
+  assert.equal(calls.includes(null), false);
   t.mock.timers.tick(1);
   await settle();
-  assert.deepEqual(calls, ["a", null]);
+  assert.deepEqual(calls, ["a", "a", "a", null]);
+  t.mock.timers.tick(6000);
+  await settle();
+  assert.equal(calls.length, 4);
 });
 
 test("expired typing is not published after a slow initial connection", async (t) => {
   const { controller, calls } = setup(t);
   controller.start("a", "Sales");
-  t.mock.timers.tick(3000);
+  t.mock.timers.tick(5000);
   controller.setReady(true);
   await settle();
   assert.deepEqual(calls, [null]);
@@ -114,7 +124,7 @@ test("cleanup prevents old timers and pending requests from publishing again", a
 });
 
 test("a failed stop retries without requiring another keystroke", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval", "Date"], now: 100_000 });
   let stops = 0;
   const controller = createTypingController({
     track: async () => "ok",
@@ -142,7 +152,80 @@ test("presence includes every tab, deduplicates by user per room, and keeps name
     first: [presence("a"), presence("b"), presence("a")],
     second: [presence("a")],
     idle: [{ typing: false, conversationId: "a", name: "Idle" }],
-  }, "self");
+  }, "self", new Map([["first", Date.now()], ["second", Date.now()]]));
   assert.deepEqual(result.get("a"), [{ userId: "first", name: "Sales" }, { userId: "second", name: "Sales" }]);
   assert.deepEqual(result.get("b"), [{ userId: "first", name: "Sales" }]);
+});
+
+for (const oldResult of ["ok", "timed out", "reject"]) {
+  test(`reconnect immediately publishes while old track is pending; late ${oldResult} cannot release new request`, async (t) => {
+    const requests = [];
+    const { controller, calls } = setup(t, () => new Promise((resolve, reject) => {
+      requests.push({ resolve, reject });
+    }));
+    controller.start("a", "Sales");
+    controller.setReady(true);
+    controller.setReady(false);
+    controller.setReady(true);
+    assert.deepEqual(calls, ["a", "a"]); // No clock advance or watchdog required.
+    if (oldResult === "reject") requests[0].reject(new Error("old connection closed"));
+    else requests[0].resolve(oldResult);
+    await settle();
+    controller.stop();
+    assert.deepEqual(calls, ["a", "a"]); // New track still owns the lock.
+    requests[1].resolve("ok");
+    await settle();
+    assert.deepEqual(calls, ["a", "a", null]);
+  });
+}
+
+test("reconnect does not resurrect typing stopped while old track is pending", async (t) => {
+  let finish;
+  const { controller, calls } = setup(t, () => new Promise((resolve) => { finish = resolve; }));
+  controller.start("a", "Sales");
+  controller.setReady(true);
+  controller.setReady(false);
+  controller.stop();
+  controller.setReady(true);
+  await settle();
+  assert.deepEqual(calls, ["a", null]);
+  finish("ok");
+  await settle();
+  assert.deepEqual(calls, ["a", null]);
+});
+
+test("watchdog sends stop even when old track never resolves and heartbeat was cleared", async (t) => {
+  const { controller, calls } = setup(t, () => new Promise(() => {}));
+  controller.start("a", "Sales");
+  controller.setReady(true);
+  controller.stop();
+  t.mock.timers.tick(6000);
+  await settle();
+  assert.deepEqual(calls, ["a", null]);
+  controller.dispose();
+  t.mock.timers.tick(20000);
+  await settle();
+  assert.deepEqual(calls, ["a", null]);
+});
+
+test("failed start retries after 1s without another keystroke", async (t) => {
+  let attempts = 0;
+  const { controller, calls } = setup(t, async () => ++attempts === 1 ? "timed out" : "ok");
+  controller.start("a", "Sales");
+  controller.setReady(true);
+  await settle();
+  t.mock.timers.tick(1000);
+  await settle();
+  assert.deepEqual(calls, ["a", "a"]);
+});
+
+test("receiver expires stale typing after 12s without sync and accepts a fresh renewal", (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 100_000 });
+  const state = { other: [{ typing: true, conversationId: "a", name: "Sales" }] };
+  const lastSeen = new Map([["other", Date.now()]]);
+  assert.equal(collectTypers(state, "self", lastSeen).get("a").length, 1);
+  t.mock.timers.tick(12001);
+  assert.equal(collectTypers(state, "self", lastSeen).size, 0);
+  lastSeen.set("other", Date.now());
+  assert.equal(collectTypers(state, "self", lastSeen).get("a").length, 1);
 });

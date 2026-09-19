@@ -250,7 +250,8 @@ mgmtNewRecall   {stage_id, inactive_days, recall_to}
 
 - `components/ChatInbox.tsx` owns the `chat-typing-presence` channel; this indicates other CRM staff typing, not Facebook customer typing.
 - `lib/chat-typing.ts` shares one publisher between the main composer and `FloatingChatWindow`; waits for `SUBSCRIBED`, restores active typing after reconnect, and serializes track/untrack requests.
-- Stop after 3 seconds idle, an empty composer, blur/hidden page, send, room switch, or floating window close/minimize. Dispose timers when removing the channel.
+- Stop after 5 seconds idle, an empty composer, blur/hidden page, send, room switch, or floating window close/minimize. Renew active typing every 3 seconds; receivers expire it after 12 seconds, checked every 2 seconds. Dispose timers when removing the channel.
+- On subscription status changes, invalidate the previous request generation and clear its pending lock/timestamp before publishing again. Late results from older connections must not overwrite state or release a newer request's lock (2026-09-19).
 - Read every presence entry for multi-tab users; deduplicate by user ID within each conversation, never by display name.
 - Regression checks: `node --test scripts/chat-typing.test.mjs` (Node 24 supports importing the TypeScript helper directly).
 

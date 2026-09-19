@@ -1,10 +1,10 @@
 export type TypingPresence = { typing: boolean; conversationId: string | null; name: string };
 export type Typer = { userId: string; name: string };
 
-const TYPING_EXPIRE_MS = 8_000;
+const TYPING_EXPIRE_MS = 12_000;
+const HEARTBEAT_MS = 3_000;
+const PENDING_TIMEOUT_MS = 5_000;
 
-// lastSeen: receiver-side map of userId → timestamp of last sync that included active typing.
-// Using receiver's own clock eliminates clock-skew between sender and receiver.
 export function collectTypers(
   state: Record<string, TypingPresence[]>,
   userId: string,
@@ -36,15 +36,29 @@ export function createTypingController(channel: PresenceChannel) {
   let ready = false;
   let disposed = false;
   let pending = false;
+  let pendingSince: number | undefined;
   let generation = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
 
+  // Watchdog runs independently — catches hung requests even when heartbeat is cleared
+  const watchdog = setInterval(() => {
+    if (!pending || pendingSince === undefined) return;
+    if (Date.now() - pendingSince <= PENDING_TIMEOUT_MS) return;
+    // Invalidate the in-flight response so its result can't overwrite newer state
+    generation += 1;
+    pending = false;
+    pendingSince = undefined;
+    published = undefined;
+    if (ready && !disposed) void flush();
+  }, 1_000);
+
   async function flush() {
     if (!ready || disposed || pending || desired === published) return;
     clearTimeout(retryTimer);
     pending = true;
+    pendingSince = Date.now();
     const target = desired;
     const connection = generation;
     let succeeded = false;
@@ -55,10 +69,15 @@ export function createTypingController(channel: PresenceChannel) {
     } catch {
       if (connection === generation) published = undefined;
     } finally {
-      pending = false;
+      // An old request must not clear a newer connection's pending request.
+      if (connection === generation) {
+        pending = false;
+        pendingSince = undefined;
+      }
     }
-    if (succeeded || desired !== target || connection !== generation) void flush();
-    else if (!target && ready && !disposed) retryTimer = setTimeout(() => void flush(), 1000);
+    if (connection !== generation) return; // Reconnect/watchdog owns the new request.
+    if (succeeded || desired !== target) void flush();
+    else if (ready && !disposed) retryTimer = setTimeout(() => void flush(), 1_000);
   }
 
   function stop(conversationId?: string) {
@@ -74,22 +93,22 @@ export function createTypingController(channel: PresenceChannel) {
   return {
     start(conversationId: string, name: string) {
       if (disposed || !conversationId) return;
-      // Only create new desired (and trigger flush) when conversation or name changes.
-      // Repeated keystrokes on the same conversation skip flush — desired === published guard handles it.
       if (desired?.conversationId !== conversationId || desired.name !== name) {
         desired = { typing: true, conversationId, name };
         void flush();
+      } else if (published !== desired) {
+        // Previous track() failed — retry immediately on next keystroke
+        void flush();
       }
       clearTimeout(timer);
-      timer = setTimeout(() => stop(), 3000);
-      // Heartbeat: force re-track every 5s so receiver's lastSeen stays fresh even with no keystrokes.
+      timer = setTimeout(() => stop(), 5_000);
       if (!heartbeat) {
         heartbeat = setInterval(() => {
           if (desired?.typing && ready && !disposed) {
-            published = undefined; // force re-track with same payload to refresh receiver lastSeen
+            published = undefined;
             void flush();
           }
-        }, 5_000);
+        }, HEARTBEAT_MS);
       }
     },
     stop,
@@ -98,6 +117,10 @@ export function createTypingController(channel: PresenceChannel) {
       ready = value;
       clearTimeout(retryTimer);
       generation += 1;
+      // The previous connection may still have an unresolved track/untrack.
+      // Invalidate its result and release its lock before publishing on this one.
+      pending = false;
+      pendingSince = undefined;
       published = undefined;
       void flush();
     },
@@ -108,6 +131,7 @@ export function createTypingController(channel: PresenceChannel) {
       clearTimeout(timer);
       clearTimeout(retryTimer);
       clearInterval(heartbeat);
+      clearInterval(watchdog);
       heartbeat = undefined;
     },
   };

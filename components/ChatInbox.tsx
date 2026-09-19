@@ -147,6 +147,7 @@ export function ChatInbox({
   const [typersInConv, setTypersInConv] = useState<Map<string, Typer[]>>(new Map());
   const typingRef = useRef<ReturnType<typeof createTypingController> | null>(null);
   const typerLastSeenRef = useRef<Map<string, number>>(new Map());
+  const blurTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const myName = profiles.find((p) => p.id === userId)?.full_name ?? "Sales";
   type PendingMedia = { file: File; url?: never; previewUrl: string } | { url: string; file?: never; previewUrl: string };
   const [pendingImages, setPendingImages] = useState<PendingMedia[]>([]);
@@ -418,16 +419,16 @@ export function ChatInbox({
     let disposed = false;
     typerLastSeenRef.current = new Map();
     setTypersInConv(new Map());
-    ch.on("presence", { event: "sync" }, () => {
-      if (disposed) return;
-      const now = Date.now();
-      const state = ch.presenceState<TypingPresence>();
-      // Record receiver-side timestamp for any user actively typing — no clock skew
-      for (const [id, presences] of Object.entries(state)) {
-        if (id === userId) continue;
-        if (presences.some((p) => p.typing && p.conversationId)) typerLastSeenRef.current.set(id, now);
+    ch.on("presence", { event: "join" }, ({ key, newPresences }: { key: string; newPresences: TypingPresence[] }) => {
+      // Only update lastSeen when the user actively sent new data (join/re-track)
+      // — not on passive sync caused by other users' activity
+      if (disposed || key === userId) return;
+      if (newPresences.some((p) => p.typing && p.conversationId)) {
+        typerLastSeenRef.current.set(key, Date.now());
       }
-      setTypersInConv(collectTypers(state, userId, typerLastSeenRef.current));
+    }).on("presence", { event: "sync" }, () => {
+      if (disposed) return;
+      setTypersInConv(collectTypers(ch.presenceState<TypingPresence>(), userId, typerLastSeenRef.current));
     }).subscribe((status) => {
       if (disposed) return;
       controller.setReady(status === "SUBSCRIBED");
@@ -1916,11 +1917,20 @@ export function ChatInbox({
                   className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-500 disabled:opacity-50"
                   value={replyText}
                   onChange={(e) => {
+                    if (blurTypingTimerRef.current) {
+                      clearTimeout(blurTypingTimerRef.current);
+                      blurTypingTimerRef.current = null;
+                    }
                     setReplyText(e.target.value);
                     if (selectedConvId && e.target.value.trim()) handleTyping(selectedConvId);
                     else clearTyping();
                   }}
-                  onBlur={clearTyping}
+                  onBlur={() => {
+                    blurTypingTimerRef.current = setTimeout(() => {
+                      blurTypingTimerRef.current = null;
+                      clearTyping();
+                    }, 200);
+                  }}
                   onPaste={(e) => {
                     const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
                     if (item) {
